@@ -5,7 +5,7 @@
   "private": true,
   "scripts": {
     "start": "bun run dist/index.js",
-    "build": "bun build--outfile=dist/index.js src/index.ts",
+    "build": "rm -rf dist && tsc",
     "dev": "bun run --watch src/index.js",
     "lint": "bun run lint:eslint && bun run lint:tsc",
     "lint:eslint": "eslint .",
