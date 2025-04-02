@@ -19,7 +19,7 @@ import type {
   ExchangeOrder,
   ExchangePosition,
   ExchangeTicker,
-} from "~/types";
+} from "~/types/exchange.types";
 
 export const fetchBybitMarkets = async () => {
   const response = await fetch(

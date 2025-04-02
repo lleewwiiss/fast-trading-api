@@ -16,6 +16,22 @@ export interface ExchangeBalance {
   upnl: number;
 }
 
+export interface ExchangeTicker {
+  id: string;
+  symbol: string;
+  cleanSymbol: string;
+  bid: number;
+  ask: number;
+  last: number;
+  mark: number;
+  index: number;
+  percentage: number;
+  openInterest: number;
+  fundingRate: number;
+  volume: number;
+  quoteVolume: number;
+}
+
 export interface ExchangeMarket {
   id: string;
   symbol: string;
@@ -37,33 +53,6 @@ export interface ExchangeMarket {
       max: number;
     };
   };
-}
-
-export interface ExchangeTicker {
-  id: string;
-  symbol: string;
-  cleanSymbol: string;
-  bid: number;
-  ask: number;
-  last: number;
-  mark: number;
-  index: number;
-  percentage: number;
-  openInterest: number;
-  fundingRate: number;
-  volume: number;
-  quoteVolume: number;
-}
-
-export interface OrderBookOrders {
-  price: number;
-  amount: number;
-  total: number;
-}
-
-export interface ExchangeOrderBook {
-  bids: OrderBookOrders[];
-  asks: OrderBookOrders[];
 }
 
 export enum PositionSide {
@@ -123,14 +112,13 @@ export interface ExchangeOrder {
   reduceOnly: boolean;
 }
 
-export interface ExchangeStore {
-  tickers: Record<string, ExchangeTicker>;
-  markets: Record<string, ExchangeMarket>;
-  balances: Record<string, ExchangeBalance>;
-  positions: Record<string, ExchangePosition[]>;
-  orders: Record<string, ExchangeOrder[]>;
+export interface OrderBookOrders {
+  price: number;
+  amount: number;
+  total: number;
 }
 
-export type ListenerFunction = (
-  data: Record<ExchangeName, ExchangeStore>,
-) => void;
+export interface ExchangeOrderBook {
+  bids: OrderBookOrders[];
+  asks: OrderBookOrders[];
+}

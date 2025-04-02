@@ -1,11 +1,10 @@
-import { bybitWebsocketAuth } from "../bybit.api";
-import { BYBIT_API } from "../bybit.config";
-import type { BybitBalance, BybitWebsocketPosition } from "../bybit.types";
-import { mapBybitBalance, mapBybitPosition } from "../bybit.utils";
-
+import { bybitWebsocketAuth } from "./bybit.api";
+import { BYBIT_API } from "./bybit.config";
+import type { BybitBalance, BybitWebsocketPosition } from "./bybit.types";
+import { mapBybitBalance, mapBybitPosition } from "./bybit.utils";
 import type { BybitWorker } from "./bybit.worker";
 
-import type { ExchangeAccount } from "~/types";
+import type { ExchangeAccount } from "~/types/exchange.types";
 
 export class BybitWsPrivate {
   private parent: BybitWorker;

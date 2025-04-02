@@ -44,6 +44,10 @@ export default [
       "object-shorthand": "error",
       "no-console": "warn",
       "@typescript-eslint/no-explicit-any": "off",
+      "@typescript-eslint/no-empty-object-type": [
+        2,
+        { allowInterfaces: "always" },
+      ],
       "import/no-unresolved": [2, { ignore: ["bun:test"] }],
     },
   },

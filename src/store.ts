@@ -1,79 +1,23 @@
-import {
-  ExchangeName,
-  type ExchangeAccount,
-  type ExchangeStore,
-  type ListenerFunction,
-} from "~/types";
+import { ExchangeName } from "./types/exchange.types";
+import type { Store, StoreMemory } from "./types/lib.types";
+import type { ObjectPaths, ObjectChangeCommand } from "./types/misc.types";
 
-export class Store {
-  private accountsStore: ExchangeAccount[] = [];
+import { applyChanges } from "~/utils/update-obj-path.utils";
 
-  private listeners: Map<symbol, ListenerFunction> = new Map();
-  private listenerIds: WeakMap<ListenerFunction, symbol> = new WeakMap();
-
-  private store: Record<ExchangeName, ExchangeStore> = {
+export class MemoryStore implements Store {
+  memory: StoreMemory = {
     [ExchangeName.BYBIT]: {
-      tickers: {},
-      markets: {},
-      balances: {},
-      positions: {},
-      orders: {},
+      public: {
+        tickers: {},
+        markets: {},
+      },
+      private: {},
     },
   };
 
-  public addStoreUpdateListener(listener: ListenerFunction) {
-    if (this.listenerIds.get(listener)) {
-      throw new Error("Listener already registered");
-    }
-
-    const id = Symbol();
-    this.listenerIds.set(listener, id);
-    this.listeners.set(id, listener);
-  }
-
-  public removeStoreUpdateListener(listener: ListenerFunction) {
-    const id = this.listenerIds.get(listener);
-
-    if (id) {
-      this.listeners.delete(id);
-      this.listenerIds.delete(listener);
-    }
-  }
-
-  private emitStoreUpdate() {
-    this.listeners.forEach((emit) => emit(this.store));
-  }
-
-  public addExchangeAccount(account: ExchangeAccount) {
-    if (this.accountsStore.find((a) => a.id === account.id)) {
-      throw new Error("Account already exists");
-    }
-
-    this.accountsStore.push(account);
-  }
-
-  public getExchangeAccounts() {
-    return this.accountsStore;
-  }
-
-  public getExchangeAccount({ id }: { id: string }) {
-    const account = this.accountsStore.find((a) => a.id === id);
-
-    if (!account) {
-      throw new Error("Account not found");
-    }
-
-    return account;
-  }
-
-  public setStore({
-    exchangeName,
-    data,
-  }: {
-    exchangeName: ExchangeName;
-    data: ExchangeStore;
-  }) {
-    this.store[exchangeName] = data;
-    this.emitStoreUpdate();
-  }
+  applyChanges = <P extends ObjectPaths<StoreMemory>>(
+    changes: ObjectChangeCommand<StoreMemory, P>[],
+  ) => {
+    applyChanges({ obj: this.memory, changes });
+  };
 }

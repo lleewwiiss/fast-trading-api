@@ -1,10 +1,9 @@
-import { BYBIT_API } from "../bybit.config";
-import type { BybitTicker } from "../bybit.types";
-import { mapBybitTicker } from "../bybit.utils";
-
+import { BYBIT_API } from "./bybit.config";
+import type { BybitTicker } from "./bybit.types";
+import { mapBybitTicker } from "./bybit.utils";
 import type { BybitWorker } from "./bybit.worker";
 
-import type { ExchangeTicker } from "~/types";
+import { type ExchangeTicker } from "~/types/exchange.types";
 
 export class BybitWsPublic {
   private parent: BybitWorker;

@@ -1,56 +1,43 @@
-import type { Store } from "~/store";
-import {
-  ExchangeName,
-  type ExchangeAccount,
-  type ExchangeStore,
-} from "~/types";
+import type { ExchangeAccount } from "~/types/exchange.types";
+import type { Store, StoreMemory } from "~/types/lib.types";
+import type { ObjectChangeCommand, ObjectPaths } from "~/types/misc.types";
 
 export class BybitExchange {
-  private memoryStore: Store;
-  private worker: Worker;
+  private store: Store;
   private accounts: ExchangeAccount[];
+  private worker: Worker;
 
   constructor({
-    memoryStore,
+    store,
     accounts,
   }: {
-    memoryStore: Store;
+    store: Store;
     accounts: ExchangeAccount[];
   }) {
-    this.memoryStore = memoryStore;
+    this.store = store;
     this.accounts = accounts;
 
-    this.worker = new Worker(
-      new URL("./worker/bybit.worker.ts", import.meta.url),
-      { type: "module" },
-    );
+    this.worker = new Worker(new URL("./bybit.worker", import.meta.url), {
+      type: "module",
+    });
 
     this.worker.addEventListener("message", this.onWorkerMessage);
   }
 
-  public stop() {
-    this.worker.postMessage({ type: "stop" });
-    this.worker.terminate();
-  }
-
-  private onWorkerMessage = (
+  private onWorkerMessage = <P extends ObjectPaths<StoreMemory>>(
     event: MessageEvent<
-      { type: "ready" } | { type: "update"; data: ExchangeStore }
+      | { type: "ready" }
+      | { type: "update"; changes: ObjectChangeCommand<StoreMemory, P>[] }
     >,
   ) => {
     if (event.data.type === "ready") return this.onReady();
-    if (event.data.type === "update") return this.onUpdate(event.data.data);
+    if (event.data.type === "update") {
+      return this.store.applyChanges(event.data.changes);
+    }
   };
 
-  private onReady() {
-    this.worker.postMessage({ type: "login", data: this.accounts });
+  private onReady = () => {
+    this.worker.postMessage({ type: "login", accounts: this.accounts });
     this.worker.postMessage({ type: "start" });
-  }
-
-  private onUpdate(data: ExchangeStore) {
-    this.memoryStore.setStore({
-      exchangeName: ExchangeName.BYBIT,
-      data,
-    });
-  }
+  };
 }

@@ -13,7 +13,7 @@ import {
   PositionSide,
   type ExchangeOrder,
   type ExchangePosition,
-} from "~/types";
+} from "~/types/exchange.types";
 import { subtract } from "~/utils/safe-math.utils";
 import { TICKER_REGEX } from "~/utils/regex.utils";
 
