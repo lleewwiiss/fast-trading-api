@@ -27,13 +27,20 @@ class StoreConnector implements Store {
   ) {
     batch(() => {
       for (const change of changes) {
-        if (change.type === "update") {
-          const path = change.path
-            .split(".")
-            .map((str) => (!isNaN(Number(str)) ? Number(str) : str));
+        const path = change.path
+          .split(".")
+          .map((str) => (!isNaN(Number(str)) ? Number(str) : str));
 
-          const args = [...path, change.value];
-          setStore(...args);
+        if (change.type === "update") {
+          // @ts-expect-error: Dynamic path spreading
+          setStore(...[...path, change.value]);
+        }
+
+        if (change.type === "removeArrayElement") {
+          setStore(
+            // @ts-expect-error: Dynamic path spreading
+            ...[path, (arr) => arr.filter((_, i) => i !== change.index)],
+          );
         }
       }
     });
