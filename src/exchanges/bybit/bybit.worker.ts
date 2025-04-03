@@ -366,9 +366,10 @@ export class BybitWorker {
           };
         });
 
+        const ordersLength = this.memory.private[accountId].orders.length;
         const addOrdersChanges = addOrders.map((order, idx) => ({
           type: "update" as const,
-          path: `private.${accountId}.orders.${this.memory.private[accountId].orders.length + idx}` as const,
+          path: `private.${accountId}.orders.${ordersLength + idx}` as const,
           value: order,
         }));
 
