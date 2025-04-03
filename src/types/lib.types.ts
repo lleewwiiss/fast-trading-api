@@ -8,6 +8,7 @@ import type {
   ExchangeOrderBook,
   ExchangePosition,
   ExchangeTicker,
+  ExchangeTimeframe,
 } from "./exchange.types";
 import type { ObjectChangeCommand, ObjectPaths } from "./misc.types";
 
@@ -39,4 +40,12 @@ export interface ExchangeAccountMemory {
   positions: ExchangePosition[];
   orders: ExchangeOrder[];
   notifications: ExchangeNotification[];
+}
+
+export interface FetchOHLCVParams {
+  symbol: string;
+  interval: ExchangeTimeframe;
+  from?: number;
+  to?: number;
+  limit?: number;
 }

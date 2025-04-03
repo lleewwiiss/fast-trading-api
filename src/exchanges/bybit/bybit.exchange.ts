@@ -1,5 +1,7 @@
+import { fetchBybitOHLCV } from "./bybit.resolver";
+
 import type { ExchangeAccount } from "~/types/exchange.types";
-import type { Store, StoreMemory } from "~/types/lib.types";
+import type { FetchOHLCVParams, Store, StoreMemory } from "~/types/lib.types";
 import type { ObjectChangeCommand, ObjectPaths } from "~/types/misc.types";
 
 export class BybitExchange {
@@ -22,6 +24,12 @@ export class BybitExchange {
     });
 
     this.worker.addEventListener("message", this.onWorkerMessage);
+  }
+
+  public fetchOHLCV(params: FetchOHLCVParams) {
+    // TODO: Find a way to have this call in the worker as well
+    // not sure how to do that yet, but the call should be in the web worker
+    return fetchBybitOHLCV(params);
   }
 
   public listenOrderBook(symbol: string) {

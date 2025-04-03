@@ -1,5 +1,7 @@
+import { stringify } from "qs";
+
 import { bybit } from "./bybit.api";
-import { BYBIT_API } from "./bybit.config";
+import { BYBIT_API, INTERVAL } from "./bybit.config";
 import type {
   BybitBalance,
   BybitInstrument,
@@ -16,11 +18,15 @@ import {
 
 import { retry } from "~/utils/retry.utils";
 import type {
+  ExchangeCandle,
   ExchangeMarket,
   ExchangeOrder,
   ExchangePosition,
   ExchangeTicker,
 } from "~/types/exchange.types";
+import type { FetchOHLCVParams } from "~/types/lib.types";
+import { omitUndefined } from "~/utils/omit-undefined.utils";
+import { orderBy } from "~/utils/order-by.utils";
 
 export const fetchBybitMarkets = async () => {
   const response = await retry(() =>
@@ -182,4 +188,39 @@ export const fetchBybitOrders = async ({
   const orders: ExchangeOrder[] = bybitOrders.flatMap(mapBybitOrder);
 
   return orders;
+};
+
+export const fetchBybitOHLCV = async (opts: FetchOHLCVParams) => {
+  const limit = Math.min(opts.limit || 500, 1000);
+  const interval = INTERVAL[opts.interval];
+
+  const params = omitUndefined({
+    category: "linear",
+    symbol: opts.symbol,
+    start: opts.from,
+    end: opts.to,
+    interval,
+    limit,
+  });
+
+  const response = await fetch(
+    `${BYBIT_API.BASE_URL}${BYBIT_API.ENDPOINTS.KLINE}?${stringify(params)}`,
+  );
+
+  const {
+    result: { list },
+  }: { result: { list: string[][] } } = await response.json();
+
+  const candles: ExchangeCandle[] = list.map(
+    ([time, open, high, low, close, , volume]) => ({
+      timestamp: parseFloat(time) / 1000,
+      open: parseFloat(open),
+      high: parseFloat(high),
+      low: parseFloat(low),
+      close: parseFloat(close),
+      volume: parseFloat(volume),
+    }),
+  );
+
+  return orderBy(candles, ["timestamp"], ["asc"]);
 };

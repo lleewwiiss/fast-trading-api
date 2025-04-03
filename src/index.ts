@@ -1,4 +1,8 @@
-import type { FastTradingApiOptions, Store } from "./types/lib.types";
+import type {
+  FastTradingApiOptions,
+  FetchOHLCVParams,
+  Store,
+} from "./types/lib.types";
 import { BybitExchange } from "./exchanges/bybit/bybit.exchange";
 import { MemoryStore } from "./store";
 import { ExchangeName, type ExchangeAccount } from "./types/exchange.types";
@@ -26,6 +30,20 @@ export class FastTradingApi {
         accounts: bybitAccounts,
       });
     }
+  }
+
+  public fetchOHLCV({
+    exchangeName,
+    params,
+  }: {
+    exchangeName: ExchangeName;
+    params: FetchOHLCVParams;
+  }) {
+    if (!this.exchanges[exchangeName]) {
+      throw new Error(`Exchange ${exchangeName} not started`);
+    }
+
+    this.exchanges[exchangeName].fetchOHLCV(params);
   }
 
   public listenOrderBook({
