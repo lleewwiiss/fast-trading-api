@@ -1,4 +1,8 @@
-import type { ExchangeAccount, ExchangeCandle } from "~/types/exchange.types";
+import type {
+  ExchangeAccount,
+  ExchangeCandle,
+  ExchangeTimeframe,
+} from "~/types/exchange.types";
 import type { FetchOHLCVParams, Store, StoreMemory } from "~/types/lib.types";
 import type { ObjectChangeCommand, ObjectPaths } from "~/types/misc.types";
 import { genId } from "~/utils/gen-id.utils";
@@ -37,6 +41,26 @@ export class BybitExchange {
       this.pendingRequests.set(requestId, resolve);
       this.worker.postMessage({ type: "fetchOHLCV", params, requestId });
     });
+  }
+
+  public listenOHLCV({
+    symbol,
+    timeframe,
+  }: {
+    symbol: string;
+    timeframe: ExchangeTimeframe;
+  }) {
+    this.worker.postMessage({ type: "listenOHLCV", symbol, timeframe });
+  }
+
+  public unlistenOHLCV({
+    symbol,
+    timeframe,
+  }: {
+    symbol: string;
+    timeframe: ExchangeTimeframe;
+  }) {
+    this.worker.postMessage({ type: "unlistenOHLCV", symbol, timeframe });
   }
 
   public listenOrderBook(symbol: string) {

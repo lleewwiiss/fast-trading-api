@@ -13,6 +13,7 @@ describe("MemoryStore", () => {
           tickers: {},
           markets: {},
           orderBooks: {},
+          ohlcv: {},
         },
         private: {},
       },

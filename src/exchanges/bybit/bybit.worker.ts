@@ -19,6 +19,7 @@ import {
   type ExchangeBalance,
   type ExchangePosition,
   type ExchangeTicker,
+  type ExchangeTimeframe,
 } from "~/types/exchange.types";
 import type { StoreMemory, FetchOHLCVParams } from "~/types/lib.types";
 import type {
@@ -32,7 +33,7 @@ import { subtract } from "~/utils/safe-math.utils";
 export class BybitWorker {
   private accounts: ExchangeAccount[] = [];
   private memory: StoreMemory[ExchangeName] = {
-    public: { tickers: {}, markets: {}, orderBooks: {} },
+    public: { tickers: {}, markets: {}, orderBooks: {}, ohlcv: {} },
     private: {},
   };
 
@@ -48,6 +49,8 @@ export class BybitWorker {
     | { type: "listenOrderBook"; symbol: string }
     | { type: "unlistenOrderBook"; symbol: string }
     | { type: "fetchOHLCV"; requestId: string; params: FetchOHLCVParams }
+    | { type: "listenOHLCV"; symbol: string; timeframe: ExchangeTimeframe }
+    | { type: "unlistenOHLCV"; symbol: string; timeframe: ExchangeTimeframe }
   >) => {
     if (data.type === "start") this.start();
     if (data.type === "login") this.login(data.accounts);
@@ -55,6 +58,8 @@ export class BybitWorker {
     if (data.type === "listenOrderBook") this.listenOrderBook(data.symbol);
     if (data.type === "unlistenOrderBook") this.unlistenOrderBook(data.symbol);
     if (data.type === "fetchOHLCV") this.fetchOHLCV(data);
+    if (data.type === "listenOHLCV") this.listenOHLCV(data);
+    if (data.type === "unlistenOHLCV") this.unlistenOHLCV(data);
   };
 
   private login(accounts: ExchangeAccount[]) {
@@ -402,6 +407,26 @@ export class BybitWorker {
   }) {
     const candles = await fetchBybitOHLCV(params);
     self.postMessage({ type: "response", requestId, data: candles });
+  }
+
+  private listenOHLCV({
+    symbol,
+    timeframe,
+  }: {
+    symbol: string;
+    timeframe: ExchangeTimeframe;
+  }) {
+    this.publicWs?.listenOHLCV({ symbol, timeframe });
+  }
+
+  private unlistenOHLCV({
+    symbol,
+    timeframe,
+  }: {
+    symbol: string;
+    timeframe: ExchangeTimeframe;
+  }) {
+    this.publicWs?.unlistenOHLCV({ symbol, timeframe });
   }
 
   public emitChanges = <P extends ObjectPaths<StoreMemory[ExchangeName]>>(

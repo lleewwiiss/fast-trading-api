@@ -192,7 +192,7 @@ export const fetchBybitOrders = async ({
 
 export const fetchBybitOHLCV = async (opts: FetchOHLCVParams) => {
   const limit = Math.min(opts.limit || 500, 1000);
-  const interval = INTERVAL[opts.interval];
+  const interval = INTERVAL[opts.timeframe];
 
   const params = omitUndefined({
     category: "linear",

@@ -1,6 +1,7 @@
 import type {
   ExchangeAccount,
   ExchangeBalance,
+  ExchangeCandle,
   ExchangeMarket,
   ExchangeName,
   ExchangeNotification,
@@ -32,6 +33,7 @@ export interface ExchangeMemory {
     tickers: Record<string, ExchangeTicker>;
     markets: Record<string, ExchangeMarket>;
     orderBooks: Record<string, ExchangeOrderBook>;
+    ohlcv: Record<string, Record<ExchangeTimeframe, ExchangeCandle>>;
   };
 }
 
@@ -44,7 +46,7 @@ export interface ExchangeAccountMemory {
 
 export interface FetchOHLCVParams {
   symbol: string;
-  interval: ExchangeTimeframe;
+  timeframe: ExchangeTimeframe;
   from?: number;
   to?: number;
   limit?: number;

@@ -9,6 +9,7 @@ import {
   ExchangeName,
   type ExchangeAccount,
   type ExchangeCandle,
+  type ExchangeTimeframe,
 } from "./types/exchange.types";
 
 export class FastTradingApi {
@@ -48,6 +49,38 @@ export class FastTradingApi {
     }
 
     return this.exchanges[exchangeName].fetchOHLCV(params);
+  }
+
+  public listenOHLCV({
+    exchangeName,
+    symbol,
+    timeframe,
+  }: {
+    exchangeName: ExchangeName;
+    symbol: string;
+    timeframe: ExchangeTimeframe;
+  }) {
+    if (!this.exchanges[exchangeName]) {
+      throw new Error(`Exchange ${exchangeName} not started`);
+    }
+
+    this.exchanges[exchangeName].listenOHLCV({ symbol, timeframe });
+  }
+
+  public unlistenOHLCV({
+    exchangeName,
+    symbol,
+    timeframe,
+  }: {
+    exchangeName: ExchangeName;
+    symbol: string;
+    timeframe: ExchangeTimeframe;
+  }) {
+    if (!this.exchanges[exchangeName]) {
+      throw new Error(`Exchange ${exchangeName} not started`);
+    }
+
+    this.exchanges[exchangeName].unlistenOHLCV({ symbol, timeframe });
   }
 
   public listenOrderBook({

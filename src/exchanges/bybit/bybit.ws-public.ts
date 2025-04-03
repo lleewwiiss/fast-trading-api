@@ -1,12 +1,14 @@
-import { BYBIT_API } from "./bybit.config";
+import { BYBIT_API, INTERVAL } from "./bybit.config";
 import type { BybitTicker } from "./bybit.types";
 import { mapBybitTicker } from "./bybit.utils";
 import type { BybitWorker } from "./bybit.worker";
 
 import { calcOrderBookTotal, sortOrderBook } from "~/utils/orderbook.utils";
 import {
+  type ExchangeCandle,
   type ExchangeOrderBook,
   type ExchangeTicker,
+  type ExchangeTimeframe,
 } from "~/types/exchange.types";
 
 export class BybitWsPublic {
@@ -21,6 +23,9 @@ export class BybitWsPublic {
 
   private orderBookTopics = new Set<string>();
   private orderBookTimeouts = new Map<string, NodeJS.Timeout>();
+
+  private ohlcvTopics = new Set<string>();
+  private ohlcvTimeouts = new Map<string, NodeJS.Timeout>();
 
   constructor({ parent, markets }: { parent: BybitWorker; markets: string[] }) {
     this.parent = parent;
@@ -50,6 +55,13 @@ export class BybitWsPublic {
       this.send({
         op: "subscribe",
         args: Array.from(this.orderBookTopics),
+      });
+    }
+
+    if (this.ohlcvTopics.size > 0) {
+      this.send({
+        op: "subscribe",
+        args: Array.from(this.ohlcvTopics),
       });
     }
   };
@@ -98,6 +110,91 @@ export class BybitWsPublic {
     }
   };
 
+  public listenOHLCV({
+    symbol,
+    timeframe,
+  }: {
+    symbol: string;
+    timeframe: ExchangeTimeframe;
+  }) {
+    const ohlcvTopic = `kline.${INTERVAL[timeframe]}.${symbol}`;
+
+    if (this.ohlcvTopics.has(ohlcvTopic)) return;
+    this.ohlcvTopics.add(ohlcvTopic);
+
+    this.messageHandlers[ohlcvTopic] = (event: MessageEvent) => {
+      if (event.data.startsWith(`{"topic":"${ohlcvTopic}`)) {
+        const {
+          data: [c],
+        } = JSON.parse(event.data);
+
+        const candle: ExchangeCandle & {
+          symbol: string;
+          timeframe: ExchangeTimeframe;
+        } = {
+          symbol,
+          timeframe,
+          timestamp: c.start / 1000,
+          open: parseFloat(c.open),
+          high: parseFloat(c.high),
+          low: parseFloat(c.low),
+          close: parseFloat(c.close),
+          volume: parseFloat(c.turnover),
+        };
+
+        this.parent.emitChanges([
+          {
+            type: "update",
+            path: `public.ohlcv.${symbol}.${timeframe}`,
+            value: candle,
+          },
+        ]);
+      }
+    };
+
+    const waitConnectAndSubscribe = () => {
+      if (this.ohlcvTimeouts.has(ohlcvTopic)) {
+        clearTimeout(this.ohlcvTimeouts.get(ohlcvTopic));
+        this.ohlcvTimeouts.delete(ohlcvTopic);
+      }
+
+      if (this.ws?.readyState !== WebSocket.OPEN) {
+        this.ohlcvTimeouts.set(
+          ohlcvTopic,
+          setTimeout(() => waitConnectAndSubscribe(), 100),
+        );
+        return;
+      }
+
+      this.send({ op: "subscribe", args: [ohlcvTopic] });
+    };
+
+    waitConnectAndSubscribe();
+  }
+
+  public unlistenOHLCV({
+    symbol,
+    timeframe,
+  }: {
+    symbol: string;
+    timeframe: ExchangeTimeframe;
+  }) {
+    const ohlcvTopic = `kline.${INTERVAL[timeframe]}.${symbol}`;
+    const timeout = this.ohlcvTimeouts.get(ohlcvTopic);
+
+    if (timeout) {
+      clearTimeout(timeout);
+      this.ohlcvTimeouts.delete(ohlcvTopic);
+    }
+
+    if (this.ws?.readyState === WebSocket.OPEN) {
+      this.send({ op: "unsubscribe", args: [ohlcvTopic] });
+    }
+
+    delete this.messageHandlers[ohlcvTopic];
+    this.ohlcvTopics.delete(ohlcvTopic);
+  }
+
   public listenOrderBook(symbol: string) {
     const orderBook: ExchangeOrderBook = { bids: [], asks: [] };
     const orderBookTopic = `orderbook.500.${symbol}`;
@@ -106,7 +203,7 @@ export class BybitWsPublic {
     this.orderBookTopics.add(orderBookTopic);
 
     this.messageHandlers[orderBookTopic] = (event: MessageEvent) => {
-      if (event.data.startsWith(`{"topic":"orderbook.500.${symbol}`)) {
+      if (event.data.startsWith(`{"topic":"${orderBookTopic}"`)) {
         const data = JSON.parse(event.data);
 
         if (data.type === "snapshot") {

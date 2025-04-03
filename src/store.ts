@@ -11,6 +11,7 @@ export class MemoryStore implements Store {
         tickers: {},
         markets: {},
         orderBooks: {},
+        ohlcv: {},
       },
       private: {},
     },
