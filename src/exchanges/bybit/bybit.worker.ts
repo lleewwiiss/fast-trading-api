@@ -180,13 +180,32 @@ export class BybitWorker {
     accountId: ExchangeAccount["id"];
     positions: ExchangePosition[];
   }) {
-    this.emitChanges([
-      {
-        type: "update",
-        path: `private.${accountId}.positions`,
-        value: positions,
-      },
-    ]);
+    const [updatePositions, addPositions] = partition(positions, (position) =>
+      this.memory.private[accountId].positions.some(
+        (p) => p.symbol === position.symbol && p.side === position.side,
+      ),
+    );
+
+    const updatePositionsChanges = updatePositions.map((position) => {
+      const idx = this.memory.private[accountId].positions.findIndex(
+        (p) => p.symbol === position.symbol && p.side === position.side,
+      );
+
+      return {
+        type: "update" as const,
+        path: `private.${accountId}.positions.${idx}` as const,
+        value: position,
+      };
+    });
+
+    const positionsLength = this.memory.private[accountId].positions.length;
+    const addPositionsChanges = addPositions.map((position, idx) => ({
+      type: "update" as const,
+      path: `private.${accountId}.positions.${positionsLength + idx}` as const,
+      value: position,
+    }));
+
+    this.emitChanges([...updatePositionsChanges, ...addPositionsChanges]);
   }
 
   public updateTicker(ticker: ExchangeTicker) {
@@ -326,8 +345,6 @@ export class BybitWorker {
         bybitOrder.orderStatus === "Untriggered" ||
         bybitOrder.orderStatus === "PartiallyFilled"
       ) {
-        // 1. first compute update changes
-        // 2. then compute add changes with index calculation
         const [updateOrders, addOrders] = partition(orders, (order) =>
           this.memory.private[accountId].orders.some((o) => o.id === order.id),
         );
