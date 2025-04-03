@@ -253,7 +253,7 @@ export class BybitWorker {
             },
             {
               type: "update" as const,
-              path: `private.${acc.id}.positions.${idx}.unrealizedPnl` as const,
+              path: `private.${acc.id}.positions.${idx}.upnl` as const,
               value:
                 p.side === PositionSide.Long
                   ? p.contracts * ticker.last! - p.contracts * p.entryPrice
