@@ -21,10 +21,14 @@ export type ValueAtPath<T, Parts extends readonly string[]> = Parts extends [
 ]
   ? Head extends keyof T
     ? ValueAtPath<T[Head], Tail extends string[] ? Tail : []>
-    : T extends Array<infer U>
-      ? Head extends `${number}`
-        ? ValueAtPath<U, Tail extends string[] ? Tail : []>
-        : never
+    : Head extends string
+      ? T extends Record<string, any>
+        ? ValueAtPath<T[Head & string], Tail extends string[] ? Tail : []>
+        : T extends Array<infer U>
+          ? Head extends `${number}`
+            ? ValueAtPath<U, Tail extends string[] ? Tail : []>
+            : never
+          : never
       : never
   : T;
 
