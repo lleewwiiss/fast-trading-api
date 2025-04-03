@@ -66,7 +66,7 @@ export interface ExchangePosition {
   entryPrice: number;
   notional: number;
   leverage: number;
-  unrealizedPnl: number;
+  upnl: number;
   contracts: number;
   liquidationPrice: number;
   isHedged?: boolean;

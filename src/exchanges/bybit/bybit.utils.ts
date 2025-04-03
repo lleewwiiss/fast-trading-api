@@ -88,7 +88,7 @@ export const mapBybitPosition = (
     entryPrice: parseFloat("avgPrice" in p ? p.avgPrice : p.entryPrice),
     notional: parseFloat(p.positionValue) + parseFloat(p.unrealisedPnl),
     leverage: parseFloat(p.leverage),
-    unrealizedPnl: parseFloat(p.unrealisedPnl),
+    upnl: parseFloat(p.unrealisedPnl),
     contracts: parseFloat(p.size || "0"),
     liquidationPrice: parseFloat(p.liqPrice || "0"),
     isHedged: p.positionIdx !== 0,

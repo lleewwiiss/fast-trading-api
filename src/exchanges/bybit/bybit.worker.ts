@@ -129,7 +129,7 @@ export class BybitWorker {
           {
             type: "update",
             path: `private.${account.id}.balance.upnl`,
-            value: positions.reduce((acc, p) => acc + p.unrealizedPnl, 0),
+            value: positions.reduce((acc, p) => acc + p.upnl, 0),
           },
         ]);
       }),
