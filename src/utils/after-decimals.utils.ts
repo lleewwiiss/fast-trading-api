@@ -8,5 +8,5 @@ export const afterDecimal = (num: number | string) => {
     return Math.abs(Number(exponent));
   }
 
-  return str?.split?.(".")?.[1]?.length || 2;
+  return str?.split?.(".")?.[1]?.length || 0;
 };

@@ -22,15 +22,15 @@ type Store = Record<
   }
 >;
 
-describe("utils", () => {
-  const store: Store = {
-    bybit: {
-      public: { tickers: {} },
-      private: {},
-    },
-  };
+const store: Store = {
+  bybit: {
+    public: { tickers: {} },
+    private: {},
+  },
+};
 
-  test("updateObjectPath()", () => {
+describe("updateObjectPath", () => {
+  test("updateObjectPath", () => {
     updateObjectPath({
       obj: store,
       path: "bybit.public.tickers",
@@ -81,7 +81,7 @@ describe("utils", () => {
     expect(store.bybit.private.main.positions[1].upnl).toBe(300);
   });
 
-  test("removeArrayElementAtPath()", () => {
+  test("removeArrayElementAtPath", () => {
     expect(store.bybit.private.main.positions.length).toBe(2);
     expect(store.bybit.private.main.positions[0].upnl).toBe(200);
 
@@ -95,7 +95,7 @@ describe("utils", () => {
     expect(store.bybit.private.main.positions[0].upnl).toBe(300);
   });
 
-  test("applyChanges()", () => {
+  test("applyChanges", () => {
     updateObjectPath({
       obj: store,
       path: "bybit.private.main.positions",

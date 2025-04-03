@@ -24,7 +24,7 @@ export const subtract = (a: number, b: number) => {
 export const multiply = (a: number, b: number) => {
   const aDecimals = afterDecimal(a);
   const bDecimals = afterDecimal(b);
-  const decimals = Math.max(aDecimals, bDecimals);
+  const decimals = aDecimals + bDecimals;
   return Math.round(a * b * 10 ** decimals) / 10 ** decimals;
 };
 
