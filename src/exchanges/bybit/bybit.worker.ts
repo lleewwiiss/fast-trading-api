@@ -126,6 +126,11 @@ export class BybitWorker {
             path: `private.${account.id}.positions`,
             value: positions,
           },
+          {
+            type: "update",
+            path: `private.${account.id}.balance.upnl`,
+            value: positions.reduce((acc, p) => acc + p.unrealizedPnl, 0),
+          },
         ]);
       }),
     );
