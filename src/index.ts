@@ -5,7 +5,11 @@ import type {
 } from "./types/lib.types";
 import { BybitExchange } from "./exchanges/bybit/bybit.exchange";
 import { MemoryStore } from "./store";
-import { ExchangeName, type ExchangeAccount } from "./types/exchange.types";
+import {
+  ExchangeName,
+  type ExchangeAccount,
+  type ExchangeCandle,
+} from "./types/exchange.types";
 
 export class FastTradingApi {
   private store: Store;
@@ -38,12 +42,12 @@ export class FastTradingApi {
   }: {
     exchangeName: ExchangeName;
     params: FetchOHLCVParams;
-  }) {
+  }): Promise<ExchangeCandle[]> {
     if (!this.exchanges[exchangeName]) {
       throw new Error(`Exchange ${exchangeName} not started`);
     }
 
-    this.exchanges[exchangeName].fetchOHLCV(params);
+    return this.exchanges[exchangeName].fetchOHLCV(params);
   }
 
   public listenOrderBook({

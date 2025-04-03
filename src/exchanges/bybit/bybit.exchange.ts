@@ -1,13 +1,17 @@
-import { fetchBybitOHLCV } from "./bybit.resolver";
-
-import type { ExchangeAccount } from "~/types/exchange.types";
+import type { ExchangeAccount, ExchangeCandle } from "~/types/exchange.types";
 import type { FetchOHLCVParams, Store, StoreMemory } from "~/types/lib.types";
 import type { ObjectChangeCommand, ObjectPaths } from "~/types/misc.types";
+import { genId } from "~/utils/gen-id.utils";
 
 export class BybitExchange {
   private store: Store;
   private accounts: ExchangeAccount[];
   private worker: Worker;
+
+  private pendingRequests = new Map<
+    string,
+    (value: ExchangeCandle[]) => void
+  >();
 
   constructor({
     store,
@@ -26,10 +30,13 @@ export class BybitExchange {
     this.worker.addEventListener("message", this.onWorkerMessage);
   }
 
-  public fetchOHLCV(params: FetchOHLCVParams) {
-    // TODO: Find a way to have this call in the worker as well
-    // not sure how to do that yet, but the call should be in the web worker
-    return fetchBybitOHLCV(params);
+  public fetchOHLCV(params: FetchOHLCVParams): Promise<ExchangeCandle[]> {
+    const requestId = genId();
+
+    return new Promise((resolve) => {
+      this.pendingRequests.set(requestId, resolve);
+      this.worker.postMessage({ type: "fetchOHLCV", params, requestId });
+    });
   }
 
   public listenOrderBook(symbol: string) {
@@ -44,11 +51,21 @@ export class BybitExchange {
     event: MessageEvent<
       | { type: "ready" }
       | { type: "update"; changes: ObjectChangeCommand<StoreMemory, P>[] }
+      | { type: "response"; requestId: string; data: ExchangeCandle[] }
     >,
   ) => {
     if (event.data.type === "ready") return this.onReady();
     if (event.data.type === "update") {
       return this.store.applyChanges(event.data.changes);
+    }
+
+    if (event.data.type === "response") {
+      const resolver = this.pendingRequests.get(event.data.requestId);
+
+      if (resolver) {
+        resolver(event.data.data);
+        this.pendingRequests.delete(event.data.requestId);
+      }
     }
   };
 

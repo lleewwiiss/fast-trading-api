@@ -6,6 +6,7 @@ import {
   fetchBybitMarkets,
   fetchBybitPositions,
   fetchBybitTickers,
+  fetchBybitOHLCV,
 } from "./bybit.resolver";
 import type { BybitOrder } from "./bybit.types";
 import { mapBybitOrder } from "./bybit.utils";
@@ -19,7 +20,7 @@ import {
   type ExchangePosition,
   type ExchangeTicker,
 } from "~/types/exchange.types";
-import type { StoreMemory } from "~/types/lib.types";
+import type { StoreMemory, FetchOHLCVParams } from "~/types/lib.types";
 import type {
   Entries,
   ObjectChangeCommand,
@@ -46,12 +47,14 @@ export class BybitWorker {
     | { type: "login"; accounts: ExchangeAccount[] }
     | { type: "listenOrderBook"; symbol: string }
     | { type: "unlistenOrderBook"; symbol: string }
+    | { type: "fetchOHLCV"; requestId: string; params: FetchOHLCVParams }
   >) => {
     if (data.type === "start") this.start();
     if (data.type === "login") this.login(data.accounts);
     if (data.type === "stop") this.stop();
     if (data.type === "listenOrderBook") this.listenOrderBook(data.symbol);
     if (data.type === "unlistenOrderBook") this.unlistenOrderBook(data.symbol);
+    if (data.type === "fetchOHLCV") this.fetchOHLCV(data);
   };
 
   private login(accounts: ExchangeAccount[]) {
@@ -388,6 +391,17 @@ export class BybitWorker {
 
   private unlistenOrderBook(symbol: string) {
     this.publicWs?.unlistenOrderBook(symbol);
+  }
+
+  private async fetchOHLCV({
+    requestId,
+    params,
+  }: {
+    requestId: string;
+    params: FetchOHLCVParams;
+  }) {
+    const candles = await fetchBybitOHLCV(params);
+    self.postMessage({ type: "response", requestId, data: candles });
   }
 
   public emitChanges = <P extends ObjectPaths<StoreMemory[ExchangeName]>>(

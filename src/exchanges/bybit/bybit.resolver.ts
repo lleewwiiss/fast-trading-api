@@ -203,8 +203,10 @@ export const fetchBybitOHLCV = async (opts: FetchOHLCVParams) => {
     limit,
   });
 
-  const response = await fetch(
-    `${BYBIT_API.BASE_URL}${BYBIT_API.ENDPOINTS.KLINE}?${stringify(params)}`,
+  const response = await retry(() =>
+    fetch(
+      `${BYBIT_API.BASE_URL}${BYBIT_API.ENDPOINTS.KLINE}?${stringify(params)}`,
+    ),
   );
 
   const {
