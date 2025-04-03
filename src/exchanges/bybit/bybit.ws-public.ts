@@ -3,7 +3,11 @@ import type { BybitTicker } from "./bybit.types";
 import { mapBybitTicker } from "./bybit.utils";
 import type { BybitWorker } from "./bybit.worker";
 
-import { type ExchangeTicker } from "~/types/exchange.types";
+import { calcOrderBookTotal, sortOrderBook } from "~/utils/orderbook.utils";
+import {
+  type ExchangeOrderBook,
+  type ExchangeTicker,
+} from "~/types/exchange.types";
 
 export class BybitWsPublic {
   private parent: BybitWorker;
@@ -14,6 +18,9 @@ export class BybitWsPublic {
 
   private markets: string[] = [];
   private messageHandlers: Record<string, (event: MessageEvent) => void> = {};
+
+  private orderBookTopics = new Set<string>();
+  private orderBookTimeouts = new Map<string, NodeJS.Timeout>();
 
   constructor({ parent, markets }: { parent: BybitWorker; markets: string[] }) {
     this.parent = parent;
@@ -33,10 +40,18 @@ export class BybitWsPublic {
 
   private onOpen = () => {
     this.ping();
+
     this.send({
       op: "subscribe",
       args: this.markets.map((m) => `tickers.${m}`),
     });
+
+    if (this.orderBookTopics.size > 0) {
+      this.send({
+        op: "subscribe",
+        args: Array.from(this.orderBookTopics),
+      });
+    }
   };
 
   private ping = () => {
@@ -82,6 +97,125 @@ export class BybitWsPublic {
       }
     }
   };
+
+  public listenOrderBook(symbol: string) {
+    const orderBook: ExchangeOrderBook = { bids: [], asks: [] };
+    const orderBookTopic = `orderbook.500.${symbol}`;
+
+    if (this.orderBookTopics.has(orderBookTopic)) return;
+    this.orderBookTopics.add(orderBookTopic);
+
+    this.messageHandlers[orderBookTopic] = (event: MessageEvent) => {
+      if (event.data.startsWith(`{"topic":"orderbook.500.${symbol}`)) {
+        const data = JSON.parse(event.data);
+
+        if (data.type === "snapshot") {
+          orderBook.bids = [];
+          orderBook.asks = [];
+
+          Object.entries(data.data as Record<string, string[][]>).forEach(
+            ([side, orders]) => {
+              if (side !== "a" && side !== "b") return;
+
+              const key = side === "a" ? "asks" : "bids";
+              orders.forEach((order: string[]) => {
+                orderBook[key].push({
+                  price: parseFloat(order[0]),
+                  amount: parseFloat(order[1]),
+                  total: 0,
+                });
+              });
+            },
+          );
+        }
+
+        if (data.type === "delta") {
+          Object.entries(data.data as Record<string, string[][]>).forEach(
+            ([side, orders]) => {
+              if (side !== "a" && side !== "b") return;
+
+              const key = side === "a" ? "asks" : "bids";
+              orders.forEach((order) => {
+                const price = parseFloat(order[0]);
+                const amount = parseFloat(order[1]);
+
+                const index = orderBook[key].findIndex(
+                  (o) => o.price === price,
+                );
+
+                if (index === -1 && amount > 0) {
+                  orderBook[key].push({ price, amount, total: 0 });
+                  return;
+                }
+
+                if (amount === 0) {
+                  orderBook[key].splice(index, 1);
+                  return;
+                }
+
+                orderBook[key][index].amount = amount;
+              });
+            },
+          );
+        }
+
+        sortOrderBook(orderBook);
+        calcOrderBookTotal(orderBook);
+
+        this.parent.emitChanges([
+          {
+            type: "update",
+            path: `public.orderBooks.${symbol}`,
+            value: orderBook,
+          },
+        ]);
+      }
+    };
+
+    const waitConnectAndSubscribe = () => {
+      if (this.orderBookTimeouts.has(orderBookTopic)) {
+        clearTimeout(this.orderBookTimeouts.get(orderBookTopic));
+        this.orderBookTimeouts.delete(orderBookTopic);
+      }
+
+      if (this.ws?.readyState !== WebSocket.OPEN) {
+        this.orderBookTimeouts.set(
+          orderBookTopic,
+          setTimeout(() => waitConnectAndSubscribe(), 100),
+        );
+        return;
+      }
+
+      this.send({ op: "subscribe", args: [orderBookTopic] });
+    };
+
+    waitConnectAndSubscribe();
+  }
+
+  public unlistenOrderBook(symbol: string) {
+    const orderBookTopic = `orderbook.500.${symbol}`;
+    const timeout = this.orderBookTimeouts.get(orderBookTopic);
+
+    if (timeout) {
+      clearTimeout(timeout);
+      this.orderBookTimeouts.delete(orderBookTopic);
+    }
+
+    if (this.ws?.readyState === WebSocket.OPEN) {
+      this.send({ op: "unsubscribe", args: [orderBookTopic] });
+    }
+
+    delete this.messageHandlers[orderBookTopic];
+    this.orderBookTopics.delete(orderBookTopic);
+
+    this.parent.emitChanges([
+      {
+        type: "update",
+        path: `public.orderBooks.${symbol}`,
+        value: { bids: [], asks: [] },
+      },
+    ]);
+  }
 
   private onClose = () => {
     if (this.isStopped) return;

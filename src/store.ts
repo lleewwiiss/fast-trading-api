@@ -10,6 +10,7 @@ export class MemoryStore implements Store {
       public: {
         tickers: {},
         markets: {},
+        orderBooks: {},
       },
       private: {},
     },

@@ -24,6 +24,14 @@ export class BybitExchange {
     this.worker.addEventListener("message", this.onWorkerMessage);
   }
 
+  public listenOrderBook(symbol: string) {
+    this.worker.postMessage({ type: "listenOrderBook", symbol });
+  }
+
+  public unlistenOrderBook(symbol: string) {
+    this.worker.postMessage({ type: "unlistenOrderBook", symbol });
+  }
+
   private onWorkerMessage = <P extends ObjectPaths<StoreMemory>>(
     event: MessageEvent<
       | { type: "ready" }

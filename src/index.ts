@@ -27,4 +27,32 @@ export class FastTradingApi {
       });
     }
   }
+
+  public listenOrderBook({
+    exchangeName,
+    symbol,
+  }: {
+    exchangeName: ExchangeName;
+    symbol: string;
+  }) {
+    if (!this.exchanges[exchangeName]) {
+      throw new Error(`Exchange ${exchangeName} not started`);
+    }
+
+    this.exchanges[exchangeName].listenOrderBook(symbol);
+  }
+
+  public unlistenOrderBook({
+    exchangeName,
+    symbol,
+  }: {
+    exchangeName: ExchangeName;
+    symbol: string;
+  }) {
+    if (!this.exchanges[exchangeName]) {
+      throw new Error(`Exchange ${exchangeName} not started`);
+    }
+
+    this.exchanges[exchangeName].unlistenOrderBook(symbol);
+  }
 }

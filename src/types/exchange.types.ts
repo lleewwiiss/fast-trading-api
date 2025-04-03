@@ -112,15 +112,15 @@ export interface ExchangeOrder {
   reduceOnly: boolean;
 }
 
-export interface OrderBookOrders {
+export interface OrderBookOrder {
   price: number;
   amount: number;
   total: number;
 }
 
 export interface ExchangeOrderBook {
-  bids: OrderBookOrders[];
-  asks: OrderBookOrders[];
+  bids: OrderBookOrder[];
+  asks: OrderBookOrder[];
 }
 
 export type ExchangeNotification = {

@@ -31,23 +31,27 @@ import { subtract } from "~/utils/safe-math.utils";
 export class BybitWorker {
   private accounts: ExchangeAccount[] = [];
   private memory: StoreMemory[ExchangeName] = {
-    public: { tickers: {}, markets: {} },
+    public: { tickers: {}, markets: {}, orderBooks: {} },
     private: {},
   };
 
   private publicWs: BybitWsPublic | null = null;
   private privateWs: BybitWsPrivate[] = [];
 
-  public onMessage = (
-    event: MessageEvent<
-      | { type: "start" }
-      | { type: "stop" }
-      | { type: "login"; accounts: ExchangeAccount[] }
-    >,
-  ) => {
-    if (event.data.type === "start") this.start();
-    if (event.data.type === "login") this.login(event.data.accounts);
-    if (event.data.type === "stop") this.stop();
+  public onMessage = ({
+    data,
+  }: MessageEvent<
+    | { type: "start" }
+    | { type: "stop" }
+    | { type: "login"; accounts: ExchangeAccount[] }
+    | { type: "listenOrderBook"; symbol: string }
+    | { type: "unlistenOrderBook"; symbol: string }
+  >) => {
+    if (data.type === "start") this.start();
+    if (data.type === "login") this.login(data.accounts);
+    if (data.type === "stop") this.stop();
+    if (data.type === "listenOrderBook") this.listenOrderBook(data.symbol);
+    if (data.type === "unlistenOrderBook") this.unlistenOrderBook(data.symbol);
   };
 
   private login(accounts: ExchangeAccount[]) {
@@ -376,6 +380,14 @@ export class BybitWorker {
         this.emitChanges([...updateOrdersChanges, ...addOrdersChanges]);
       }
     }
+  }
+
+  private listenOrderBook(symbol: string) {
+    this.publicWs?.listenOrderBook(symbol);
+  }
+
+  private unlistenOrderBook(symbol: string) {
+    this.publicWs?.unlistenOrderBook(symbol);
   }
 
   public emitChanges = <P extends ObjectPaths<StoreMemory[ExchangeName]>>(

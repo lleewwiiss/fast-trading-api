@@ -5,6 +5,7 @@ import type {
   ExchangeName,
   ExchangeNotification,
   ExchangeOrder,
+  ExchangeOrderBook,
   ExchangePosition,
   ExchangeTicker,
 } from "./exchange.types";
@@ -29,6 +30,7 @@ export interface ExchangeMemory {
   public: {
     tickers: Record<string, ExchangeTicker>;
     markets: Record<string, ExchangeMarket>;
+    orderBooks: Record<string, ExchangeOrderBook>;
   };
 }
 
