@@ -10,7 +10,7 @@ import { batch } from "solid-js";
 
 export const [store, setStore] = createStore<StoreMemory>({
   [ExchangeName.BYBIT]: {
-    public: { tickers: {}, markets: {}, orderBooks: {} },
+    public: { tickers: {}, markets: {}, orderBooks: {}, ohlcv: {} },
     private: {},
   },
 });
