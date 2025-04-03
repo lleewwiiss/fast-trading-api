@@ -95,6 +95,43 @@ describe("updateObjectPath", () => {
     expect(store.bybit.private.main.positions[0].upnl).toBe(300);
   });
 
+  test("removeArrayElementAtPath with numeric path segment", () => {
+    // Setup nested structure with arrays in the path
+    updateObjectPath({
+      obj: store,
+      path: "bybit.private.accounts",
+      value: [
+        {
+          subaccounts: [{ positions: [{ upnl: 100 }, { upnl: 200 }] }],
+        },
+      ],
+    });
+
+    // Test removing element from an array that's accessed through numeric indices in the path
+    removeArrayElementAtPath({
+      obj: store,
+      path: "bybit.private.accounts.0.subaccounts.0.positions" as any,
+      index: 0,
+    });
+
+    expect(
+      store.bybit.private.accounts[0].subaccounts[0].positions.length,
+    ).toBe(1);
+    expect(
+      store.bybit.private.accounts[0].subaccounts[0].positions[0].upnl,
+    ).toBe(200);
+  });
+
+  test("removeArrayElementAtPath throws error when property is not an array", () => {
+    expect(() => {
+      removeArrayElementAtPath({
+        obj: store,
+        path: "bybit.private.main.balance" as any,
+        index: 0,
+      });
+    }).toThrow("Property at path bybit.private.main.balance is not an array");
+  });
+
   test("applyChanges", () => {
     updateObjectPath({
       obj: store,
@@ -121,5 +158,20 @@ describe("updateObjectPath", () => {
     expect(store.bybit.private.main.positions.length).toBe(2);
     expect(store.bybit.private.main.positions[0].upnl).toBe(300);
     expect(store.bybit.private.main.positions[1].upnl).toBe(400);
+  });
+
+  test("applyChanges with update", () => {
+    applyChanges({
+      obj: store,
+      changes: [
+        {
+          type: "update",
+          path: "bybit.private.main.balance.total",
+          value: 5000,
+        },
+      ],
+    });
+
+    expect(store.bybit.private.main.balance.total).toBe(5000);
   });
 });

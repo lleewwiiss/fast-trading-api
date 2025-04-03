@@ -16,6 +16,8 @@ export class MemoryStore implements Store {
     },
   };
 
+  constructor() {}
+
   applyChanges = <P extends ObjectPaths<StoreMemory>>(
     changes: ObjectChangeCommand<StoreMemory, P>[],
   ) => {
