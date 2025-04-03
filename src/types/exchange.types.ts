@@ -122,3 +122,13 @@ export interface ExchangeOrderBook {
   bids: OrderBookOrders[];
   asks: OrderBookOrders[];
 }
+
+export type ExchangeNotification = {
+  type: "order_fill";
+  data: {
+    side: OrderSide;
+    amount: number;
+    symbol: ExchangeOrder["symbol"];
+    price: number | "MARKET";
+  };
+};

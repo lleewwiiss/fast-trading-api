@@ -7,6 +7,8 @@ import {
   fetchBybitPositions,
   fetchBybitTickers,
 } from "./bybit.resolver";
+import type { BybitOrder } from "./bybit.types";
+import { mapBybitOrder } from "./bybit.utils";
 
 import { applyChanges } from "~/utils/update-obj-path.utils";
 import {
@@ -23,6 +25,8 @@ import type {
   ObjectChangeCommand,
   ObjectPaths,
 } from "~/types/misc.types";
+import { partition } from "~/utils/partition.utils";
+import { subtract } from "~/utils/safe-math.utils";
 
 export class BybitWorker {
   private accounts: ExchangeAccount[] = [];
@@ -56,6 +60,7 @@ export class BybitWorker {
           balance: { used: 0, free: 0, total: 0, upnl: 0 },
           positions: [],
           orders: [],
+          notifications: [],
         },
       })),
     );
@@ -235,6 +240,119 @@ export class BybitWorker {
     });
 
     this.emitChanges([...tickerChanges, ...positionsChanges]);
+  }
+
+  public updateAccountOrders({
+    accountId,
+    bybitOrders,
+  }: {
+    accountId: ExchangeAccount["id"];
+    bybitOrders: BybitOrder[];
+  }) {
+    for (const bybitOrder of bybitOrders) {
+      const orders = mapBybitOrder(bybitOrder);
+
+      const price = parseFloat(bybitOrder.price);
+      const amount = parseFloat(bybitOrder.qty);
+
+      if (bybitOrder.orderStatus === "PartiallyFilled") {
+        // False positive when order is replaced
+        // it emits a partially filled with 0 amount & price
+        if (price <= 0 && amount <= 0) return;
+      }
+
+      if (
+        bybitOrder.orderStatus === "Filled" ||
+        bybitOrder.orderStatus === "PartiallyFilled"
+      ) {
+        const existingOrder = this.memory.private[accountId].orders.find(
+          (o) => o.id === orders[0].id,
+        );
+
+        const amount = existingOrder
+          ? subtract(parseFloat(bybitOrder.cumExecQty), existingOrder.filled)
+          : parseFloat(bybitOrder.cumExecQty);
+
+        this.emitChanges([
+          {
+            type: "update",
+            path: `private.${accountId}.notifications.${this.memory.private[accountId].notifications.length}`,
+            value: {
+              type: "order_fill",
+              data: {
+                symbol: orders[0].symbol,
+                side: orders[0].side,
+                price: orders[0].price || "MARKET",
+                amount,
+              },
+            },
+          },
+        ]);
+      }
+
+      if (
+        bybitOrder.orderStatus === "Cancelled" ||
+        bybitOrder.orderStatus === "Filled" ||
+        bybitOrder.orderStatus === "Deactivated"
+      ) {
+        const changes = this.memory.private[accountId].orders.reduce<
+          {
+            type: "removeArrayElement";
+            path: `private.${typeof accountId}.orders`;
+            index: number;
+          }[]
+        >((acc, o) => {
+          if (
+            o.id === orders[0].id ||
+            o.id === `${orders[0].id}__stop_loss` ||
+            o.id === `${orders[0].id}__take_profit`
+          ) {
+            acc.push({
+              type: "removeArrayElement",
+              path: `private.${accountId}.orders`,
+              index:
+                this.memory.private[accountId].orders.indexOf(o) - acc.length,
+            });
+          }
+
+          return acc;
+        }, []);
+
+        this.emitChanges(changes);
+      }
+
+      if (
+        bybitOrder.orderStatus === "New" ||
+        bybitOrder.orderStatus === "Untriggered" ||
+        bybitOrder.orderStatus === "PartiallyFilled"
+      ) {
+        // 1. first compute update changes
+        // 2. then compute add changes with index calculation
+        const [updateOrders, addOrders] = partition(orders, (order) =>
+          this.memory.private[accountId].orders.some((o) => o.id === order.id),
+        );
+
+        const updateOrdersChanges = updateOrders.map((order) => {
+          const idx = this.memory.private[accountId].orders.findIndex(
+            (o) => o.id === order.id,
+          );
+
+          return {
+            type: "update" as const,
+            path: `private.${accountId}.orders.${idx}` as const,
+            value: order,
+          };
+        });
+
+        const addOrdersChanges = addOrders.map((order, idx) => ({
+          type: "update" as const,
+          path: `private.${accountId}.orders.${this.memory.private[accountId].orders.length + idx}` as const,
+          value: order,
+        }));
+
+        this.emitChanges([...updateOrdersChanges, ...addOrdersChanges]);
+      }
+    }
   }
 
   public emitChanges = <P extends ObjectPaths<StoreMemory[ExchangeName]>>(

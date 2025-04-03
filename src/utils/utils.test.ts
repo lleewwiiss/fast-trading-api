@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
 import {
+  applyChanges,
   removeArrayElementAtPath,
   updateObjectPath,
 } from "./update-obj-path.utils";
@@ -92,5 +93,33 @@ describe("utils", () => {
 
     expect(store.bybit.private.main.positions.length).toBe(1);
     expect(store.bybit.private.main.positions[0].upnl).toBe(300);
+  });
+
+  test("applyChanges()", () => {
+    updateObjectPath({
+      obj: store,
+      path: "bybit.private.main.positions",
+      value: [{ upnl: 100 }, { upnl: 200 }, { upnl: 300 }, { upnl: 400 }],
+    });
+
+    applyChanges({
+      obj: store,
+      changes: [
+        {
+          type: "removeArrayElement",
+          path: "bybit.private.main.positions",
+          index: 0,
+        },
+        {
+          type: "removeArrayElement",
+          path: "bybit.private.main.positions",
+          index: 0,
+        },
+      ],
+    });
+
+    expect(store.bybit.private.main.positions.length).toBe(2);
+    expect(store.bybit.private.main.positions[0].upnl).toBe(300);
+    expect(store.bybit.private.main.positions[1].upnl).toBe(400);
   });
 });

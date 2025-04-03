@@ -3,6 +3,7 @@ import type {
   ExchangeBalance,
   ExchangeMarket,
   ExchangeName,
+  ExchangeNotification,
   ExchangeOrder,
   ExchangePosition,
   ExchangeTicker,
@@ -35,4 +36,5 @@ export interface ExchangeAccountMemory {
   balance: ExchangeBalance;
   positions: ExchangePosition[];
   orders: ExchangeOrder[];
+  notifications: ExchangeNotification[];
 }

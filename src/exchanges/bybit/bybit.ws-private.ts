@@ -1,6 +1,10 @@
 import { bybitWebsocketAuth } from "./bybit.api";
 import { BYBIT_API } from "./bybit.config";
-import type { BybitBalance, BybitWebsocketPosition } from "./bybit.types";
+import type {
+  BybitBalance,
+  BybitOrder,
+  BybitWebsocketPosition,
+} from "./bybit.types";
 import { mapBybitBalance, mapBybitPosition } from "./bybit.utils";
 import type { BybitWorker } from "./bybit.worker";
 
@@ -77,6 +81,15 @@ export class BybitWsPrivate {
       this.parent.updateAccountBalance({
         accountId: this.account.id,
         balance: mapBybitBalance(data[0]),
+      });
+    }
+
+    if (event.data.includes('"topic":"order.linear"')) {
+      const { data }: { data: BybitOrder[] } = JSON.parse(event.data);
+
+      this.parent.updateAccountOrders({
+        accountId: this.account.id,
+        bybitOrders: data,
       });
     }
   };
