@@ -1,8 +1,21 @@
-import { describe, test, expect, mock, beforeEach } from "bun:test";
+import { describe, test, expect, mock, beforeEach, afterEach } from "bun:test";
 
 import { ExchangeName } from "./types/exchange.types";
 
 import { FastTradingApi } from "./index";
+
+const moduleMocker = {
+  mocks: [] as Record<string, any>[],
+  async mock(modulePath: string, renderMocks: () => Record<string, any>) {
+    const original = { ...(await import(modulePath)) };
+    mock.module(modulePath, () => ({ ...original, ...renderMocks() }));
+    this.mocks.push({ clear: () => mock.module(modulePath, () => original) });
+  },
+  clear() {
+    this.mocks.forEach((mockResult) => mockResult.clear());
+    this.mocks = [];
+  },
+};
 
 describe("FastTradingApi", () => {
   let BybitExchangeMock;
@@ -10,7 +23,7 @@ describe("FastTradingApi", () => {
   let listenOrderBookMock;
   let unlistenOrderBookMock;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     fetchOHLCVMock = mock(() =>
       Promise.resolve([
         {
@@ -33,9 +46,13 @@ describe("FastTradingApi", () => {
       unlistenOrderBook: unlistenOrderBookMock,
     }));
 
-    mock.module("./exchanges/bybit/bybit.exchange", () => ({
+    await moduleMocker.mock("./exchanges/bybit/bybit.exchange", () => ({
       BybitExchange: BybitExchangeMock,
     }));
+  });
+
+  afterEach(() => {
+    moduleMocker.clear();
   });
 
   describe("constructor", () => {
