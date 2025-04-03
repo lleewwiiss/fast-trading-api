@@ -14,6 +14,7 @@ import {
   mapBybitTicker,
 } from "./bybit.utils";
 
+import { retry } from "~/utils/retry.utils";
 import type {
   ExchangeMarket,
   ExchangeOrder,
@@ -22,8 +23,10 @@ import type {
 } from "~/types/exchange.types";
 
 export const fetchBybitMarkets = async () => {
-  const response = await fetch(
-    `${BYBIT_API.BASE_URL}${BYBIT_API.ENDPOINTS.MARKETS}?category=linear&limit=1000`,
+  const response = await retry(() =>
+    fetch(
+      `${BYBIT_API.BASE_URL}${BYBIT_API.ENDPOINTS.MARKETS}?category=linear&limit=1000`,
+    ),
   );
 
   const {
@@ -69,8 +72,10 @@ export const fetchBybitMarkets = async () => {
 export const fetchBybitTickers = async (
   markets: Record<string, ExchangeMarket>,
 ) => {
-  const response = await fetch(
-    `${BYBIT_API.BASE_URL}${BYBIT_API.ENDPOINTS.TICKERS}?category=linear&limit=1000`,
+  const response = await retry(() =>
+    fetch(
+      `${BYBIT_API.BASE_URL}${BYBIT_API.ENDPOINTS.TICKERS}?category=linear&limit=1000`,
+    ),
   );
 
   const {
@@ -122,11 +127,8 @@ export const fetchBybitPositions = async ({
     key,
     secret,
     url: `${BYBIT_API.BASE_URL}${BYBIT_API.ENDPOINTS.POSITIONS}`,
-    params: {
-      category: "linear",
-      settleCoin: "USDT",
-      limit: 200,
-    },
+    params: { category: "linear", settleCoin: "USDT", limit: 200 },
+    retries: 3,
   });
 
   const positions: ExchangePosition[] = json.result.list.map(mapBybitPosition);
@@ -157,6 +159,7 @@ export const fetchBybitOrders = async ({
         limit: 50,
         cursor,
       },
+      retries: 3,
     });
 
     const ordersList = Array.isArray(json.result.list) ? json.result.list : [];
