@@ -1,0 +1,13 @@
+export function inverseObj<K extends PropertyKey, V extends PropertyKey>(
+  obj: Record<K, V>,
+): Record<V, K> {
+  return Object.entries(obj).reduce(
+    (acc, [key, value]) => {
+      const typedKey = key as unknown as K;
+      const typedValue = value as unknown as V;
+
+      return { ...acc, [typedValue]: typedKey };
+    },
+    {} as Record<V, K>,
+  );
+}
