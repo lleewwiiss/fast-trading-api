@@ -1,6 +1,7 @@
 import type {
   ExchangeAccount,
   ExchangeCandle,
+  ExchangePlaceOrderOpts,
   ExchangeTimeframe,
 } from "~/types/exchange.types";
 import type { FetchOHLCVParams, Store, StoreMemory } from "~/types/lib.types";
@@ -12,10 +13,7 @@ export class BybitExchange {
   private accounts: ExchangeAccount[];
   private worker: Worker;
 
-  private pendingRequests = new Map<
-    string,
-    (value: ExchangeCandle[]) => void
-  >();
+  private pendingRequests = new Map<string, (data: any) => void>();
 
   constructor({
     store,
@@ -40,6 +38,26 @@ export class BybitExchange {
     return new Promise((resolve) => {
       this.pendingRequests.set(requestId, resolve);
       this.worker.postMessage({ type: "fetchOHLCV", params, requestId });
+    });
+  }
+
+  public placeOrders({
+    orders,
+    accountId,
+  }: {
+    orders: ExchangePlaceOrderOpts[];
+    accountId: string;
+  }): Promise<string[]> {
+    const requestId = genId();
+
+    return new Promise((resolve) => {
+      this.pendingRequests.set(requestId, resolve);
+      this.worker.postMessage({
+        type: "placeOrders",
+        orders,
+        accountId,
+        requestId,
+      });
     });
   }
 
@@ -75,7 +93,7 @@ export class BybitExchange {
     event: MessageEvent<
       | { type: "ready" }
       | { type: "update"; changes: ObjectChangeCommand<StoreMemory, P>[] }
-      | { type: "response"; requestId: string; data: ExchangeCandle[] }
+      | { type: "response"; requestId: string; data: any }
     >,
   ) => {
     if (event.data.type === "ready") return this.onReady();

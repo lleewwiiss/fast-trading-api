@@ -17,16 +17,21 @@ import {
 } from "./bybit.utils";
 
 import { retry } from "~/utils/retry.utils";
-import type {
-  ExchangeCandle,
-  ExchangeMarket,
-  ExchangeOrder,
-  ExchangePosition,
-  ExchangeTicker,
+import {
+  OrderSide,
+  OrderType,
+  type ExchangeAccount,
+  type ExchangeCandle,
+  type ExchangeMarket,
+  type ExchangeOrder,
+  type ExchangePlaceOrderOpts,
+  type ExchangePosition,
+  type ExchangeTicker,
 } from "~/types/exchange.types";
 import type { FetchOHLCVParams } from "~/types/lib.types";
 import { omitUndefined } from "~/utils/omit-undefined.utils";
 import { orderBy } from "~/utils/order-by.utils";
+import { adjust } from "~/utils/safe-math.utils";
 
 export const fetchBybitMarkets = async () => {
   const response = await retry(() =>
@@ -225,4 +230,60 @@ export const fetchBybitOHLCV = async (opts: FetchOHLCVParams) => {
   );
 
   return orderBy(candles, ["timestamp"], ["asc"]);
+};
+
+export const createBybitTradingStop = async ({
+  order,
+  market,
+  ticker,
+  account,
+  isHedged,
+}: {
+  order: ExchangePlaceOrderOpts;
+  market: ExchangeMarket;
+  ticker: ExchangeTicker;
+  account: ExchangeAccount;
+  isHedged?: boolean;
+}) => {
+  const price = adjust(order.price ?? 0, market.precision.price);
+  const body: Record<string, any> = {
+    category: "linear",
+    symbol: order.symbol,
+    tpslMode: "Full",
+    tpExchangeOrderType: "Market",
+    slOrderType: "Market",
+    positionIdx: isHedged ? (order.side === OrderSide.Buy ? 2 : 1) : 0,
+  };
+
+  if (order.type === OrderType.StopLoss) {
+    body.stopLoss = `${price}`;
+    body.slTriggerBy = "MarkPrice";
+  }
+
+  if (order.type === OrderType.TakeProfit) {
+    body.takeProfit = `${price}`;
+    body.tpTriggerBy = "LastPrice";
+  }
+
+  if (order.type === OrderType.TrailingStopLoss) {
+    const distance = adjust(
+      Math.max(ticker.last, price) - Math.min(ticker.last, price),
+      market.precision.price,
+    );
+
+    body.trailingStop = `${distance}`;
+  }
+
+  const response = await bybit<{ retCode: number; retMsg: string }>({
+    url: `${BYBIT_API.BASE_URL}${BYBIT_API.ENDPOINTS.TRADING_STOP}`,
+    method: "POST",
+    body,
+    key: account.apiKey,
+    secret: account.apiSecret,
+  });
+
+  if (response.retCode !== 0) {
+    // TODO: Log error
+    // use memory store for that as well ?
+  }
 };

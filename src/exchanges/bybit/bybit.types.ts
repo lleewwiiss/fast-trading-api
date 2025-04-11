@@ -1,3 +1,10 @@
+import type {
+  ExchangeAccount,
+  ExchangeTimeframe,
+  ExchangePlaceOrderOpts,
+} from "~/types/exchange.types";
+import type { FetchOHLCVParams } from "~/types/lib.types";
+
 export type BybitInstrument = {
   symbol: string;
   baseCoin: string;
@@ -184,4 +191,60 @@ export type BybitOrder = {
   marketUnit: string;
   smpOrderId: string;
   triggerBy: string;
+};
+
+export type BybitPlaceOrderOpts = {
+  symbol: string;
+  side: "Buy" | "Sell";
+  orderType: "Market" | "Limit" | "StopLoss" | "TakeProfit" | "TrailingStop";
+  qty: string;
+  price?: string;
+  triggerDirection?: 1 | 2;
+  triggerPrice?: string;
+  triggerBy?: "LastPrice" | "IndexPrice" | "MarkPrice";
+  timeInForce?: "GTC" | "FOK" | "IOC" | "PostOnly";
+  positionIdx?: 0 | 1 | 2;
+  takeProfit?: string;
+  stopLoss?: string;
+  tpTriggerBy?: "MarkPrice" | "IndexPrice" | "LastPrice";
+  slTriggerBy?: "MarkPrice" | "IndexPrice" | "LastPrice";
+  reduceOnly?: boolean;
+  closeOnTrigger?: boolean;
+  tpslMode?: "Full" | "Partial";
+  tpLimitPrice?: string;
+  slLimitPrice?: string;
+  tpOrderType?: "Market" | "Limit";
+  slOrderType?: "Market" | "Limit";
+};
+
+export type BybitWorkerMessage = MessageEvent<
+  | { type: "start" }
+  | { type: "stop" }
+  | { type: "login"; accounts: ExchangeAccount[] }
+  | { type: "listenOrderBook"; symbol: string }
+  | { type: "unlistenOrderBook"; symbol: string }
+  | { type: "fetchOHLCV"; requestId: string; params: FetchOHLCVParams }
+  | { type: "listenOHLCV"; symbol: string; timeframe: ExchangeTimeframe }
+  | { type: "unlistenOHLCV"; symbol: string; timeframe: ExchangeTimeframe }
+  | {
+      type: "placeOrders";
+      orders: ExchangePlaceOrderOpts[];
+      accountId: string;
+      requestId: string;
+    }
+>;
+
+export type BybitPlaceOrderBatchResponse = {
+  reqId: string;
+  retMsg: string;
+  op: "order.create-batch";
+  data: {
+    list: Array<{
+      category: string;
+      symbol: string;
+      orderId: string;
+      orderLinkId: string;
+      createdAt: string;
+    }>;
+  };
 };

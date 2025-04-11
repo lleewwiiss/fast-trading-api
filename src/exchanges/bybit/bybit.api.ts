@@ -11,7 +11,10 @@ type Request = {
   url: string;
   method?: "GET" | "POST";
   params?: Record<string, string | number | string[] | number[]>;
-  body?: Record<string, string | number | string[] | number[]>;
+  body?: Record<
+    string,
+    string | number | string[] | number[] | Array<Record<string, any>>
+  >;
   retries?: number;
 };
 

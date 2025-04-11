@@ -155,3 +155,15 @@ export interface ExchangeCandle {
   close: number;
   volume: number;
 }
+
+export interface ExchangePlaceOrderOpts {
+  symbol: string;
+  type: OrderType;
+  side: OrderSide;
+  amount: number;
+  price?: number;
+  stopLoss?: number;
+  takeProfit?: number;
+  reduceOnly?: boolean;
+  timeInForce?: OrderTimeInForce;
+}

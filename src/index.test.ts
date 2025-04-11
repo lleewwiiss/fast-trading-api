@@ -97,7 +97,7 @@ describe("FastTradingApi", () => {
 
       const result = await api.fetchOHLCV({
         exchangeName: ExchangeName.BYBIT,
-        params: { symbol: "BTCUSDT", interval: "1h", limit: 100 },
+        params: { symbol: "BTCUSDT", timeframe: "1h", limit: 100 },
       });
 
       expect(fetchOHLCVMock).toHaveBeenCalledTimes(1);
@@ -113,7 +113,7 @@ describe("FastTradingApi", () => {
       await expect(() =>
         api.fetchOHLCV({
           exchangeName: ExchangeName.BYBIT,
-          params: { symbol: "BTCUSDT", interval: "1h", limit: 100 },
+          params: { symbol: "BTCUSDT", timeframe: "1h", limit: 100 },
         }),
       ).toThrow(`Exchange ${ExchangeName.BYBIT} not started`);
     });

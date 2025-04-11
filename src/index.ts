@@ -9,6 +9,7 @@ import {
   ExchangeName,
   type ExchangeAccount,
   type ExchangeCandle,
+  type ExchangePlaceOrderOpts,
   type ExchangeTimeframe,
 } from "./types/exchange.types";
 
@@ -109,5 +110,32 @@ export class FastTradingApi {
     }
 
     this.exchanges[exchangeName].unlistenOrderBook(symbol);
+  }
+
+  public placeOrder({
+    order,
+    accountId,
+  }: {
+    order: ExchangePlaceOrderOpts;
+    accountId: string;
+  }) {
+    return this.placeOrders({ orders: [order], accountId });
+  }
+
+  public placeOrders({
+    orders,
+    accountId,
+  }: {
+    orders: ExchangePlaceOrderOpts[];
+    accountId: string;
+  }) {
+    const account = this.accounts.find((acc) => acc.id === accountId);
+    const exchange = account?.exchange;
+
+    if (!exchange || !this.exchanges[exchange]) {
+      throw new Error(`No accounts by id found for: ${accountId}`);
+    }
+
+    return this.exchanges[exchange].placeOrders({ orders, accountId });
   }
 }

@@ -7,16 +7,20 @@ import {
   fetchBybitPositions,
   fetchBybitTickers,
   fetchBybitOHLCV,
+  createBybitTradingStop,
 } from "./bybit.resolver";
-import type { BybitOrder } from "./bybit.types";
-import { mapBybitOrder } from "./bybit.utils";
+import type { BybitOrder, BybitWorkerMessage } from "./bybit.types";
+import { formatMarkerOrLimitOrder, mapBybitOrder } from "./bybit.utils";
+import { BybitWsTrading } from "./bybit.ws-trading";
 
 import { applyChanges } from "~/utils/update-obj-path.utils";
 import {
   ExchangeName,
+  OrderType,
   PositionSide,
   type ExchangeAccount,
   type ExchangeBalance,
+  type ExchangePlaceOrderOpts,
   type ExchangePosition,
   type ExchangeTicker,
   type ExchangeTimeframe,
@@ -38,20 +42,10 @@ export class BybitWorker {
   };
 
   private publicWs: BybitWsPublic | null = null;
-  private privateWs: BybitWsPrivate[] = [];
+  private privateWs: Record<ExchangeAccount["id"], BybitWsPrivate> = {};
+  private tradingWs: Record<ExchangeAccount["id"], BybitWsTrading> = {};
 
-  public onMessage = ({
-    data,
-  }: MessageEvent<
-    | { type: "start" }
-    | { type: "stop" }
-    | { type: "login"; accounts: ExchangeAccount[] }
-    | { type: "listenOrderBook"; symbol: string }
-    | { type: "unlistenOrderBook"; symbol: string }
-    | { type: "fetchOHLCV"; requestId: string; params: FetchOHLCVParams }
-    | { type: "listenOHLCV"; symbol: string; timeframe: ExchangeTimeframe }
-    | { type: "unlistenOHLCV"; symbol: string; timeframe: ExchangeTimeframe }
-  >) => {
+  public onMessage = ({ data }: BybitWorkerMessage) => {
     if (data.type === "start") this.start();
     if (data.type === "login") this.login(data.accounts);
     if (data.type === "stop") this.stop();
@@ -60,6 +54,9 @@ export class BybitWorker {
     if (data.type === "fetchOHLCV") this.fetchOHLCV(data);
     if (data.type === "listenOHLCV") this.listenOHLCV(data);
     if (data.type === "unlistenOHLCV") this.unlistenOHLCV(data);
+    if (data.type === "placeOrders") this.placeOrders(data);
+    // TODO: move this into an error log
+    throw new Error(`Unsupported command to bybit worker [${data.type}]`);
   };
 
   private login(accounts: ExchangeAccount[]) {
@@ -84,9 +81,14 @@ export class BybitWorker {
       this.publicWs = null;
     }
 
-    if (this.privateWs.length > 0) {
-      this.privateWs.forEach((ws) => ws.stop());
-      this.privateWs = [];
+    if (Object.keys(this.privateWs).length > 0) {
+      Object.values(this.privateWs).forEach((ws) => ws.stop());
+      this.privateWs = {};
+    }
+
+    if (Object.keys(this.tradingWs).length > 0) {
+      Object.values(this.tradingWs).forEach((ws) => ws.stop());
+      this.tradingWs = {};
     }
   }
 
@@ -147,14 +149,13 @@ export class BybitWorker {
       }),
     );
 
-    // 5. Start private websocket per account
+    // 5. Start private & trading websocket per account
     for (const account of this.accounts) {
-      this.privateWs.push(
-        new BybitWsPrivate({
-          parent: this,
-          account,
-        }),
-      );
+      this.tradingWs[account.id] = new BybitWsTrading({ account });
+      this.privateWs[account.id] = new BybitWsPrivate({
+        parent: this,
+        account,
+      });
     }
 
     // 6. Fetch orders per account
@@ -427,6 +428,50 @@ export class BybitWorker {
     timeframe: ExchangeTimeframe;
   }) {
     this.publicWs?.unlistenOHLCV({ symbol, timeframe });
+  }
+
+  private async placeOrders({
+    orders,
+    accountId,
+    requestId,
+  }: {
+    orders: ExchangePlaceOrderOpts[];
+    accountId: string;
+    requestId: string;
+  }) {
+    const orderIds: string[] = [];
+    const [normalOrders, conditionalOrders] = partition(
+      orders,
+      (order) =>
+        order.type === OrderType.Market || order.type === OrderType.Limit,
+    );
+
+    if (normalOrders.length > 0) {
+      const normalOrderIds = await this.tradingWs[accountId].placeOrderBatch(
+        normalOrders.flatMap((o) =>
+          formatMarkerOrLimitOrder({
+            order: o,
+            market: this.memory.public.markets[o.symbol],
+          }),
+        ),
+      );
+      orderIds.push(...normalOrderIds);
+    }
+
+    if (conditionalOrders.length > 0) {
+      const account = this.accounts.find((a) => a.id === accountId)!;
+
+      for (const order of orders) {
+        await createBybitTradingStop({
+          order,
+          account,
+          market: this.memory.public.markets[order.symbol],
+          ticker: this.memory.public.tickers[order.symbol],
+        });
+      }
+    }
+
+    self.postMessage({ type: "response", requestId, data: orderIds });
   }
 
   public emitChanges = <P extends ObjectPaths<StoreMemory[ExchangeName]>>(

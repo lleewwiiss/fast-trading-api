@@ -1,0 +1,146 @@
+import { bybitWebsocketAuth } from "./bybit.api";
+import { BYBIT_API } from "./bybit.config";
+import type {
+  BybitPlaceOrderBatchResponse,
+  BybitPlaceOrderOpts,
+} from "./bybit.types";
+
+import { chunk } from "~/utils/chunk.utils";
+import type { ExchangeAccount } from "~/types/exchange.types";
+import { genId } from "~/utils/gen-id.utils";
+
+export class BybitWsTrading {
+  private account: ExchangeAccount;
+
+  private isStopped = false;
+
+  private ws: WebSocket | null = null;
+  private interval: NodeJS.Timeout | null = null;
+
+  private pendingRequests = new Map<string, (data: any) => void>();
+
+  constructor({ account }: { account: ExchangeAccount }) {
+    this.account = account;
+    this.listenWebsocket();
+  }
+
+  private listenWebsocket = () => {
+    this.ws = new WebSocket(BYBIT_API.BASE_WS_TRADE_URL);
+    this.ws.onopen = this.onOpen;
+    this.ws.onerror = this.onError;
+    this.ws.onmessage = this.onMessage;
+    this.ws.onclose = this.onClose;
+  };
+
+  private onOpen = async () => {
+    await this.auth();
+    this.ping();
+  };
+
+  private auth = async () => {
+    const authArgs = await bybitWebsocketAuth({
+      key: this.account.apiKey,
+      secret: this.account.apiSecret,
+    });
+
+    this.send({ op: "auth", args: authArgs });
+  };
+
+  private ping = () => {
+    this.interval = setInterval(() => {
+      this.send({ op: "ping" });
+    }, 10_000);
+  };
+
+  private onMessage = (event: MessageEvent) => {
+    if (event.data.includes("reqId")) {
+      const data = JSON.parse(event.data);
+      const callback = this.pendingRequests.get(data.reqId);
+
+      if (callback) {
+        callback(data);
+        this.pendingRequests.delete(data.reqId);
+      }
+    }
+  };
+
+  private onError = () => {};
+
+  private onClose = () => {
+    if (this.isStopped) return;
+
+    if (this.interval) {
+      clearInterval(this.interval);
+      this.interval = null;
+    }
+
+    this.ws = null;
+    this.listenWebsocket();
+  };
+
+  private send = (data: {
+    op: string;
+    reqId?: string;
+    header?: Record<string, string>;
+    args?: string[] | Record<string, any>[];
+  }) => {
+    if (!this.isStopped) this.ws?.send(JSON.stringify(data));
+  };
+
+  public placeOrderBatch = (orders: BybitPlaceOrderOpts[]) => {
+    return new Promise<string[]>((resolve) => {
+      const batches = chunk(orders, 20);
+      const responses: BybitPlaceOrderBatchResponse[] = [];
+
+      for (const batch of batches) {
+        const reqId = genId();
+
+        this.pendingRequests.set(
+          reqId,
+          (data: BybitPlaceOrderBatchResponse) => {
+            responses.push(data);
+
+            if (responses.length === batches.length) {
+              const orderIds = responses.flatMap((res) =>
+                res.data.list
+                  .filter((o) => o.orderId !== "")
+                  .map((o) => o.orderId),
+              );
+
+              resolve(orderIds);
+            }
+          },
+        );
+
+        this.send({
+          op: "order.create-batch",
+          reqId,
+          header: {
+            "X-BAPI-TIMESTAMP": Date.now().toString(),
+            "X-BAPI-RECV-WINDOW": "5000",
+          },
+          args: [
+            {
+              category: "linear",
+              request: batch,
+            },
+          ],
+        });
+      }
+    });
+  };
+
+  public stop = () => {
+    this.isStopped = true;
+
+    if (this.interval) {
+      clearInterval(this.interval);
+      this.interval = null;
+    }
+
+    if (this.ws) {
+      this.ws.close();
+      this.ws = null;
+    }
+  };
+}

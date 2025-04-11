@@ -1,48 +1,35 @@
+import { times, omit } from "lodash";
+
 import type {
   BybitBalance,
   BybitOrder,
+  BybitPlaceOrderOpts,
   BybitPosition,
   BybitTicker,
   BybitWebsocketPosition,
 } from "./bybit.types";
+import {
+  ORDER_TIME_IN_FORCE_INVERSE,
+  ORDER_SIDE_INVERSE,
+  ORDER_TYPE_INVERSE,
+  ORDER_SIDE,
+  ORDER_STATUS,
+  ORDER_TYPE,
+} from "./bybit.config";
 
 import {
   OrderSide,
-  OrderStatus,
+  OrderTimeInForce,
   OrderType,
   PositionSide,
+  type ExchangeMarket,
   type ExchangeOrder,
+  type ExchangePlaceOrderOpts,
   type ExchangePosition,
 } from "~/types/exchange.types";
-import { subtract } from "~/utils/safe-math.utils";
+import { adjust, subtract } from "~/utils/safe-math.utils";
 import { TICKER_REGEX } from "~/utils/regex.utils";
-
-export const ORDER_STATUS: Record<string, OrderStatus> = {
-  Created: OrderStatus.Open,
-  New: OrderStatus.Open,
-  Active: OrderStatus.Open,
-  Untriggered: OrderStatus.Open,
-  PartiallyFilled: OrderStatus.Open,
-  Rejected: OrderStatus.Closed,
-  Filled: OrderStatus.Closed,
-  Deactivated: OrderStatus.Closed,
-  Triggered: OrderStatus.Closed,
-  PendingCancel: OrderStatus.Canceled,
-  Cancelled: OrderStatus.Canceled,
-};
-
-export const ORDER_TYPE: Record<string, OrderType> = {
-  Limit: OrderType.Limit,
-  Market: OrderType.Market,
-  StopLoss: OrderType.StopLoss,
-  TakeProfit: OrderType.TakeProfit,
-  TrailingStop: OrderType.TrailingStopLoss,
-};
-
-export const ORDER_SIDE: Record<string, OrderSide> = {
-  Buy: OrderSide.Buy,
-  Sell: OrderSide.Sell,
-};
+import { omitUndefined } from "~/utils/omit-undefined.utils";
 
 export const mapBybitTicker = (t: BybitTicker) => {
   return {
@@ -106,8 +93,8 @@ export const mapBybitOrder = (o: BybitOrder): ExchangeOrder[] => {
       id: o.orderId,
       status: ORDER_STATUS[o.orderStatus],
       symbol: o.symbol,
-      type: ORDER_TYPE[oType],
-      side: ORDER_SIDE[o.side],
+      type: ORDER_TYPE[oType as keyof typeof ORDER_TYPE],
+      side: ORDER_SIDE[o.side as keyof typeof ORDER_SIDE],
       price: parseFloat(oPrice),
       amount: parseFloat(o.qty || "0"),
       filled: parseFloat(o.cumExecQty || "0"),
@@ -150,4 +137,78 @@ export const mapBybitOrder = (o: BybitOrder): ExchangeOrder[] => {
   }
 
   return orders;
+};
+
+export const formatMarkerOrLimitOrder = ({
+  order,
+  market,
+  isHedged,
+}: {
+  order: ExchangePlaceOrderOpts;
+  market: ExchangeMarket;
+  isHedged?: boolean;
+}): BybitPlaceOrderOpts[] => {
+  let positionIdx: 0 | 1 | 2 = 0;
+
+  if (isHedged) {
+    positionIdx = order.side === OrderSide.Buy ? 1 : 2;
+    if (order.reduceOnly) positionIdx = positionIdx === 1 ? 2 : 1;
+  }
+
+  const maxSize =
+    order.type === OrderType.Market
+      ? market.limits.amount.maxMarket
+      : market.limits.amount.max;
+
+  const pPrice = market.precision.price;
+  const pAmount = market.precision.amount;
+
+  const amount = adjust(order.amount, pAmount);
+  const price = order.price ? adjust(order.price, pPrice) : undefined;
+  const stopLoss = order.stopLoss ? adjust(order.stopLoss, pPrice) : undefined;
+  const takeProfit = order.takeProfit
+    ? adjust(order.takeProfit, pPrice)
+    : undefined;
+
+  const timeInForce =
+    ORDER_TIME_IN_FORCE_INVERSE[
+      order.timeInForce || OrderTimeInForce.GoodTillCancel
+    ];
+
+  const req = omitUndefined({
+    category: "linear",
+    symbol: order.symbol,
+    side: ORDER_SIDE_INVERSE[order.side],
+    orderType: ORDER_TYPE_INVERSE[order.type],
+    qty: `${amount}`,
+    price: order.type === OrderType.Limit ? `${price}` : undefined,
+    stopLoss: order.stopLoss ? `${stopLoss}` : undefined,
+    takeProfit: order.takeProfit ? `${takeProfit}` : undefined,
+    reduceOnly: order.reduceOnly || false,
+    slTriggerBy: order.stopLoss ? "MarkPrice" : undefined,
+    tpTriggerBy: order.takeProfit ? "LastPrice" : undefined,
+    timeInForce: order.type === OrderType.Limit ? timeInForce : undefined,
+    closeOnTrigger: false,
+    positionIdx,
+  });
+
+  const lots = amount > maxSize ? Math.ceil(amount / maxSize) : 1;
+  const rest = amount > maxSize ? adjust(amount % maxSize, pAmount) : 0;
+
+  const lotSize = adjust((amount - rest) / lots, pAmount);
+
+  const payloads = times(lots, (idx) => {
+    const payload =
+      idx > 0
+        ? omit(req, ["stopLoss", "takeProfit", "slTriggerBy", "tpTriggerBy"])
+        : req;
+
+    return { ...payload, qty: `${lotSize}` };
+  });
+
+  if (rest > 0) {
+    payloads.push({ ...req, qty: `${rest}` });
+  }
+
+  return payloads;
 };
