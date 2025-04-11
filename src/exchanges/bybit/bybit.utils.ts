@@ -1,5 +1,3 @@
-import { times, omit } from "lodash";
-
 import type {
   BybitBalance,
   BybitOrder,
@@ -30,6 +28,8 @@ import {
 import { adjust, subtract } from "~/utils/safe-math.utils";
 import { TICKER_REGEX } from "~/utils/regex.utils";
 import { omitUndefined } from "~/utils/omit-undefined.utils";
+import { times } from "~/utils/times.utils";
+import { omit } from "~/utils/omit.utils";
 
 export const mapBybitTicker = (t: BybitTicker) => {
   return {
@@ -196,7 +196,6 @@ export const formatMarkerOrLimitOrder = ({
   const rest = amount > maxSize ? adjust(amount % maxSize, pAmount) : 0;
 
   const lotSize = adjust((amount - rest) / lots, pAmount);
-
   const payloads = times(lots, (idx) => {
     const payload =
       idx > 0
