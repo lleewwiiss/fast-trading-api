@@ -57,6 +57,26 @@ export class BybitExchange {
     });
   }
 
+  public cancelOrders({
+    orderIds,
+    accountId,
+  }: {
+    orderIds: string[];
+    accountId: string;
+  }): Promise<void> {
+    const requestId = genId();
+
+    return new Promise((resolve) => {
+      this.pendingRequests.set(requestId, resolve);
+      this.worker.postMessage({
+        type: "cancelOrders",
+        orderIds,
+        accountId,
+        requestId,
+      });
+    });
+  }
+
   public listenOHLCV({
     symbol,
     timeframe,

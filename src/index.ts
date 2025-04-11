@@ -136,4 +136,31 @@ export class FastTradingApi {
 
     return this.exchanges[exchange].placeOrders({ orders, accountId });
   }
+
+  public cancelOrder({
+    orderId,
+    accountId,
+  }: {
+    orderId: string;
+    accountId: string;
+  }) {
+    return this.cancelOrders({ orderIds: [orderId], accountId });
+  }
+
+  public cancelOrders({
+    orderIds,
+    accountId,
+  }: {
+    orderIds: string[];
+    accountId: string;
+  }) {
+    const account = this.accounts.find((acc) => acc.id === accountId);
+    const exchange = account?.exchange;
+
+    if (!exchange || !this.exchanges[exchange]) {
+      throw new Error(`No accounts by id found for: ${accountId}`);
+    }
+
+    return this.exchanges[exchange].cancelOrders({ orderIds, accountId });
+  }
 }

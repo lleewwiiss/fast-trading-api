@@ -26,6 +26,7 @@ import {
   type Timeframe,
   type StoreMemory,
   type FetchOHLCVParams,
+  type Order,
 } from "~/types/lib.types";
 import type {
   Entries,
@@ -56,6 +57,7 @@ export class BybitWorker {
     if (data.type === "listenOHLCV") this.listenOHLCV(data);
     if (data.type === "unlistenOHLCV") this.unlistenOHLCV(data);
     if (data.type === "placeOrders") this.placeOrders(data);
+    if (data.type === "cancelOrders") this.cancelOrders(data);
     // TODO: move this into an error log
     throw new Error(`Unsupported command to bybit worker [${data.type}]`);
   };
@@ -471,6 +473,28 @@ export class BybitWorker {
     }
 
     self.postMessage({ type: "response", requestId, data: orderIds });
+  }
+
+  private async cancelOrders({
+    orderIds,
+    accountId,
+    requestId,
+  }: {
+    orderIds: string[];
+    accountId: string;
+    requestId: string;
+  }) {
+    await this.tradingWs[accountId].cancelOrders(
+      orderIds.reduce((acc, id) => {
+        const order = this.memory.private[accountId].orders.find(
+          (o) => o.id === id,
+        );
+
+        return order ? [...acc, order] : acc;
+      }, [] as Order[]),
+    );
+
+    self.postMessage({ type: "response", requestId, data: [] });
   }
 
   public emitChanges = <P extends ObjectPaths<StoreMemory[ExchangeName]>>(

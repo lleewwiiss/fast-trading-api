@@ -232,6 +232,12 @@ export type BybitWorkerMessage = MessageEvent<
       accountId: string;
       requestId: string;
     }
+  | {
+      type: "cancelOrders";
+      orderIds: string[];
+      accountId: string;
+      requestId: string;
+    }
 >;
 
 export type BybitPlaceOrderBatchResponse = {

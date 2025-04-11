@@ -6,7 +6,7 @@ import type {
 } from "./bybit.types";
 
 import { chunk } from "~/utils/chunk.utils";
-import type { Account } from "~/types/lib.types";
+import type { Account, Order } from "~/types/lib.types";
 import { genId } from "~/utils/gen-id.utils";
 
 export class BybitWsTrading {
@@ -123,6 +123,40 @@ export class BybitWsTrading {
             {
               category: "linear",
               request: batch,
+            },
+          ],
+        });
+      }
+    });
+  };
+
+  public cancelOrders = (orders: Order[]) => {
+    return new Promise((resolve) => {
+      const batches = chunk(orders, 10);
+      const responses: any[] = [];
+
+      for (const batch of batches) {
+        const reqId = genId();
+
+        this.pendingRequests.set(reqId, (data: any) => {
+          responses.push(data);
+
+          if (responses.length === batches.length) {
+            resolve(responses);
+          }
+        });
+
+        this.send({
+          op: "order.cancel-batch",
+          reqId,
+          header: {
+            "X-BAPI-TIMESTAMP": Date.now().toString(),
+            "X-BAPI-RECV-WINDOW": "5000",
+          },
+          args: [
+            {
+              category: "linear",
+              request: batch.map((o) => ({ symbol: o.symbol, orderId: o.id })),
             },
           ],
         });
