@@ -1,21 +1,19 @@
-import type {
-  FastTradingApiOptions,
-  FetchOHLCVParams,
-  Store,
+import {
+  type FastTradingApiOptions,
+  type FetchOHLCVParams,
+  type Store,
+  ExchangeName,
+  type Account,
+  type Candle,
+  type PlaceOrderOpts,
+  type Timeframe,
 } from "./types/lib.types";
 import { BybitExchange } from "./exchanges/bybit/bybit.exchange";
 import { MemoryStore } from "./store";
-import {
-  ExchangeName,
-  type ExchangeAccount,
-  type ExchangeCandle,
-  type ExchangePlaceOrderOpts,
-  type ExchangeTimeframe,
-} from "./types/exchange.types";
 
 export class FastTradingApi {
   private store: Store;
-  private accounts: ExchangeAccount[];
+  private accounts: Account[];
   private exchanges: { [ExchangeName.BYBIT]?: BybitExchange } = {};
 
   get memory() {
@@ -44,7 +42,7 @@ export class FastTradingApi {
   }: {
     exchangeName: ExchangeName;
     params: FetchOHLCVParams;
-  }): Promise<ExchangeCandle[]> {
+  }): Promise<Candle[]> {
     if (!this.exchanges[exchangeName]) {
       throw new Error(`Exchange ${exchangeName} not started`);
     }
@@ -59,7 +57,7 @@ export class FastTradingApi {
   }: {
     exchangeName: ExchangeName;
     symbol: string;
-    timeframe: ExchangeTimeframe;
+    timeframe: Timeframe;
   }) {
     if (!this.exchanges[exchangeName]) {
       throw new Error(`Exchange ${exchangeName} not started`);
@@ -75,7 +73,7 @@ export class FastTradingApi {
   }: {
     exchangeName: ExchangeName;
     symbol: string;
-    timeframe: ExchangeTimeframe;
+    timeframe: Timeframe;
   }) {
     if (!this.exchanges[exchangeName]) {
       throw new Error(`Exchange ${exchangeName} not started`);
@@ -116,7 +114,7 @@ export class FastTradingApi {
     order,
     accountId,
   }: {
-    order: ExchangePlaceOrderOpts;
+    order: PlaceOrderOpts;
     accountId: string;
   }) {
     return this.placeOrders({ orders: [order], accountId });
@@ -126,7 +124,7 @@ export class FastTradingApi {
     orders,
     accountId,
   }: {
-    orders: ExchangePlaceOrderOpts[];
+    orders: PlaceOrderOpts[];
     accountId: string;
   }) {
     const account = this.accounts.find((acc) => acc.id === accountId);

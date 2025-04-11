@@ -5,11 +5,11 @@ import type { BybitWorker } from "./bybit.worker";
 
 import { calcOrderBookTotal, sortOrderBook } from "~/utils/orderbook.utils";
 import {
-  type ExchangeCandle,
-  type ExchangeOrderBook,
-  type ExchangeTicker,
-  type ExchangeTimeframe,
-} from "~/types/exchange.types";
+  type Candle,
+  type OrderBook,
+  type Ticker,
+  type Timeframe,
+} from "~/types/lib.types";
 
 export class BybitWsPublic {
   private parent: BybitWorker;
@@ -84,13 +84,13 @@ export class BybitWsPublic {
 
       if (json.type === "snapshot") {
         const d: BybitTicker = json.data;
-        const t: ExchangeTicker = mapBybitTicker(d);
+        const t: Ticker = mapBybitTicker(d);
         this.parent.updateTicker(t);
       }
 
       if (json.type === "delta") {
         const d: BybitTicker = json.data;
-        const t: Partial<ExchangeTicker> & { symbol: string } = {
+        const t: Partial<Ticker> & { symbol: string } = {
           symbol: d.symbol,
         };
 
@@ -115,7 +115,7 @@ export class BybitWsPublic {
     timeframe,
   }: {
     symbol: string;
-    timeframe: ExchangeTimeframe;
+    timeframe: Timeframe;
   }) {
     const ohlcvTopic = `kline.${INTERVAL[timeframe]}.${symbol}`;
 
@@ -128,9 +128,9 @@ export class BybitWsPublic {
           data: [c],
         } = JSON.parse(event.data);
 
-        const candle: ExchangeCandle & {
+        const candle: Candle & {
           symbol: string;
-          timeframe: ExchangeTimeframe;
+          timeframe: Timeframe;
         } = {
           symbol,
           timeframe,
@@ -177,7 +177,7 @@ export class BybitWsPublic {
     timeframe,
   }: {
     symbol: string;
-    timeframe: ExchangeTimeframe;
+    timeframe: Timeframe;
   }) {
     const ohlcvTopic = `kline.${INTERVAL[timeframe]}.${symbol}`;
     const timeout = this.ohlcvTimeouts.get(ohlcvTopic);
@@ -196,7 +196,7 @@ export class BybitWsPublic {
   }
 
   public listenOrderBook(symbol: string) {
-    const orderBook: ExchangeOrderBook = { bids: [], asks: [] };
+    const orderBook: OrderBook = { bids: [], asks: [] };
     const orderBookTopic = `orderbook.500.${symbol}`;
 
     if (this.orderBookTopics.has(orderBookTopic)) return;

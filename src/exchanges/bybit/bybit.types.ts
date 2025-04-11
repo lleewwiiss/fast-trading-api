@@ -1,9 +1,9 @@
 import type {
-  ExchangeAccount,
-  ExchangeTimeframe,
-  ExchangePlaceOrderOpts,
-} from "~/types/exchange.types";
-import type { FetchOHLCVParams } from "~/types/lib.types";
+  Account,
+  Timeframe,
+  PlaceOrderOpts,
+  FetchOHLCVParams,
+} from "~/types/lib.types";
 
 export type BybitInstrument = {
   symbol: string;
@@ -220,15 +220,15 @@ export type BybitPlaceOrderOpts = {
 export type BybitWorkerMessage = MessageEvent<
   | { type: "start" }
   | { type: "stop" }
-  | { type: "login"; accounts: ExchangeAccount[] }
+  | { type: "login"; accounts: Account[] }
   | { type: "listenOrderBook"; symbol: string }
   | { type: "unlistenOrderBook"; symbol: string }
   | { type: "fetchOHLCV"; requestId: string; params: FetchOHLCVParams }
-  | { type: "listenOHLCV"; symbol: string; timeframe: ExchangeTimeframe }
-  | { type: "unlistenOHLCV"; symbol: string; timeframe: ExchangeTimeframe }
+  | { type: "listenOHLCV"; symbol: string; timeframe: Timeframe }
+  | { type: "unlistenOHLCV"; symbol: string; timeframe: Timeframe }
   | {
       type: "placeOrders";
-      orders: ExchangePlaceOrderOpts[];
+      orders: PlaceOrderOpts[];
       accountId: string;
       requestId: string;
     }

@@ -3,8 +3,8 @@ import {
   OrderStatus,
   OrderTimeInForce,
   OrderType,
-  type ExchangeTimeframe,
-} from "~/types/exchange.types";
+  type Timeframe,
+} from "~/types/lib.types";
 import { inverseObj } from "~/utils/inverse-obj.utils";
 
 export const RECV_WINDOW = 5000;
@@ -26,7 +26,7 @@ export const BYBIT_API = {
   },
 };
 
-export const INTERVAL: Record<ExchangeTimeframe, string> = {
+export const INTERVAL: Record<Timeframe, string> = {
   "1m": "1",
   "3m": "3",
   "5m": "5",

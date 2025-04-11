@@ -1,16 +1,13 @@
 import { add } from "./safe-math.utils";
 
-import {
-  type ExchangeOrderBook,
-  type OrderBookOrder,
-} from "~/types/exchange.types";
+import { type OrderBook, type OrderBookOrder } from "~/types/lib.types";
 
-export const sortOrderBook = (orderBook: ExchangeOrderBook) => {
+export const sortOrderBook = (orderBook: OrderBook) => {
   orderBook.asks.sort((a, b) => a.price - b.price);
   orderBook.bids.sort((a, b) => b.price - a.price);
 };
 
-export const calcOrderBookTotal = (orderBook: ExchangeOrderBook) => {
+export const calcOrderBookTotal = (orderBook: OrderBook) => {
   Object.values(orderBook).forEach((orders: OrderBookOrder[]) => {
     orders.forEach((order, idx) => {
       order.total =

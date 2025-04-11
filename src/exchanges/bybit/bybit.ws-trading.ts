@@ -6,11 +6,11 @@ import type {
 } from "./bybit.types";
 
 import { chunk } from "~/utils/chunk.utils";
-import type { ExchangeAccount } from "~/types/exchange.types";
+import type { Account } from "~/types/lib.types";
 import { genId } from "~/utils/gen-id.utils";
 
 export class BybitWsTrading {
-  private account: ExchangeAccount;
+  private account: Account;
 
   private isStopped = false;
 
@@ -19,7 +19,7 @@ export class BybitWsTrading {
 
   private pendingRequests = new Map<string, (data: any) => void>();
 
-  constructor({ account }: { account: ExchangeAccount }) {
+  constructor({ account }: { account: Account }) {
     this.account = account;
     this.listenWebsocket();
   }

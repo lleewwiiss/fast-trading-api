@@ -22,11 +22,11 @@ import {
   OrderTimeInForce,
   OrderType,
   PositionSide,
-  type ExchangeMarket,
-  type ExchangeOrder,
-  type ExchangePlaceOrderOpts,
-  type ExchangePosition,
-} from "~/types/exchange.types";
+  type Market,
+  type Order,
+  type PlaceOrderOpts,
+  type Position,
+} from "~/types/lib.types";
 import { adjust, subtract } from "~/utils/safe-math.utils";
 import { TICKER_REGEX } from "~/utils/regex.utils";
 import { omitUndefined } from "~/utils/omit-undefined.utils";
@@ -68,7 +68,7 @@ export const mapBybitBalance = (b?: BybitBalance) => {
 
 export const mapBybitPosition = (
   p: BybitPosition | BybitWebsocketPosition,
-): ExchangePosition => {
+): Position => {
   return {
     symbol: p.symbol,
     side: p.side === "Buy" ? PositionSide.Long : PositionSide.Short,
@@ -82,13 +82,13 @@ export const mapBybitPosition = (
   };
 };
 
-export const mapBybitOrder = (o: BybitOrder): ExchangeOrder[] => {
+export const mapBybitOrder = (o: BybitOrder): Order[] => {
   const isStop = o.stopOrderType !== "UNKNOWN" && o.stopOrderType !== "";
 
   const oPrice = isStop ? o.triggerPrice : o.price;
   const oType = isStop ? o.stopOrderType : o.orderType;
 
-  const orders: ExchangeOrder[] = [
+  const orders: Order[] = [
     {
       id: o.orderId,
       status: ORDER_STATUS[o.orderStatus],
@@ -144,8 +144,8 @@ export const formatMarkerOrLimitOrder = ({
   market,
   isHedged,
 }: {
-  order: ExchangePlaceOrderOpts;
-  market: ExchangeMarket;
+  order: PlaceOrderOpts;
+  market: Market;
   isHedged?: boolean;
 }): BybitPlaceOrderOpts[] => {
   let positionIdx: 0 | 1 | 2 = 0;

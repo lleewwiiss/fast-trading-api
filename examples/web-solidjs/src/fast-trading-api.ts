@@ -1,5 +1,5 @@
 import { FastTradingApi } from "fast-trading-api";
-import { ExchangeName } from "fast-trading-api/dist/types/exchange.types";
+import { ExchangeName } from "fast-trading-api/dist/types/lib.types";
 import type { Store, StoreMemory } from "fast-trading-api/dist/types/lib.types";
 import type {
   ObjectPaths,

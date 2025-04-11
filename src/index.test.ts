@@ -1,6 +1,6 @@
 import { describe, test, expect, mock, beforeEach, afterEach } from "bun:test";
 
-import { ExchangeName } from "./types/exchange.types";
+import { ExchangeName } from "./types/lib.types";
 
 import { FastTradingApi } from "./index";
 

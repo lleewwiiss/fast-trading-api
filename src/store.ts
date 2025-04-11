@@ -1,4 +1,4 @@
-import { ExchangeName } from "./types/exchange.types";
+import { ExchangeName } from "./types/lib.types";
 import type { Store, StoreMemory } from "./types/lib.types";
 import type { ObjectPaths, ObjectChangeCommand } from "./types/misc.types";
 

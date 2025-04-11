@@ -18,14 +18,15 @@ import {
   ExchangeName,
   OrderType,
   PositionSide,
-  type ExchangeAccount,
-  type ExchangeBalance,
-  type ExchangePlaceOrderOpts,
-  type ExchangePosition,
-  type ExchangeTicker,
-  type ExchangeTimeframe,
-} from "~/types/exchange.types";
-import type { StoreMemory, FetchOHLCVParams } from "~/types/lib.types";
+  type Account,
+  type Balance,
+  type PlaceOrderOpts,
+  type Position,
+  type Ticker,
+  type Timeframe,
+  type StoreMemory,
+  type FetchOHLCVParams,
+} from "~/types/lib.types";
 import type {
   Entries,
   ObjectChangeCommand,
@@ -35,15 +36,15 @@ import { partition } from "~/utils/partition.utils";
 import { subtract } from "~/utils/safe-math.utils";
 
 export class BybitWorker {
-  private accounts: ExchangeAccount[] = [];
+  private accounts: Account[] = [];
   private memory: StoreMemory[ExchangeName] = {
     public: { tickers: {}, markets: {}, orderBooks: {}, ohlcv: {} },
     private: {},
   };
 
   private publicWs: BybitWsPublic | null = null;
-  private privateWs: Record<ExchangeAccount["id"], BybitWsPrivate> = {};
-  private tradingWs: Record<ExchangeAccount["id"], BybitWsTrading> = {};
+  private privateWs: Record<Account["id"], BybitWsPrivate> = {};
+  private tradingWs: Record<Account["id"], BybitWsTrading> = {};
 
   public onMessage = ({ data }: BybitWorkerMessage) => {
     if (data.type === "start") this.start();
@@ -59,7 +60,7 @@ export class BybitWorker {
     throw new Error(`Unsupported command to bybit worker [${data.type}]`);
   };
 
-  private login(accounts: ExchangeAccount[]) {
+  private login(accounts: Account[]) {
     this.accounts = accounts;
     this.emitChanges(
       this.accounts.map((acc) => ({
@@ -179,8 +180,8 @@ export class BybitWorker {
     accountId,
     balance,
   }: {
-    accountId: ExchangeAccount["id"];
-    balance: ExchangeBalance;
+    accountId: Account["id"];
+    balance: Balance;
   }) {
     this.emitChanges([
       {
@@ -195,8 +196,8 @@ export class BybitWorker {
     accountId,
     positions,
   }: {
-    accountId: ExchangeAccount["id"];
-    positions: ExchangePosition[];
+    accountId: Account["id"];
+    positions: Position[];
   }) {
     const [updatePositions, addPositions] = partition(positions, (position) =>
       this.memory.private[accountId].positions.some(
@@ -226,7 +227,7 @@ export class BybitWorker {
     this.emitChanges([...updatePositionsChanges, ...addPositionsChanges]);
   }
 
-  public updateTicker(ticker: ExchangeTicker) {
+  public updateTicker(ticker: Ticker) {
     this.emitChanges([
       {
         type: "update",
@@ -236,16 +237,14 @@ export class BybitWorker {
     ]);
   }
 
-  public updateTickerDelta(
-    ticker: Partial<ExchangeTicker> & { symbol: string },
-  ) {
-    const tickerChanges = (
-      Object.entries(ticker) as Entries<ExchangeTicker>
-    ).map(([key, value]) => ({
-      type: "update" as const,
-      path: `public.tickers.${ticker.symbol}.${key}` as const,
-      value,
-    }));
+  public updateTickerDelta(ticker: Partial<Ticker> & { symbol: string }) {
+    const tickerChanges = (Object.entries(ticker) as Entries<Ticker>).map(
+      ([key, value]) => ({
+        type: "update" as const,
+        path: `public.tickers.${ticker.symbol}.${key}` as const,
+        value,
+      }),
+    );
 
     if (!ticker.last) {
       this.emitChanges(tickerChanges);
@@ -283,7 +282,7 @@ export class BybitWorker {
     accountId,
     bybitOrders,
   }: {
-    accountId: ExchangeAccount["id"];
+    accountId: Account["id"];
     bybitOrders: BybitOrder[];
   }) {
     for (const bybitOrder of bybitOrders) {
@@ -415,7 +414,7 @@ export class BybitWorker {
     timeframe,
   }: {
     symbol: string;
-    timeframe: ExchangeTimeframe;
+    timeframe: Timeframe;
   }) {
     this.publicWs?.listenOHLCV({ symbol, timeframe });
   }
@@ -425,7 +424,7 @@ export class BybitWorker {
     timeframe,
   }: {
     symbol: string;
-    timeframe: ExchangeTimeframe;
+    timeframe: Timeframe;
   }) {
     this.publicWs?.unlistenOHLCV({ symbol, timeframe });
   }
@@ -435,7 +434,7 @@ export class BybitWorker {
     accountId,
     requestId,
   }: {
-    orders: ExchangePlaceOrderOpts[];
+    orders: PlaceOrderOpts[];
     accountId: string;
     requestId: string;
   }) {

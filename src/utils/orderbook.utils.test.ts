@@ -1,13 +1,13 @@
 import { describe, test, expect } from "bun:test";
 
-import { type ExchangeOrderBook } from "../types/exchange.types";
+import { type OrderBook } from "../types/lib.types";
 
 import { sortOrderBook, calcOrderBookTotal } from "./orderbook.utils";
 
 describe("orderbook", () => {
   test("sortOrderBook should sort asks ascending and bids descending", () => {
     // Arrange
-    const orderBook: ExchangeOrderBook = {
+    const orderBook: OrderBook = {
       asks: [
         { price: 200, amount: 5, total: 0 },
         { price: 100, amount: 10, total: 0 },
@@ -35,7 +35,7 @@ describe("orderbook", () => {
 
   test("calcOrderBookTotal should calculate running totals", () => {
     // Arrange
-    const orderBook: ExchangeOrderBook = {
+    const orderBook: OrderBook = {
       asks: [
         { price: 100, amount: 10, total: 0 },
         { price: 150, amount: 5, total: 0 },
@@ -63,7 +63,7 @@ describe("orderbook", () => {
 
   test("calcOrderBookTotal should handle empty orderbook", () => {
     // Arrange
-    const orderBook: ExchangeOrderBook = {
+    const orderBook: OrderBook = {
       asks: [],
       bids: [],
     };
@@ -74,7 +74,7 @@ describe("orderbook", () => {
 
   test("sortOrderBook and calcOrderBookTotal work together", () => {
     // Arrange
-    const orderBook: ExchangeOrderBook = {
+    const orderBook: OrderBook = {
       asks: [
         { price: 200, amount: 3, total: 0 },
         { price: 100, amount: 10, total: 0 },

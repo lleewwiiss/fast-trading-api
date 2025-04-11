@@ -1,8 +1,8 @@
 import { describe, test, expect } from "bun:test";
 
 import { MemoryStore } from "./store";
-import { ExchangeName, OrderSide, PositionSide } from "./types/exchange.types";
-import type { ExchangeTicker, ExchangePosition } from "./types/exchange.types";
+import { ExchangeName, OrderSide, PositionSide } from "./types/lib.types";
+import type { Ticker, Position } from "./types/lib.types";
 
 describe("MemoryStore", () => {
   test("should initialize with default state", () => {
@@ -23,7 +23,7 @@ describe("MemoryStore", () => {
   describe("applyChanges", () => {
     test("should apply a simple update change", () => {
       const store = new MemoryStore();
-      const ticker: ExchangeTicker = {
+      const ticker: Ticker = {
         id: "BTCUSDT",
         symbol: "BTCUSDT",
         cleanSymbol: "BTC/USDT",
@@ -54,7 +54,7 @@ describe("MemoryStore", () => {
 
     test("should apply multiple update changes", () => {
       const store = new MemoryStore();
-      const ticker1: ExchangeTicker = {
+      const ticker1: Ticker = {
         id: "BTCUSDT",
         symbol: "BTCUSDT",
         cleanSymbol: "BTC/USDT",
@@ -70,7 +70,7 @@ describe("MemoryStore", () => {
         quoteVolume: 250000000,
       };
 
-      const ticker2: ExchangeTicker = {
+      const ticker2: Ticker = {
         id: "ETHUSDT",
         symbol: "ETHUSDT",
         cleanSymbol: "ETH/USDT",
@@ -142,7 +142,7 @@ describe("MemoryStore", () => {
 
     test("should handle updating arrays", () => {
       const store = new MemoryStore();
-      const position: ExchangePosition = {
+      const position: Position = {
         symbol: "BTCUSDT",
         side: PositionSide.Long,
         entryPrice: 50000,
@@ -167,7 +167,7 @@ describe("MemoryStore", () => {
         },
       ]);
 
-      const newPosition: ExchangePosition = {
+      const newPosition: Position = {
         symbol: "ETHUSDT",
         side: PositionSide.Short,
         entryPrice: 3000,
@@ -197,7 +197,7 @@ describe("MemoryStore", () => {
 
     test("should handle updating a specific array element", () => {
       const store = new MemoryStore();
-      const position1: ExchangePosition = {
+      const position1: Position = {
         symbol: "BTCUSDT",
         side: PositionSide.Long,
         entryPrice: 50000,
@@ -208,7 +208,7 @@ describe("MemoryStore", () => {
         liquidationPrice: 45000,
       };
 
-      const position2: ExchangePosition = {
+      const position2: Position = {
         symbol: "ETHUSDT",
         side: PositionSide.Short,
         entryPrice: 3000,
@@ -252,7 +252,7 @@ describe("MemoryStore", () => {
 
     test("should handle removing an array element", () => {
       const store = new MemoryStore();
-      const position1: ExchangePosition = {
+      const position1: Position = {
         symbol: "BTCUSDT",
         side: PositionSide.Long,
         entryPrice: 50000,
@@ -263,7 +263,7 @@ describe("MemoryStore", () => {
         liquidationPrice: 45000,
       };
 
-      const position2: ExchangePosition = {
+      const position2: Position = {
         symbol: "ETHUSDT",
         side: PositionSide.Short,
         entryPrice: 3000,
@@ -384,7 +384,7 @@ describe("MemoryStore", () => {
 
     test("should handle complex mixed changes", () => {
       const store = new MemoryStore();
-      const position: ExchangePosition = {
+      const position: Position = {
         symbol: "BTCUSDT",
         side: PositionSide.Long,
         entryPrice: 50000,
@@ -395,7 +395,7 @@ describe("MemoryStore", () => {
         liquidationPrice: 45000,
       };
 
-      const ticker: ExchangeTicker = {
+      const ticker: Ticker = {
         id: "BTCUSDT",
         symbol: "BTCUSDT",
         cleanSymbol: "BTC/USDT",
@@ -430,7 +430,7 @@ describe("MemoryStore", () => {
         },
       ]);
 
-      const newTicker: ExchangeTicker = {
+      const newTicker: Ticker = {
         id: "ETHUSDT",
         symbol: "ETHUSDT",
         cleanSymbol: "ETH/USDT",

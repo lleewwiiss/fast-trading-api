@@ -20,15 +20,15 @@ import { retry } from "~/utils/retry.utils";
 import {
   OrderSide,
   OrderType,
-  type ExchangeAccount,
-  type ExchangeCandle,
-  type ExchangeMarket,
-  type ExchangeOrder,
-  type ExchangePlaceOrderOpts,
-  type ExchangePosition,
-  type ExchangeTicker,
-} from "~/types/exchange.types";
-import type { FetchOHLCVParams } from "~/types/lib.types";
+  type Account,
+  type Candle,
+  type Market,
+  type Order,
+  type PlaceOrderOpts,
+  type Position,
+  type Ticker,
+  type FetchOHLCVParams,
+} from "~/types/lib.types";
 import { omitUndefined } from "~/utils/omit-undefined.utils";
 import { orderBy } from "~/utils/order-by.utils";
 import { adjust } from "~/utils/safe-math.utils";
@@ -44,7 +44,7 @@ export const fetchBybitMarkets = async () => {
     result: { list },
   }: { result: { list: BybitInstrument[] } } = await response.json();
 
-  const markets: Record<string, ExchangeMarket> = list.reduce(
+  const markets: Record<string, Market> = list.reduce(
     (acc, market) => {
       if (market.quoteCoin !== "USDT") return acc;
       if (market.contractType !== "LinearPerpetual") return acc;
@@ -74,15 +74,13 @@ export const fetchBybitMarkets = async () => {
 
       return acc;
     },
-    {} as { [key: string]: ExchangeMarket },
+    {} as { [key: string]: Market },
   );
 
   return markets;
 };
 
-export const fetchBybitTickers = async (
-  markets: Record<string, ExchangeMarket>,
-) => {
+export const fetchBybitTickers = async (markets: Record<string, Market>) => {
   const response = await retry(() =>
     fetch(
       `${BYBIT_API.BASE_URL}${BYBIT_API.ENDPOINTS.TICKERS}?category=linear&limit=1000`,
@@ -93,7 +91,7 @@ export const fetchBybitTickers = async (
     result: { list },
   }: { result: { list: BybitTicker[] } } = await response.json();
 
-  const tickers: Record<string, ExchangeTicker> = list.reduce(
+  const tickers: Record<string, Ticker> = list.reduce(
     (acc, t) => {
       if (markets[t.symbol] === undefined) return acc;
 
@@ -102,7 +100,7 @@ export const fetchBybitTickers = async (
 
       return acc;
     },
-    {} as Record<string, ExchangeTicker>,
+    {} as Record<string, Ticker>,
   );
 
   return tickers;
@@ -142,7 +140,7 @@ export const fetchBybitPositions = async ({
     retries: 3,
   });
 
-  const positions: ExchangePosition[] = json.result.list.map(mapBybitPosition);
+  const positions: Position[] = json.result.list.map(mapBybitPosition);
   return positions;
 };
 
@@ -190,7 +188,7 @@ export const fetchBybitOrders = async ({
   };
 
   const bybitOrders: BybitOrder[] = await recursiveFetch();
-  const orders: ExchangeOrder[] = bybitOrders.flatMap(mapBybitOrder);
+  const orders: Order[] = bybitOrders.flatMap(mapBybitOrder);
 
   return orders;
 };
@@ -218,7 +216,7 @@ export const fetchBybitOHLCV = async (opts: FetchOHLCVParams) => {
     result: { list },
   }: { result: { list: string[][] } } = await response.json();
 
-  const candles: ExchangeCandle[] = list.map(
+  const candles: Candle[] = list.map(
     ([time, open, high, low, close, , volume]) => ({
       timestamp: parseFloat(time) / 1000,
       open: parseFloat(open),
@@ -239,10 +237,10 @@ export const createBybitTradingStop = async ({
   account,
   isHedged,
 }: {
-  order: ExchangePlaceOrderOpts;
-  market: ExchangeMarket;
-  ticker: ExchangeTicker;
-  account: ExchangeAccount;
+  order: PlaceOrderOpts;
+  market: Market;
+  ticker: Ticker;
+  account: Account;
   isHedged?: boolean;
 }) => {
   const price = adjust(order.price ?? 0, market.precision.price);

@@ -1,27 +1,23 @@
 import type {
-  ExchangeAccount,
-  ExchangeCandle,
-  ExchangePlaceOrderOpts,
-  ExchangeTimeframe,
-} from "~/types/exchange.types";
-import type { FetchOHLCVParams, Store, StoreMemory } from "~/types/lib.types";
+  Account,
+  Candle,
+  PlaceOrderOpts,
+  Timeframe,
+  FetchOHLCVParams,
+  Store,
+  StoreMemory,
+} from "~/types/lib.types";
 import type { ObjectChangeCommand, ObjectPaths } from "~/types/misc.types";
 import { genId } from "~/utils/gen-id.utils";
 
 export class BybitExchange {
   private store: Store;
-  private accounts: ExchangeAccount[];
+  private accounts: Account[];
   private worker: Worker;
 
   private pendingRequests = new Map<string, (data: any) => void>();
 
-  constructor({
-    store,
-    accounts,
-  }: {
-    store: Store;
-    accounts: ExchangeAccount[];
-  }) {
+  constructor({ store, accounts }: { store: Store; accounts: Account[] }) {
     this.store = store;
     this.accounts = accounts;
 
@@ -32,7 +28,7 @@ export class BybitExchange {
     this.worker.addEventListener("message", this.onWorkerMessage);
   }
 
-  public fetchOHLCV(params: FetchOHLCVParams): Promise<ExchangeCandle[]> {
+  public fetchOHLCV(params: FetchOHLCVParams): Promise<Candle[]> {
     const requestId = genId();
 
     return new Promise((resolve) => {
@@ -45,7 +41,7 @@ export class BybitExchange {
     orders,
     accountId,
   }: {
-    orders: ExchangePlaceOrderOpts[];
+    orders: PlaceOrderOpts[];
     accountId: string;
   }): Promise<string[]> {
     const requestId = genId();
@@ -66,7 +62,7 @@ export class BybitExchange {
     timeframe,
   }: {
     symbol: string;
-    timeframe: ExchangeTimeframe;
+    timeframe: Timeframe;
   }) {
     this.worker.postMessage({ type: "listenOHLCV", symbol, timeframe });
   }
@@ -76,7 +72,7 @@ export class BybitExchange {
     timeframe,
   }: {
     symbol: string;
-    timeframe: ExchangeTimeframe;
+    timeframe: Timeframe;
   }) {
     this.worker.postMessage({ type: "unlistenOHLCV", symbol, timeframe });
   }

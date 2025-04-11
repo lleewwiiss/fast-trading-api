@@ -8,7 +8,7 @@ import type {
 import { mapBybitBalance, mapBybitPosition } from "./bybit.utils";
 import type { BybitWorker } from "./bybit.worker";
 
-import type { ExchangeAccount } from "~/types/exchange.types";
+import type { Account } from "~/types/lib.types";
 
 export class BybitWsPrivate {
   private parent: BybitWorker;
@@ -17,15 +17,9 @@ export class BybitWsPrivate {
   private ws: WebSocket | null = null;
   private interval: NodeJS.Timeout | null = null;
 
-  private account: ExchangeAccount;
+  private account: Account;
 
-  constructor({
-    parent,
-    account,
-  }: {
-    parent: BybitWorker;
-    account: ExchangeAccount;
-  }) {
+  constructor({ parent, account }: { parent: BybitWorker; account: Account }) {
     this.parent = parent;
     this.account = account;
 
