@@ -44,6 +44,8 @@ export class BybitWsPublic {
   };
 
   private onOpen = () => {
+    this.parent.log(`Bybit Public Websocket Opened`);
+
     this.ping();
 
     this.send({

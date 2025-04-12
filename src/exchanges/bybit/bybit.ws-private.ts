@@ -35,6 +35,10 @@ export class BybitWsPrivate {
   };
 
   private onOpen = async () => {
+    this.parent.log(
+      `Bybit Private Websocket Opened for account [${this.account.id}]`,
+    );
+
     await this.auth();
     this.ping();
     this.send({ op: "subscribe", args: ["position.linear"] });
