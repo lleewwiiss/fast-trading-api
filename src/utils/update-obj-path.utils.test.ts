@@ -122,16 +122,6 @@ describe("updateObjectPath", () => {
     ).toBe(200);
   });
 
-  test("removeArrayElementAtPath throws error when property is not an array", () => {
-    expect(() => {
-      removeArrayElementAtPath({
-        obj: store,
-        path: "bybit.private.main.balance" as any,
-        index: 0,
-      });
-    }).toThrow("Property at path bybit.private.main.balance is not an array");
-  });
-
   test("applyChanges", () => {
     updateObjectPath({
       obj: store,

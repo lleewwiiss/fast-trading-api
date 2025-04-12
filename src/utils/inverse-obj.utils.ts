@@ -5,8 +5,8 @@ export function inverseObj<K extends PropertyKey, V extends PropertyKey>(
     (acc, [key, value]) => {
       const typedKey = key as unknown as K;
       const typedValue = value as unknown as V;
-
-      return { ...acc, [typedValue]: typedKey };
+      acc[typedValue] = typedKey;
+      return acc;
     },
     {} as Record<V, K>,
   );
