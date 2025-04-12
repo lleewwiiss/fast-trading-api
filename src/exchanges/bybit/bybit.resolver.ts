@@ -1,5 +1,3 @@
-import { stringify } from "qs";
-
 import { bybit } from "./bybit.api";
 import { BYBIT_API, INTERVAL } from "./bybit.config";
 import type {
@@ -32,6 +30,7 @@ import {
 import { omitUndefined } from "~/utils/omit-undefined.utils";
 import { orderBy } from "~/utils/order-by.utils";
 import { adjust } from "~/utils/safe-math.utils";
+import { stringify } from "~/utils/query-string.utils";
 
 export const fetchBybitMarkets = async () => {
   const response = await retry(() =>

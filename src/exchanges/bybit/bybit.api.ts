@@ -1,9 +1,9 @@
 import { createHMAC, createSHA256 } from "hash-wasm";
-import { stringify } from "qs";
 
 import { BROKER_ID, RECV_WINDOW } from "./bybit.config";
 
 import { retry } from "~/utils/retry.utils";
+import { stringify } from "~/utils/query-string.utils";
 
 type Request = {
   key: string;
