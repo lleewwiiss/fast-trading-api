@@ -1,21 +1,46 @@
 # fast-trading-api
 
-To install dependencies:
+A high-performance JavaScript/TypeScript library for interacting with cryptocurrency trading APIs.
+
+## Features
+
+- 🚀 Fast and efficient API connections to popular exchanges
+- 🔄 Real-time market data with WebSocket support
+- 🧩 Type-safe API with TypeScript support
+- 📊 Access to market tickers, orderbooks, and trading functionality
+- ⚡ Platform-agnostic - works on server & browser
+
+## Installation
 
 ```bash
-bun install
+# Using npm
+npm install fast-trading-api
+
+# Using yarn
+yarn add fast-trading-api
+
+# Using pnpm
+pnpm add fast-trading-api
+
+# Using bun
+bun add fast-trading-api
 ```
 
-To run:
+## Quick Start
 
-```bash
-bun run index.ts
+```ts
+import { FastTradingApi } from 'fast-trading-api';
+import { ExchangeName } from 'fast-trading-api/dist/types/lib.types';
+
+// Initialize the API with your credentials
+const api = new FastTradingApi({
+  accounts: [
+    {
+      id: 'main',
+      exchange: ExchangeName.BYBIT,
+      apiKey: 'XXX',
+      apiSecret: 'XXX'
+    }
+  ]
+});
 ```
-
-## Git Hooks
-
-This project uses git hooks with [Husky](https://typicode.github.io/husky/) to ensure code quality. When you run `bun install`, the hooks will be automatically installed.
-
-The pre-commit hook will run lint, test, and build before each commit to ensure code quality.
-
-This project was created using `bun init` in bun v1.2.6. [Bun](https://bun.sh) is a fast all-in-one JavaScript runtime.
