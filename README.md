@@ -1,6 +1,8 @@
 # fast-trading-api
 
-A high-performance JavaScript/TypeScript library for interacting with cryptocurrency trading APIs.
+![image](./banner.png)
+
+A high-performance multi-threaded JavaScript/TypeScript library for interacting with cryptocurrencies exchanges trading APIs.
 
 ## Features
 
@@ -13,17 +15,7 @@ A high-performance JavaScript/TypeScript library for interacting with cryptocurr
 ## Installation
 
 ```bash
-# Using npm
-npm install fast-trading-api
-
-# Using yarn
-yarn add fast-trading-api
-
-# Using pnpm
-pnpm add fast-trading-api
-
-# Using bun
-bun add fast-trading-api
+npm install --save fast-trading-api
 ```
 
 ## Quick Start
@@ -51,7 +43,7 @@ The `fast-trading-api` library is designed with performance and flexibility in m
 
 ### Multi-threaded Design
 
-- **Main Thread Protection**: The architecture isolates complex operations from the main thread, ensuring UI remains responsive.
+- **Main Thread Protection**: The architecture isolates complex operations from the main thread, ensuring the UI you are building remains responsive.
 - **Web Worker Powered**: Each exchange instance launches a dedicated web worker, moving CPU-intensive tasks off the main thread.
 - **Parallel Processing**: Data transformations, calculations, and network operations run in separate threads.
 
