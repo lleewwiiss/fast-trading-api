@@ -221,8 +221,8 @@ export type BybitWorkerMessage = MessageEvent<
   | { type: "start" }
   | { type: "stop" }
   | { type: "login"; accounts: Account[] }
-  | { type: "listenOrderBook"; symbol: string }
-  | { type: "unlistenOrderBook"; symbol: string }
+  | { type: "listenOB"; symbol: string }
+  | { type: "unlistenOB"; symbol: string }
   | { type: "fetchOHLCV"; requestId: string; params: FetchOHLCVParams }
   | { type: "listenOHLCV"; symbol: string; timeframe: Timeframe }
   | { type: "unlistenOHLCV"; symbol: string; timeframe: Timeframe }

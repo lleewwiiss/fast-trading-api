@@ -98,11 +98,11 @@ export class BybitExchange {
   }
 
   public listenOrderBook(symbol: string) {
-    this.worker.postMessage({ type: "listenOrderBook", symbol });
+    this.worker.postMessage({ type: "listenOB", symbol });
   }
 
   public unlistenOrderBook(symbol: string) {
-    this.worker.postMessage({ type: "unlistenOrderBook", symbol });
+    this.worker.postMessage({ type: "unlistenOB", symbol });
   }
 
   private onWorkerMessage = <P extends ObjectPaths<StoreMemory>>(

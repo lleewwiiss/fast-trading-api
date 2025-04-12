@@ -48,18 +48,19 @@ export class BybitWorker {
   private tradingWs: Record<Account["id"], BybitWsTrading> = {};
 
   public onMessage = ({ data }: BybitWorkerMessage) => {
-    if (data.type === "start") this.start();
-    if (data.type === "login") this.login(data.accounts);
-    if (data.type === "stop") this.stop();
-    if (data.type === "listenOrderBook") this.listenOrderBook(data.symbol);
-    if (data.type === "unlistenOrderBook") this.unlistenOrderBook(data.symbol);
-    if (data.type === "fetchOHLCV") this.fetchOHLCV(data);
-    if (data.type === "listenOHLCV") this.listenOHLCV(data);
-    if (data.type === "unlistenOHLCV") this.unlistenOHLCV(data);
-    if (data.type === "placeOrders") this.placeOrders(data);
-    if (data.type === "cancelOrders") this.cancelOrders(data);
+    if (data.type === "start") return this.start();
+    if (data.type === "login") return this.login(data.accounts);
+    if (data.type === "stop") return this.stop();
+    if (data.type === "fetchOHLCV") return this.fetchOHLCV(data);
+    if (data.type === "listenOHLCV") return this.listenOHLCV(data);
+    if (data.type === "unlistenOHLCV") return this.unlistenOHLCV(data);
+    if (data.type === "placeOrders") return this.placeOrders(data);
+    if (data.type === "cancelOrders") return this.cancelOrders(data);
+    if (data.type === "listenOB") return this.listenOrderBook(data.symbol);
+    if (data.type === "unlistenOB") return this.unlistenOrderBook(data.symbol);
+
     // TODO: move this into an error log
-    throw new Error(`Unsupported command to bybit worker [${data.type}]`);
+    throw new Error(`Unsupported command to bybit worker`);
   };
 
   private login(accounts: Account[]) {
