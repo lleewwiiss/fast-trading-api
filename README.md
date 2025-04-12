@@ -35,6 +35,11 @@ const api = new FastTradingApi({
     }
   ]
 });
+
+api.on("log", (message) => console.log(message));
+api.on("error", (error) => console.warn(error));
+
+await api.start();
 ```
 
 ## Architecture

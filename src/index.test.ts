@@ -22,8 +22,11 @@ describe("FastTradingApi", () => {
   let fetchOHLCVMock;
   let listenOrderBookMock;
   let unlistenOrderBookMock;
+  let startMock;
 
   beforeEach(async () => {
+    startMock = mock(() => Promise.resolve());
+
     fetchOHLCVMock = mock(() =>
       Promise.resolve([
         {
@@ -41,6 +44,7 @@ describe("FastTradingApi", () => {
     unlistenOrderBookMock = mock(() => {});
 
     BybitExchangeMock = mock(() => ({
+      start: startMock,
       fetchOHLCV: fetchOHLCVMock,
       listenOrderBook: listenOrderBookMock,
       unlistenOrderBook: unlistenOrderBookMock,
@@ -56,7 +60,7 @@ describe("FastTradingApi", () => {
   });
 
   describe("constructor", () => {
-    test("should initialize with correct accounts", () => {
+    test("should initialize with correct accounts", async () => {
       const api = new FastTradingApi({
         accounts: [
           {
@@ -67,6 +71,8 @@ describe("FastTradingApi", () => {
           },
         ],
       });
+
+      await api.start();
 
       expect(BybitExchangeMock).toHaveBeenCalledTimes(1);
       expect(api.store).toBeDefined();
@@ -95,6 +101,8 @@ describe("FastTradingApi", () => {
         ],
       });
 
+      await api.start();
+
       const result = await api.fetchOHLCV({
         exchangeName: ExchangeName.BYBIT,
         params: { symbol: "BTCUSDT", timeframe: "1h", limit: 100 },
@@ -110,6 +118,8 @@ describe("FastTradingApi", () => {
         accounts: [],
       });
 
+      await api.start();
+
       await expect(() =>
         api.fetchOHLCV({
           exchangeName: ExchangeName.BYBIT,
@@ -120,7 +130,7 @@ describe("FastTradingApi", () => {
   });
 
   describe("listenOrderBook", () => {
-    test("should call listenOrderBook on exchange", () => {
+    test("should call listenOrderBook on exchange", async () => {
       const api = new FastTradingApi({
         accounts: [
           {
@@ -132,6 +142,8 @@ describe("FastTradingApi", () => {
         ],
       });
 
+      await api.start();
+
       api.listenOrderBook({
         exchangeName: ExchangeName.BYBIT,
         symbol: "BTCUSDT",
@@ -140,10 +152,12 @@ describe("FastTradingApi", () => {
       expect(listenOrderBookMock).toHaveBeenCalledWith("BTCUSDT");
     });
 
-    test("should throw error if exchange not initialized", () => {
+    test("should throw error if exchange not initialized", async () => {
       const api = new FastTradingApi({
         accounts: [],
       });
+
+      await api.start();
 
       expect(() =>
         api.listenOrderBook({
@@ -155,7 +169,7 @@ describe("FastTradingApi", () => {
   });
 
   describe("unlistenOrderBook", () => {
-    test("should call unlistenOrderBook on exchange", () => {
+    test("should call unlistenOrderBook on exchange", async () => {
       const api = new FastTradingApi({
         accounts: [
           {
@@ -167,6 +181,8 @@ describe("FastTradingApi", () => {
         ],
       });
 
+      await api.start();
+
       api.unlistenOrderBook({
         exchangeName: ExchangeName.BYBIT,
         symbol: "BTCUSDT",
@@ -175,10 +191,12 @@ describe("FastTradingApi", () => {
       expect(unlistenOrderBookMock).toHaveBeenCalledWith("BTCUSDT");
     });
 
-    test("should throw error if exchange not initialized", () => {
+    test("should throw error if exchange not initialized", async () => {
       const api = new FastTradingApi({
         accounts: [],
       });
+
+      await api.start();
 
       expect(() =>
         api.unlistenOrderBook({

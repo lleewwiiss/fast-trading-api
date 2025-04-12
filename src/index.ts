@@ -22,7 +22,9 @@ export class FastTradingApi {
   constructor({ accounts, store = new MemoryStore() }: FastTradingApiOptions) {
     this.accounts = accounts;
     this.store = store;
+  }
 
+  public async start() {
     const bybitAccounts = this.accounts.filter(
       (a) => a.exchange === ExchangeName.BYBIT,
     );
