@@ -4,6 +4,7 @@ import type {
   BybitPlaceOrderBatchResponse,
   BybitPlaceOrderOpts,
 } from "./bybit.types";
+import type { BybitWorker } from "./bybit.worker";
 
 import { chunk } from "~/utils/chunk.utils";
 import type { Account, Market, Order } from "~/types/lib.types";
@@ -12,6 +13,7 @@ import { adjust } from "~/utils/safe-math.utils";
 
 export class BybitWsTrading {
   private account: Account;
+  private parent: BybitWorker;
 
   private isStopped = false;
 
@@ -20,8 +22,9 @@ export class BybitWsTrading {
 
   private pendingRequests = new Map<string, (data: any) => void>();
 
-  constructor({ account }: { account: Account }) {
+  constructor({ account, parent }: { account: Account; parent: BybitWorker }) {
     this.account = account;
+    this.parent = parent;
     this.listenWebsocket();
   }
 
@@ -34,6 +37,10 @@ export class BybitWsTrading {
   };
 
   private onOpen = async () => {
+    this.parent.log(
+      `Bybit Trading Websocket Opened for account [${this.account.id}]`,
+    );
+
     await this.auth();
     this.ping();
   };
@@ -65,9 +72,18 @@ export class BybitWsTrading {
     }
   };
 
-  private onError = () => {};
+  private onError = (error: Event) => {
+    this.parent.error(
+      `Bybit Trading Websocket Error for account [${this.account.id}]`,
+    );
+    this.parent.error(error);
+  };
 
   private onClose = () => {
+    this.parent.log(
+      `Bybit Trading Websocket Closed for account [${this.account.id}]`,
+    );
+
     if (this.isStopped) return;
 
     if (this.interval) {

@@ -79,7 +79,7 @@ export const fetchBybitMarkets = async () => {
   return markets;
 };
 
-export const fetchBybitTickers = async (markets: Record<string, Market>) => {
+export const fetchBybitTickers = async (markets?: Record<string, Market>) => {
   const response = await retry(() =>
     fetch(
       `${BYBIT_API.BASE_URL}${BYBIT_API.ENDPOINTS.TICKERS}?category=linear&limit=1000`,
@@ -92,7 +92,7 @@ export const fetchBybitTickers = async (markets: Record<string, Market>) => {
 
   const tickers: Record<string, Ticker> = list.reduce(
     (acc, t) => {
-      if (markets[t.symbol] === undefined) return acc;
+      if (markets && markets[t.symbol] === undefined) return acc;
 
       const ticker = mapBybitTicker(t);
       acc[ticker.symbol] = ticker;

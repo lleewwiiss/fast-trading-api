@@ -69,7 +69,7 @@ describe("FastTradingApi", () => {
       });
 
       expect(BybitExchangeMock).toHaveBeenCalledTimes(1);
-      expect(api.memory).toBeDefined();
+      expect(api.store).toBeDefined();
     });
 
     test("should not initialize exchange if no matching accounts", () => {

@@ -13,13 +13,11 @@ import { BybitExchange } from "./exchanges/bybit/bybit.exchange";
 import { MemoryStore } from "./store";
 
 export class FastTradingApi {
-  private store: Store;
-  private accounts: Account[];
-  private exchanges: { [ExchangeName.BYBIT]?: BybitExchange } = {};
+  public store: Store;
+  public accounts: Account[];
 
-  get memory() {
-    return this.store.memory;
-  }
+  private exchanges: { [ExchangeName.BYBIT]?: BybitExchange } = {};
+  private listeners: { [key: string]: ((...args: any[]) => void)[] } = {};
 
   constructor({ accounts, store = new MemoryStore() }: FastTradingApiOptions) {
     this.accounts = accounts;
@@ -30,10 +28,7 @@ export class FastTradingApi {
     );
 
     if (bybitAccounts.length) {
-      this.exchanges[ExchangeName.BYBIT] = new BybitExchange({
-        store: this.store,
-        accounts: bybitAccounts,
-      });
+      this.exchanges[ExchangeName.BYBIT] = new BybitExchange({ parent: this });
     }
   }
 
@@ -192,5 +187,20 @@ export class FastTradingApi {
     }
 
     return this.exchanges[exchange].cancelOrders({ orderIds, accountId });
+  }
+
+  public on(
+    event: "log" | "error" | "update",
+    listener: (message: string) => void,
+  ) {
+    if (!this.listeners[event]) this.listeners[event] = [];
+    this.listeners[event].push(listener);
+  }
+
+  public emit(event: "log" | "error" | "update", ...args: any[]) {
+    if (!this.listeners[event]) return;
+    for (const listener of this.listeners[event]) {
+      listener(...args);
+    }
   }
 }

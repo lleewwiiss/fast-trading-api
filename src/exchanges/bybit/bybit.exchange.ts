@@ -1,10 +1,9 @@
+import type { FastTradingApi } from "~/index";
 import type {
-  Account,
   Candle,
   PlaceOrderOpts,
   Timeframe,
   FetchOHLCVParams,
-  Store,
   StoreMemory,
   Order,
 } from "~/types/lib.types";
@@ -12,20 +11,16 @@ import type { ObjectChangeCommand, ObjectPaths } from "~/types/misc.types";
 import { genId } from "~/utils/gen-id.utils";
 
 export class BybitExchange {
-  private store: Store;
-  private accounts: Account[];
+  private parent: FastTradingApi;
   private worker: Worker;
 
   private pendingRequests = new Map<string, (data: any) => void>();
 
-  constructor({ store, accounts }: { store: Store; accounts: Account[] }) {
-    this.store = store;
-    this.accounts = accounts;
+  constructor({ parent }: { parent: FastTradingApi }) {
+    this.parent = parent;
 
-    this.worker = new Worker(new URL("./bybit.worker", import.meta.url), {
-      type: "module",
-    });
-
+    const module = new URL("./bybit.worker", import.meta.url);
+    this.worker = new Worker(module, { type: "module" });
     this.worker.addEventListener("message", this.onWorkerMessage);
   }
 
@@ -131,11 +126,20 @@ export class BybitExchange {
       | { type: "ready" }
       | { type: "update"; changes: ObjectChangeCommand<StoreMemory, P>[] }
       | { type: "response"; requestId: string; data: any }
+      | { type: "log"; message: string }
+      | { type: "error"; error: Error }
     >,
   ) => {
-    if (event.data.type === "ready") return this.onReady();
-    if (event.data.type === "update") {
-      return this.store.applyChanges(event.data.changes);
+    if (event.data.type === "log") {
+      return this.parent.emit("log", event.data.message);
+    }
+
+    if (event.data.type === "error") {
+      return this.parent.emit("error", event.data.error);
+    }
+
+    if (event.data.type === "ready") {
+      return this.onReady();
     }
 
     if (event.data.type === "response") {
@@ -149,7 +153,8 @@ export class BybitExchange {
   };
 
   private onReady = () => {
-    this.worker.postMessage({ type: "login", accounts: this.accounts });
+    this.worker.postMessage({ type: "login", accounts: this.parent.accounts });
     this.worker.postMessage({ type: "start" });
+    this.parent.emit("log", "Starting Bybit Exchange");
   };
 }

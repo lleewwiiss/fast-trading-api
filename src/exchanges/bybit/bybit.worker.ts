@@ -35,6 +35,7 @@ import type {
 } from "~/types/misc.types";
 import { partition } from "~/utils/partition.utils";
 import { subtract } from "~/utils/safe-math.utils";
+import { omit } from "~/utils/omit.utils";
 
 export class BybitWorker {
   private accounts: Account[] = [];
@@ -98,22 +99,44 @@ export class BybitWorker {
   }
 
   private async start() {
-    // 1. Fetch markets and tickers
-    const markets = await fetchBybitMarkets();
-    const tickers = await fetchBybitTickers(markets);
+    this.log(`Bybit Exchange Worker Started`);
+    this.log(`Initializing Bybit exchange data`);
+
+    // 1. Start trading websocket
+    for (const account of this.accounts) {
+      this.tradingWs[account.id] = new BybitWsTrading({
+        parent: this,
+        account,
+      });
+    }
+
+    // 2. Fetch markets and tickers
+    const [markets, tickers] = await Promise.all([
+      fetchBybitMarkets(),
+      fetchBybitTickers(),
+    ]);
 
     this.emitChanges([
       { type: "update", path: "public.markets", value: markets },
-      { type: "update", path: "public.tickers", value: tickers },
+      {
+        type: "update",
+        path: "public.tickers",
+        value: omit(
+          tickers,
+          Object.keys(tickers).filter((t) => !markets[t]),
+        ),
+      },
     ]);
 
-    // 2. Start public websocket
+    this.log(`Loaded ${Object.keys(markets).length} Bybit markets`);
+
+    // 3. Start public websocket
     this.publicWs = new BybitWsPublic({
       parent: this,
       markets: Object.values(markets).map((m) => m.symbol),
     });
 
-    // 3. Fetch and poll balance per account
+    // 4. Fetch and poll balance per account
     await Promise.all(
       this.accounts.map(async (account) => {
         const balance = await fetchBybitBalance({
@@ -128,10 +151,12 @@ export class BybitWorker {
             value: balance,
           },
         ]);
+
+        this.log(`Loaded Bybit balance for account [${account.id}]`);
       }),
     );
 
-    // 4. Fetch positions per account
+    // 5. Fetch positions per account
     await Promise.all(
       this.accounts.map(async (account) => {
         const positions = await fetchBybitPositions({
@@ -151,19 +176,22 @@ export class BybitWorker {
             value: positions.reduce((acc, p) => acc + p.upnl, 0),
           },
         ]);
+
+        this.log(
+          `Loaded ${positions.length} Bybit positions for account [${account.id}]`,
+        );
       }),
     );
 
-    // 5. Start private & trading websocket per account
+    // 6. Start private websocket per account
     for (const account of this.accounts) {
-      this.tradingWs[account.id] = new BybitWsTrading({ account });
       this.privateWs[account.id] = new BybitWsPrivate({
         parent: this,
         account,
       });
     }
 
-    // 6. Fetch orders per account
+    // 7. Fetch orders per account
     for (const account of this.accounts) {
       const orders = await fetchBybitOrders({
         key: account.apiKey,
@@ -177,6 +205,10 @@ export class BybitWorker {
           value: orders,
         },
       ]);
+
+      this.log(
+        `Loaded ${orders.length} Bybit orders for account [${account.id}]`,
+      );
     }
   }
 
@@ -531,6 +563,14 @@ export class BybitWorker {
     });
 
     applyChanges({ obj: this.memory, changes });
+  };
+
+  public log = (message: any) => {
+    self.postMessage({ type: "log", message });
+  };
+
+  public error = (error: any) => {
+    self.postMessage({ type: "error", error });
   };
 }
 
