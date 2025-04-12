@@ -3,6 +3,7 @@ import type {
   Timeframe,
   PlaceOrderOpts,
   FetchOHLCVParams,
+  Order,
 } from "~/types/lib.types";
 
 export type BybitInstrument = {
@@ -235,6 +236,15 @@ export type BybitWorkerMessage = MessageEvent<
   | {
       type: "cancelOrders";
       orderIds: string[];
+      accountId: string;
+      requestId: string;
+    }
+  | {
+      type: "updateOrders";
+      updates: {
+        order: Order;
+        update: { amount: number } | { price: number };
+      }[];
       accountId: string;
       requestId: string;
     }

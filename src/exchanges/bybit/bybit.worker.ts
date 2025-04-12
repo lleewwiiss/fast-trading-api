@@ -55,6 +55,7 @@ export class BybitWorker {
     if (data.type === "listenOHLCV") return this.listenOHLCV(data);
     if (data.type === "unlistenOHLCV") return this.unlistenOHLCV(data);
     if (data.type === "placeOrders") return this.placeOrders(data);
+    if (data.type === "updateOrders") return this.updateOrders(data);
     if (data.type === "cancelOrders") return this.cancelOrders(data);
     if (data.type === "listenOB") return this.listenOrderBook(data.symbol);
     if (data.type === "unlistenOB") return this.unlistenOrderBook(data.symbol);
@@ -474,6 +475,26 @@ export class BybitWorker {
     }
 
     self.postMessage({ type: "response", requestId, data: orderIds });
+  }
+
+  private async updateOrders({
+    updates,
+    accountId,
+    requestId,
+  }: {
+    updates: { order: Order; update: { amount: number } | { price: number } }[];
+    accountId: string;
+    requestId: string;
+  }) {
+    await this.tradingWs[accountId].updateOrders(
+      updates.map((update) => ({
+        order: update.order,
+        update: update.update,
+        market: this.memory.public.markets[update.order.symbol],
+      })),
+    );
+
+    self.postMessage({ type: "response", requestId, data: [] });
   }
 
   private async cancelOrders({

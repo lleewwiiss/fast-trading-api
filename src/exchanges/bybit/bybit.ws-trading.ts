@@ -6,8 +6,9 @@ import type {
 } from "./bybit.types";
 
 import { chunk } from "~/utils/chunk.utils";
-import type { Account, Order } from "~/types/lib.types";
+import type { Account, Market, Order } from "~/types/lib.types";
 import { genId } from "~/utils/gen-id.utils";
+import { adjust } from "~/utils/safe-math.utils";
 
 export class BybitWsTrading {
   private account: Account;
@@ -123,6 +124,65 @@ export class BybitWsTrading {
             {
               category: "linear",
               request: batch,
+            },
+          ],
+        });
+      }
+    });
+  };
+
+  public updateOrders = (
+    updates: {
+      order: Order;
+      market: Market;
+      update: { price: number } | { amount: number };
+    }[],
+  ) => {
+    return new Promise((resolve) => {
+      const batches = chunk(updates, 10);
+      const responses: any[] = [];
+
+      for (const batch of batches) {
+        const reqId = genId();
+
+        this.pendingRequests.set(reqId, (data: any) => {
+          responses.push(data);
+
+          if (responses.length === batches.length) {
+            resolve(responses);
+          }
+        });
+
+        this.send({
+          op: "order.amend-batch",
+          reqId,
+          header: {
+            "X-BAPI-TIMESTAMP": Date.now().toString(),
+            "X-BAPI-RECV-WINDOW": "5000",
+          },
+          args: [
+            {
+              category: "linear",
+              request: batch.map(({ order, market, update }) => {
+                const amendedOrder: Record<string, string> = {
+                  symbol: order.symbol,
+                  orderId: order.id,
+                };
+
+                if ("price" in update) {
+                  amendedOrder["price"] = adjust(
+                    update.price,
+                    market.precision.price,
+                  ).toString();
+                }
+
+                if ("amount" in update) {
+                  amendedOrder["qty"] = adjust(
+                    update.amount,
+                    market.precision.amount,
+                  ).toString();
+                }
+              }),
             },
           ],
         });

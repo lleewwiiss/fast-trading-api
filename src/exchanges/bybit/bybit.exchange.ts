@@ -6,6 +6,7 @@ import type {
   FetchOHLCVParams,
   Store,
   StoreMemory,
+  Order,
 } from "~/types/lib.types";
 import type { ObjectChangeCommand, ObjectPaths } from "~/types/misc.types";
 import { genId } from "~/utils/gen-id.utils";
@@ -51,6 +52,26 @@ export class BybitExchange {
       this.worker.postMessage({
         type: "placeOrders",
         orders,
+        accountId,
+        requestId,
+      });
+    });
+  }
+
+  public updateOrders({
+    updates,
+    accountId,
+  }: {
+    updates: { order: Order; update: { amount: number } | { price: number } }[];
+    accountId: string;
+  }) {
+    const requestId = genId();
+
+    return new Promise((resolve) => {
+      this.pendingRequests.set(requestId, resolve);
+      this.worker.postMessage({
+        type: "updateOrders",
+        updates,
         accountId,
         requestId,
       });

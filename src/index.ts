@@ -7,6 +7,7 @@ import {
   type Candle,
   type PlaceOrderOpts,
   type Timeframe,
+  type Order,
 } from "./types/lib.types";
 import { BybitExchange } from "./exchanges/bybit/bybit.exchange";
 import { MemoryStore } from "./store";
@@ -135,6 +136,35 @@ export class FastTradingApi {
     }
 
     return this.exchanges[exchange].placeOrders({ orders, accountId });
+  }
+
+  public updateOrder({
+    order,
+    update,
+    accountId,
+  }: {
+    order: Order;
+    update: { amount: number } | { price: number };
+    accountId: string;
+  }) {
+    return this.updateOrders({ updates: [{ order, update }], accountId });
+  }
+
+  public updateOrders({
+    updates,
+    accountId,
+  }: {
+    updates: { order: Order; update: { amount: number } | { price: number } }[];
+    accountId: string;
+  }) {
+    const account = this.accounts.find((acc) => acc.id === accountId);
+    const exchange = account?.exchange;
+
+    if (!exchange || !this.exchanges[exchange]) {
+      throw new Error(`No accounts by id found for: ${accountId}`);
+    }
+
+    return this.exchanges[exchange].updateOrders({ updates, accountId });
   }
 
   public cancelOrder({
