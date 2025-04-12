@@ -44,3 +44,54 @@ const api = new FastTradingApi({
   ]
 });
 ```
+
+## Architecture
+
+The `fast-trading-api` library is designed with performance and flexibility in mind:
+
+### Multi-threaded Design
+
+- **Main Thread Protection**: The architecture isolates complex operations from the main thread, ensuring UI remains responsive.
+- **Web Worker Powered**: Each exchange instance launches a dedicated web worker, moving CPU-intensive tasks off the main thread.
+- **Parallel Processing**: Data transformations, calculations, and network operations run in separate threads.
+
+### Exchange Management
+
+- **Dynamic Initialization**: The `FastTradingApi` class automatically initializes appropriate exchange handlers based on your configured accounts.
+- **Multiple Account Support**: A single exchange type can manage multiple accounts (e.g., multiple Bybit accounts with different API keys).
+- **Unified Interface**: All exchanges expose the same methods, making it easy to work with multiple platforms.
+
+
+### Data Flow
+
+```
+  Application Layer         Exchange Layer            Worker Layer
++------------------+      +-----------------+      +-----------------+
+|                  |      |                 |      |                 |
+|  FastTradingApi  |----->| Exchange Client |----->|   Web Worker    |
+|                  |      |                 |      |                 |
++------------------+      +-----------------+      +-----------------+
+         |                         |                       |
+         |                         |                       v
+         v                         |               +-----------------+
++------------------+               |               |                 |
+|                  |               |               |  WebSocket/REST |
+|   Memory Store   |<--------------+               |   API Clients   |
+|                  |                               |                 |
++------------------+                               +-----------------+
+                                                           |
+                                                           v
+                                                   +-----------------+
+                                                   | Worker results  |
+                                                   | flow back to    |
+                                                   | Exchange Client |
+                                                   | which updates   |
+                                                   | Memory Store    |
+                                                   +-----------------+
+```
+
+
+This architecture allows for:
+- Real-time data processing without blocking the UI
+- Efficient handling of high-frequency trading operations
+- Seamless connection to multiple exchanges and accounts simultaneously
