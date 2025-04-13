@@ -25,6 +25,11 @@ export class FastTradingApi {
   }
 
   public async start() {
+    this.emit(
+      "log",
+      `Starting FastTradingApi SDK with ${this.accounts.length} accounts`,
+    );
+
     const bybitAccounts = this.accounts.filter(
       (a) => a.exchange === ExchangeName.BYBIT,
     );
@@ -191,17 +196,13 @@ export class FastTradingApi {
     return this.exchanges[exchange].cancelOrders({ orderIds, accountId });
   }
 
-  public on(
-    event: "log" | "error" | "update",
-    listener: (message: string) => void,
-  ) {
+  public on(event: "log" | "error", listener: (message: string) => void) {
     if (!this.listeners[event]) this.listeners[event] = [];
     this.listeners[event].push(listener);
   }
 
-  public emit(event: "log" | "error" | "update", ...args: any[]) {
-    if (!this.listeners[event]) return;
-    for (const listener of this.listeners[event]) {
+  public emit(event: "log" | "error", ...args: any[]) {
+    for (const listener of this.listeners[event] || []) {
       listener(...args);
     }
   }
