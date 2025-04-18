@@ -2,7 +2,12 @@ import { describe, test, expect } from "bun:test";
 
 import { type OrderBook } from "../types/lib.types";
 
-import { sortOrderBook, calcOrderBookTotal } from "./orderbook.utils";
+import {
+  sortOrderBook,
+  calcOrderBookTotal,
+  precisionGroup,
+  toDollars,
+} from "./orderbook.utils";
 
 describe("orderbook", () => {
   test("sortOrderBook should sort asks ascending and bids descending", () => {
@@ -109,5 +114,57 @@ describe("orderbook", () => {
     expect(orderBook.bids[0].total).toBe(8);
     expect(orderBook.bids[1].total).toBe(15);
     expect(orderBook.bids[2].total).toBe(19);
+  });
+
+  describe("precisionGroup", () => {
+    test("groups orders by price bucket and sums amounts", () => {
+      const orders = [
+        { price: 101, amount: 2, total: 5 },
+        { price: 109, amount: 3, total: 8 },
+        { price: 115, amount: 1, total: 1 },
+      ];
+      const result = precisionGroup(10, orders);
+      // Two buckets: 100 and 110
+      expect(result).toHaveLength(2);
+
+      const bucket100 = result.find((o) => o.price === 100)!;
+      expect(bucket100.amount).toBe(5); // 2 + 3
+      expect(bucket100.total).toBe(8); // last total in bucket
+
+      const bucket110 = result.find((o) => o.price === 110)!;
+      expect(bucket110.amount).toBe(1);
+      expect(bucket110.total).toBe(1);
+    });
+
+    test("returns empty array when no orders", () => {
+      expect(precisionGroup(5, [])).toEqual([]);
+    });
+  });
+
+  describe("toDollars", () => {
+    test("converts amounts to dollar values rounded to two decimals", () => {
+      const orderBook = {
+        bids: [
+          { price: 50.123, amount: 1.234, total: 0 },
+          { price: 2, amount: 3.3333, total: 0 },
+        ],
+        asks: [{ price: 10, amount: 0.555, total: 0 }],
+      };
+      toDollars(orderBook);
+      // 1.234 * 50.123 = 61.851782 -> 61.85
+      expect(orderBook.bids[0].amount).toBe(61.85);
+      // 3.3333 * 2 = 6.6666 -> 6.67
+      expect(orderBook.bids[1].amount).toBe(6.67);
+      // 0.555 * 10 = 5.55 -> 5.55
+      expect(orderBook.asks[0].amount).toBe(5.55);
+      // totals untouched
+      expect(orderBook.bids[0].total).toBe(0);
+      expect(orderBook.asks[0].total).toBe(0);
+    });
+
+    test("handles empty orderbook without errors", () => {
+      const empty: OrderBook = { bids: [], asks: [] };
+      expect(() => toDollars(empty)).not.toThrow();
+    });
   });
 });
