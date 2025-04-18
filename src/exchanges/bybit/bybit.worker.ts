@@ -41,7 +41,7 @@ export class BybitWorker {
   private accounts: Account[] = [];
   private memory: StoreMemory[ExchangeName] = {
     loaded: { markets: false, tickers: false },
-    public: { tickers: {}, markets: {}, orderBooks: {}, ohlcv: {} },
+    public: { latency: 0, tickers: {}, markets: {}, orderBooks: {}, ohlcv: {} },
     private: {},
   };
 
@@ -178,7 +178,7 @@ export class BybitWorker {
           {
             type: "update",
             path: `private.${account.id}.balance.upnl`,
-            value: positions.reduce((acc, p) => acc + p.upnl, 0),
+            value: positions.reduce((acc, p) => acc + p.upnl, 0 as number),
           },
         ]);
 

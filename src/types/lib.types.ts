@@ -22,6 +22,7 @@ export interface ExchangeMemory {
   };
   private: Record<Account["id"], ExchangeAccountMemory>;
   public: {
+    latency: number;
     tickers: Record<string, Ticker>;
     markets: Record<string, Market>;
     orderBooks: Record<string, OrderBook>;

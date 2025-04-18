@@ -14,6 +14,7 @@ import {
 export class BybitWsPublic {
   private parent: BybitWorker;
   private isStopped = false;
+  private pingAt = 0;
 
   private ws: WebSocket | null = null;
   private interval: NodeJS.Timeout | null = null;
@@ -30,7 +31,9 @@ export class BybitWsPublic {
   constructor({ parent, markets }: { parent: BybitWorker; markets: string[] }) {
     this.parent = parent;
     this.markets = markets;
+
     this.messageHandlers.tickers = this.handleTickers;
+    this.messageHandlers.pong = this.onPong;
 
     this.listenWebsocket();
   }
@@ -70,8 +73,16 @@ export class BybitWsPublic {
 
   private ping = () => {
     this.interval = setInterval(() => {
+      this.pingAt = performance.now();
       this.send({ op: "ping" });
     }, 10_000);
+  };
+
+  private onPong = () => {
+    const latency = (performance.now() - this.pingAt) / 2;
+    this.parent.emitChanges([
+      { type: "update", path: "public.latency", value: latency },
+    ]);
   };
 
   private onMessage = (event: MessageEvent) => {
