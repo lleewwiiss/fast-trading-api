@@ -1,4 +1,4 @@
-export const afterDecimal = (num: number | string) => {
+export const afterDecimals = (num: number | string) => {
   if (Number.isInteger(num)) return 0;
 
   const str = num?.toString?.();
