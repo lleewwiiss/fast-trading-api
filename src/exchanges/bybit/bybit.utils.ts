@@ -73,6 +73,7 @@ export const mapBybitPosition = (
   p: BybitPosition | BybitWebsocketPosition,
 ): Position => {
   return {
+    exchange: ExchangeName.BYBIT,
     symbol: p.symbol,
     side: p.side === "Buy" ? PositionSide.Long : PositionSide.Short,
     entryPrice: parseFloat("avgPrice" in p ? p.avgPrice : p.entryPrice),
