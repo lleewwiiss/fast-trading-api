@@ -72,17 +72,21 @@ export class BybitWsPublic {
   };
 
   private ping = () => {
-    this.interval = setInterval(() => {
-      this.pingAt = performance.now();
-      this.send({ op: "ping" });
-    }, 10_000);
+    this.pingAt = performance.now();
+    this.send({ op: "ping" });
   };
 
-  private onPong = () => {
-    const latency = (performance.now() - this.pingAt) / 2;
-    this.parent.emitChanges([
-      { type: "update", path: "public.latency", value: latency },
-    ]);
+  private onPong = (event: MessageEvent) => {
+    if (event.data.includes("pong")) {
+      const latency = (performance.now() - this.pingAt) / 2;
+      this.parent.emitChanges([
+        { type: "update", path: "public.latency", value: latency },
+      ]);
+
+      this.interval = setTimeout(() => {
+        this.ping();
+      }, 1000);
+    }
   };
 
   private onMessage = (event: MessageEvent) => {
