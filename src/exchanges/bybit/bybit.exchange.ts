@@ -131,15 +131,15 @@ export class BybitExchange {
     >,
   ) => {
     if (event.data.type === "log") {
-      return this.parent.emit("log", event.data.message);
+      this.parent.emit("log", event.data.message);
     }
 
     if (event.data.type === "error") {
-      return this.parent.emit("error", event.data.error);
+      this.parent.emit("error", event.data.error);
     }
 
     if (event.data.type === "ready") {
-      return this.onReady();
+      this.onReady();
     }
 
     if (event.data.type === "response") {
@@ -149,6 +149,10 @@ export class BybitExchange {
         resolver(event.data.data);
         this.pendingRequests.delete(event.data.requestId);
       }
+    }
+
+    if (event.data.type === "update") {
+      return this.parent.store.applyChanges(event.data.changes);
     }
   };
 
