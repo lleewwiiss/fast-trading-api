@@ -16,6 +16,7 @@ import {
 } from "./bybit.config";
 
 import {
+  ExchangeName,
   OrderSide,
   OrderTimeInForce,
   OrderType,
@@ -24,6 +25,7 @@ import {
   type Order,
   type PlaceOrderOpts,
   type Position,
+  type Ticker,
 } from "~/types/lib.types";
 import { adjust, subtract } from "~/utils/safe-math.utils";
 import { TICKER_REGEX } from "~/utils/regex.utils";
@@ -31,10 +33,11 @@ import { omitUndefined } from "~/utils/omit-undefined.utils";
 import { times } from "~/utils/times.utils";
 import { omit } from "~/utils/omit.utils";
 
-export const mapBybitTicker = (t: BybitTicker) => {
+export const mapBybitTicker = (t: BybitTicker): Ticker => {
   return {
     id: t.symbol,
     symbol: t.symbol,
+    exchange: ExchangeName.BYBIT,
     cleanSymbol: t.symbol.replace(TICKER_REGEX, ""),
     bid: parseFloat(t.bid1Price),
     ask: parseFloat(t.ask1Price),

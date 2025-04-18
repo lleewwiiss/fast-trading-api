@@ -64,6 +64,7 @@ export interface Balance {
 
 export interface Ticker {
   id: string;
+  exchange: ExchangeName;
   symbol: string;
   cleanSymbol: string;
   bid: number;
@@ -80,6 +81,7 @@ export interface Ticker {
 
 export interface Market {
   id: string;
+  exchange: ExchangeName;
   symbol: string;
   base: string;
   quote: string;

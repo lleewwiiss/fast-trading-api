@@ -26,6 +26,7 @@ import {
   type Position,
   type Ticker,
   type FetchOHLCVParams,
+  ExchangeName,
 } from "~/types/lib.types";
 import { omitUndefined } from "~/utils/omit-undefined.utils";
 import { orderBy } from "~/utils/order-by.utils";
@@ -50,6 +51,7 @@ export const fetchBybitMarkets = async () => {
 
       acc[market.symbol] = {
         id: market.symbol,
+        exchange: ExchangeName.BYBIT,
         symbol: market.symbol,
         base: market.baseCoin,
         quote: market.quoteCoin,
