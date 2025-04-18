@@ -50,8 +50,7 @@ export class BybitWorker {
   private tradingWs: Record<Account["id"], BybitWsTrading> = {};
 
   public onMessage = ({ data }: BybitWorkerMessage) => {
-    if (data.type === "start") return this.start();
-    if (data.type === "login") return this.login(data.accounts);
+    if (data.type === "start") return this.start(data);
     if (data.type === "stop") return this.stop();
     if (data.type === "fetchOHLCV") return this.fetchOHLCV(data);
     if (data.type === "listenOHLCV") return this.listenOHLCV(data);
@@ -65,22 +64,6 @@ export class BybitWorker {
     // TODO: move this into an error log
     throw new Error(`Unsupported command to bybit worker`);
   };
-
-  private login(accounts: Account[]) {
-    this.accounts = accounts;
-    this.emitChanges(
-      this.accounts.map((acc) => ({
-        type: "update",
-        path: `private.${acc.id}`,
-        value: {
-          balance: { used: 0, free: 0, total: 0, upnl: 0 },
-          positions: [],
-          orders: [],
-          notifications: [],
-        },
-      })),
-    );
-  }
 
   private stop() {
     if (this.publicWs) {
@@ -99,11 +82,32 @@ export class BybitWorker {
     }
   }
 
-  private async start() {
-    this.log(`Bybit Exchange Worker Started`);
+  private async start({
+    accounts,
+    requestId,
+  }: {
+    accounts: Account[];
+    requestId: string;
+  }) {
+    this.log(`Bybit Exchange Worker Starting`);
     this.log(`Initializing Bybit exchange data`);
 
-    // 1. Start trading websocket
+    // 1. Set accounts
+    this.accounts = accounts;
+    this.emitChanges(
+      this.accounts.map((acc) => ({
+        type: "update",
+        path: `private.${acc.id}`,
+        value: {
+          balance: { used: 0, free: 0, total: 0, upnl: 0 },
+          positions: [],
+          orders: [],
+          notifications: [],
+        },
+      })),
+    );
+
+    // 2. Start trading websocket
     for (const account of this.accounts) {
       this.tradingWs[account.id] = new BybitWsTrading({
         parent: this,
@@ -111,7 +115,7 @@ export class BybitWorker {
       });
     }
 
-    // 2. Fetch markets and tickers
+    // 3. Fetch markets and tickers
     const [markets, tickers] = await Promise.all([
       fetchBybitMarkets(),
       fetchBybitTickers(),
@@ -132,14 +136,15 @@ export class BybitWorker {
     ]);
 
     this.log(`Loaded ${Object.keys(markets).length} Bybit markets`);
+    self.postMessage({ type: "response", requestId });
 
-    // 3. Start public websocket
+    // 4. Start public websocket
     this.publicWs = new BybitWsPublic({
       parent: this,
       markets: Object.values(markets).map((m) => m.symbol),
     });
 
-    // 4. Fetch and poll balance per account
+    // 5. Fetch and poll balance per account
     await Promise.all(
       this.accounts.map(async (account) => {
         const balance = await fetchBybitBalance({
@@ -159,7 +164,7 @@ export class BybitWorker {
       }),
     );
 
-    // 5. Fetch positions per account
+    // 6. Fetch positions per account
     await Promise.all(
       this.accounts.map(async (account) => {
         const positions = await fetchBybitPositions({
@@ -186,7 +191,7 @@ export class BybitWorker {
       }),
     );
 
-    // 6. Start private websocket per account
+    // 7. Start private websocket per account
     for (const account of this.accounts) {
       this.privateWs[account.id] = new BybitWsPrivate({
         parent: this,
@@ -194,7 +199,7 @@ export class BybitWorker {
       });
     }
 
-    // 7. Fetch orders per account
+    // 8. Fetch orders per account
     for (const account of this.accounts) {
       const orders = await fetchBybitOrders({
         key: account.apiKey,
@@ -580,4 +585,3 @@ export class BybitWorker {
 const worker = new BybitWorker();
 
 self.addEventListener("message", worker.onMessage);
-self.postMessage({ type: "ready" });

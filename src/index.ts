@@ -30,13 +30,13 @@ export class FastTradingApi {
       `Starting FastTradingApi SDK with ${this.accounts.length} accounts`,
     );
 
-    const bybitAccounts = this.accounts.filter(
-      (a) => a.exchange === ExchangeName.BYBIT,
-    );
+    this.exchanges = {
+      [ExchangeName.BYBIT]: new BybitExchange({ parent: this }),
+    };
 
-    if (bybitAccounts.length) {
-      this.exchanges[ExchangeName.BYBIT] = new BybitExchange({ parent: this });
-    }
+    await Promise.all(
+      Object.values(this.exchanges).map((exchange) => exchange.start()),
+    );
   }
 
   public async stop() {

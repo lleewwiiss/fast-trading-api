@@ -24,6 +24,21 @@ export class BybitExchange {
     this.worker.addEventListener("message", this.onWorkerMessage);
   }
 
+  public start = () => {
+    const requestId = genId();
+
+    return new Promise((resolve) => {
+      this.pendingRequests.set(requestId, resolve);
+      this.worker.postMessage({
+        type: "start",
+        accounts: this.parent.accounts,
+        requestId,
+      });
+
+      this.parent.emit("log", "Starting Bybit Exchange");
+    });
+  };
+
   public stop = () => {
     this.worker.removeEventListener("message", this.onWorkerMessage);
     this.worker.postMessage({ type: "stop" });
@@ -129,7 +144,6 @@ export class BybitExchange {
 
   private onWorkerMessage = <P extends ObjectPaths<StoreMemory>>(
     event: MessageEvent<
-      | { type: "ready" }
       | { type: "update"; changes: ObjectChangeCommand<StoreMemory, P>[] }
       | { type: "response"; requestId: string; data: any }
       | { type: "log"; message: string }
@@ -144,10 +158,6 @@ export class BybitExchange {
       this.parent.emit("error", event.data.error);
     }
 
-    if (event.data.type === "ready") {
-      this.onReady();
-    }
-
     if (event.data.type === "response") {
       const resolver = this.pendingRequests.get(event.data.requestId);
 
@@ -160,11 +170,5 @@ export class BybitExchange {
     if (event.data.type === "update") {
       return this.parent.store.applyChanges(event.data.changes);
     }
-  };
-
-  private onReady = () => {
-    this.worker.postMessage({ type: "login", accounts: this.parent.accounts });
-    this.worker.postMessage({ type: "start" });
-    this.parent.emit("log", "Starting Bybit Exchange");
   };
 }

@@ -219,9 +219,8 @@ export type BybitPlaceOrderOpts = {
 };
 
 export type BybitWorkerMessage = MessageEvent<
-  | { type: "start" }
+  | { type: "start"; accounts: Account[]; requestId: string }
   | { type: "stop" }
-  | { type: "login"; accounts: Account[] }
   | { type: "listenOB"; symbol: string }
   | { type: "unlistenOB"; symbol: string }
   | { type: "fetchOHLCV"; requestId: string; params: FetchOHLCVParams }

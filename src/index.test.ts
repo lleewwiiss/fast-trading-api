@@ -112,21 +112,6 @@ describe("FastTradingApi", () => {
       expect(result).toHaveLength(1);
       expect(result[0]).toHaveProperty("timestamp", 123456789);
     });
-
-    test("should throw error if exchange not initialized", async () => {
-      const api = new FastTradingApi({
-        accounts: [],
-      });
-
-      await api.start();
-
-      await expect(() =>
-        api.fetchOHLCV({
-          exchangeName: ExchangeName.BYBIT,
-          params: { symbol: "BTCUSDT", timeframe: "1h", limit: 100 },
-        }),
-      ).toThrow(`Exchange ${ExchangeName.BYBIT} not started`);
-    });
   });
 
   describe("listenOrderBook", () => {
@@ -151,21 +136,6 @@ describe("FastTradingApi", () => {
 
       expect(listenOrderBookMock).toHaveBeenCalledWith("BTCUSDT");
     });
-
-    test("should throw error if exchange not initialized", async () => {
-      const api = new FastTradingApi({
-        accounts: [],
-      });
-
-      await api.start();
-
-      expect(() =>
-        api.listenOrderBook({
-          exchangeName: ExchangeName.BYBIT,
-          symbol: "BTCUSDT",
-        }),
-      ).toThrow(`Exchange ${ExchangeName.BYBIT} not started`);
-    });
   });
 
   describe("unlistenOrderBook", () => {
@@ -189,21 +159,6 @@ describe("FastTradingApi", () => {
       });
 
       expect(unlistenOrderBookMock).toHaveBeenCalledWith("BTCUSDT");
-    });
-
-    test("should throw error if exchange not initialized", async () => {
-      const api = new FastTradingApi({
-        accounts: [],
-      });
-
-      await api.start();
-
-      expect(() =>
-        api.unlistenOrderBook({
-          exchangeName: ExchangeName.BYBIT,
-          symbol: "BTCUSDT",
-        }),
-      ).toThrow(`Exchange ${ExchangeName.BYBIT} not started`);
     });
   });
 });
