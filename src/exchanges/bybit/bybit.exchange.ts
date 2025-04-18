@@ -24,6 +24,12 @@ export class BybitExchange {
     this.worker.addEventListener("message", this.onWorkerMessage);
   }
 
+  public stop = () => {
+    this.worker.removeEventListener("message", this.onWorkerMessage);
+    this.worker.postMessage({ type: "stop" });
+    this.worker.terminate();
+  };
+
   public fetchOHLCV(params: FetchOHLCVParams): Promise<Candle[]> {
     const requestId = genId();
 

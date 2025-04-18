@@ -1,5 +1,6 @@
 import { FastTradingApi } from "fast-trading-api";
 import { ExchangeName } from "fast-trading-api/dist/types/lib.types";
+import { defaultStoreState } from "fast-trading-api/dist/store";
 import type { Store, StoreMemory } from "fast-trading-api/dist/types/lib.types";
 import type {
   ObjectPaths,
@@ -8,13 +9,9 @@ import type {
 import { createStore } from "solid-js/store";
 import { batch } from "solid-js";
 
-export const [store, setStore] = createStore<StoreMemory>({
-  [ExchangeName.BYBIT]: {
-    loaded: { markets: false, tickers: false },
-    public: { tickers: {}, markets: {}, orderBooks: {}, ohlcv: {} },
-    private: {},
-  },
-});
+export const [store, setStore] = createStore<StoreMemory>(
+  JSON.parse(JSON.stringify(defaultStoreState)),
+);
 
 class StoreConnector implements Store {
   memory: StoreMemory;
@@ -22,6 +19,10 @@ class StoreConnector implements Store {
   constructor(memory: StoreMemory) {
     this.memory = memory;
   }
+
+  reset = () => {
+    setStore(JSON.parse(JSON.stringify(defaultStoreState)));
+  };
 
   applyChanges<P extends ObjectPaths<StoreMemory>>(
     changes: ObjectChangeCommand<StoreMemory, P>[],

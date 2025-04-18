@@ -7,6 +7,7 @@ export interface FastTradingApiOptions {
 
 export interface Store {
   memory: StoreMemory;
+  reset(): void;
   applyChanges<P extends ObjectPaths<StoreMemory>>(
     changes: ObjectChangeCommand<StoreMemory, P>[],
   ): void;

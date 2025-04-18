@@ -39,6 +39,15 @@ export class FastTradingApi {
     }
   }
 
+  public async stop() {
+    this.emit("log", "Stopping FastTradingApi SDK");
+
+    Object.values(this.exchanges).forEach((exchange) => exchange.stop());
+    this.exchanges = {};
+    this.listeners = {};
+    this.store.reset();
+  }
+
   public fetchOHLCV({
     exchangeName,
     params,
