@@ -15,6 +15,10 @@ export interface Store {
 export interface StoreMemory extends Record<ExchangeName, ExchangeMemory> {}
 
 export interface ExchangeMemory {
+  loaded: {
+    markets: boolean;
+    tickers: boolean;
+  };
   private: Record<Account["id"], ExchangeAccountMemory>;
   public: {
     tickers: Record<string, Ticker>;

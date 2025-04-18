@@ -40,6 +40,7 @@ import { omit } from "~/utils/omit.utils";
 export class BybitWorker {
   private accounts: Account[] = [];
   private memory: StoreMemory[ExchangeName] = {
+    loaded: { markets: false, tickers: false },
     public: { tickers: {}, markets: {}, orderBooks: {}, ohlcv: {} },
     private: {},
   };
@@ -117,6 +118,8 @@ export class BybitWorker {
     ]);
 
     this.emitChanges([
+      { type: "update", path: "loaded.markets", value: true },
+      { type: "update", path: "loaded.tickers", value: true },
       { type: "update", path: "public.markets", value: markets },
       {
         type: "update",

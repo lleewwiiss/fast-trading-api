@@ -7,6 +7,10 @@ import { applyChanges } from "~/utils/update-obj-path.utils";
 export class MemoryStore implements Store {
   memory: StoreMemory = {
     [ExchangeName.BYBIT]: {
+      loaded: {
+        markets: false,
+        tickers: false,
+      },
       public: {
         tickers: {},
         markets: {},

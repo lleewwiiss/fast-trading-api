@@ -9,6 +9,10 @@ describe("MemoryStore", () => {
     const store = new MemoryStore();
     expect(store.memory).toEqual({
       [ExchangeName.BYBIT]: {
+        loaded: {
+          markets: false,
+          tickers: false,
+        },
         public: {
           tickers: {},
           markets: {},
