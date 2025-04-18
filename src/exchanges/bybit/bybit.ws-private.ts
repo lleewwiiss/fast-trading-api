@@ -69,7 +69,9 @@ export class BybitWsPrivate {
 
       this.parent.updateAccountPositions({
         accountId: this.account.id,
-        positions: data.map(mapBybitPosition),
+        positions: data.map((p) =>
+          mapBybitPosition({ position: p, accountId: this.account.id }),
+        ),
       });
     }
 

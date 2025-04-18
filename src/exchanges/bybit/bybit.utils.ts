@@ -69,11 +69,16 @@ export const mapBybitBalance = (b?: BybitBalance) => {
   };
 };
 
-export const mapBybitPosition = (
-  p: BybitPosition | BybitWebsocketPosition,
-): Position => {
+export const mapBybitPosition = ({
+  position: p,
+  accountId,
+}: {
+  position: BybitPosition | BybitWebsocketPosition;
+  accountId: string;
+}): Position => {
   return {
     exchange: ExchangeName.BYBIT,
+    accountId,
     symbol: p.symbol,
     side: p.side === "Buy" ? PositionSide.Long : PositionSide.Short,
     entryPrice: parseFloat("avgPrice" in p ? p.avgPrice : p.entryPrice),

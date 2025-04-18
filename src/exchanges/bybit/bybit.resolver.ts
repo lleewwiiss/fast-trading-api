@@ -127,21 +127,22 @@ export const fetchBybitBalance = async ({
 };
 
 export const fetchBybitPositions = async ({
-  key,
-  secret,
-}: {
-  key: string;
-  secret: string;
-}) => {
+  id,
+  apiKey,
+  apiSecret,
+}: Account) => {
   const json = await bybit<{ result: { list: BybitPosition[] } }>({
-    key,
-    secret,
+    key: apiKey,
+    secret: apiSecret,
     url: `${BYBIT_API.BASE_URL}${BYBIT_API.ENDPOINTS.POSITIONS}`,
     params: { category: "linear", settleCoin: "USDT", limit: 200 },
     retries: 3,
   });
 
-  const positions: Position[] = json.result.list.map(mapBybitPosition);
+  const positions: Position[] = json.result.list.map((p) =>
+    mapBybitPosition({ position: p, accountId: id }),
+  );
+
   return positions;
 };
 

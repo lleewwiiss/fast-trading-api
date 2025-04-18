@@ -110,6 +110,7 @@ export enum PositionSide {
 
 export interface Position {
   exchange: ExchangeName;
+  accountId: string;
   symbol: string;
   side: PositionSide;
   entryPrice: number;

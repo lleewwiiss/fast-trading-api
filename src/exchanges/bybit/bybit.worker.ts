@@ -167,10 +167,7 @@ export class BybitWorker {
     // 6. Fetch positions per account
     await Promise.all(
       this.accounts.map(async (account) => {
-        const positions = await fetchBybitPositions({
-          key: account.apiKey,
-          secret: account.apiSecret,
-        });
+        const positions = await fetchBybitPositions(account);
 
         this.emitChanges([
           {
