@@ -10,6 +10,7 @@ import { batch } from "solid-js";
 
 export const [store, setStore] = createStore<StoreMemory>({
   [ExchangeName.BYBIT]: {
+    loaded: { markets: false, tickers: false },
     public: { tickers: {}, markets: {}, orderBooks: {}, ohlcv: {} },
     private: {},
   },
@@ -48,8 +49,7 @@ class StoreConnector implements Store {
 }
 
 const storeConnector = new StoreConnector(store);
-
-new FastTradingApi({
+const api = new FastTradingApi({
   accounts: [
     {
       id: "main",
@@ -60,3 +60,8 @@ new FastTradingApi({
   ],
   store: storeConnector,
 });
+
+api.on("log", (msg: string) => console.log(msg));
+api.on("error", (msg: string) => console.error(msg));
+
+api.start();
