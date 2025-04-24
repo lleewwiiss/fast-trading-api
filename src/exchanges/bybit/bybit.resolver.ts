@@ -175,8 +175,8 @@ export const fetchBybitOrders = async ({
 
     const ordersList = Array.isArray(json.result.list) ? json.result.list : [];
 
-    if (ordersList.length === 0) {
-      return orders;
+    if (ordersList.length !== 50) {
+      return orders.concat(ordersList);
     }
 
     if (json.result.nextPageCursor) {

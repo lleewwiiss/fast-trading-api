@@ -94,9 +94,19 @@ export class BybitWsPrivate {
     }
   };
 
-  private onError = () => {};
+  private onError = (error: Event) => {
+    this.parent.error(
+      `Bybit Private Websocket Error for account [${this.account.id}]`,
+    );
+
+    this.parent.error(error);
+  };
 
   private onClose = () => {
+    this.parent.log(
+      `Bybit Private Websocket Closed for account [${this.account.id}]`,
+    );
+
     if (this.isStopped) return;
 
     if (this.interval) {

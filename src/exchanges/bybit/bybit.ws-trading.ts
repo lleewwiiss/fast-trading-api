@@ -76,6 +76,7 @@ export class BybitWsTrading {
     this.parent.error(
       `Bybit Trading Websocket Error for account [${this.account.id}]`,
     );
+
     this.parent.error(error);
   };
 

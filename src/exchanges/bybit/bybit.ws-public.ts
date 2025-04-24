@@ -93,8 +93,6 @@ export class BybitWsPublic {
     Object.values(this.messageHandlers).forEach((handler) => handler(event));
   };
 
-  private onError = () => {};
-
   private handleTickers = (event: MessageEvent) => {
     if (event.data.startsWith('{"topic":"tickers.')) {
       const json = JSON.parse(event.data);
@@ -325,7 +323,14 @@ export class BybitWsPublic {
     ]);
   }
 
+  private onError = (error: Event) => {
+    this.parent.error(`Bybit Public Websocket Error`);
+    this.parent.error(error);
+  };
+
   private onClose = () => {
+    this.parent.error(`Bybit Public Websocket Closed`);
+
     if (this.isStopped) return;
 
     if (this.interval) {
