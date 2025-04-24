@@ -129,12 +129,18 @@ describe("FastTradingApi", () => {
 
       await api.start();
 
+      const callback = mock();
+
       api.listenOrderBook({
         exchangeName: ExchangeName.BYBIT,
         symbol: "BTCUSDT",
+        callback,
       });
 
-      expect(listenOrderBookMock).toHaveBeenCalledWith("BTCUSDT");
+      expect(listenOrderBookMock).toHaveBeenCalledWith({
+        symbol: "BTCUSDT",
+        callback,
+      });
     });
   });
 

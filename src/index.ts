@@ -8,6 +8,7 @@ import {
   type PlaceOrderOpts,
   type Timeframe,
   type Order,
+  type OrderBook,
 } from "./types/lib.types";
 import { BybitExchange } from "./exchanges/bybit/bybit.exchange";
 import { MemoryStore } from "./store";
@@ -99,15 +100,17 @@ export class FastTradingApi {
   public listenOrderBook({
     exchangeName,
     symbol,
+    callback,
   }: {
     exchangeName: ExchangeName;
     symbol: string;
+    callback: (orderBook: OrderBook) => void;
   }) {
     if (!this.exchanges[exchangeName]) {
       throw new Error(`Exchange ${exchangeName} not started`);
     }
 
-    this.exchanges[exchangeName].listenOrderBook(symbol);
+    this.exchanges[exchangeName].listenOrderBook({ symbol, callback });
   }
 
   public unlistenOrderBook({

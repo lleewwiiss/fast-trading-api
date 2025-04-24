@@ -6,6 +6,7 @@ import type {
   FetchOHLCVParams,
   StoreMemory,
   Order,
+  OrderBook,
 } from "~/types/lib.types";
 import type { ObjectChangeCommand, ObjectPaths } from "~/types/misc.types";
 import { genId } from "~/utils/gen-id.utils";
@@ -16,6 +17,7 @@ export class BybitExchange {
 
   private pendingRequests = new Map<string, (data: any) => void>();
   private ohlcvListeners = new Map<string, (data: Candle) => void>();
+  private orderBookListeners = new Map<string, (data: OrderBook) => void>();
 
   constructor({ parent }: { parent: FastTradingApi }) {
     this.parent = parent;
@@ -139,11 +141,19 @@ export class BybitExchange {
     this.worker.postMessage({ type: "unlistenOHLCV", symbol, timeframe });
   }
 
-  public listenOrderBook(symbol: string) {
+  public listenOrderBook({
+    symbol,
+    callback,
+  }: {
+    symbol: string;
+    callback: (orderBook: OrderBook) => void;
+  }) {
+    this.orderBookListeners.set(symbol, callback);
     this.worker.postMessage({ type: "listenOB", symbol });
   }
 
   public unlistenOrderBook(symbol: string) {
+    this.orderBookListeners.delete(symbol);
     this.worker.postMessage({ type: "unlistenOB", symbol });
   }
 
@@ -154,6 +164,7 @@ export class BybitExchange {
       | { type: "log"; message: string }
       | { type: "error"; error: Error }
       | { type: "candle"; candle: Candle }
+      | { type: "orderBook"; symbol: string; orderBook: OrderBook }
     >,
   ) => {
     if (event.data.type === "log") {
@@ -171,6 +182,14 @@ export class BybitExchange {
 
       if (listener) {
         listener(event.data.candle);
+      }
+    }
+
+    if (event.data.type === "orderBook") {
+      const listener = this.orderBookListeners.get(event.data.symbol);
+
+      if (listener) {
+        listener(event.data.orderBook);
       }
     }
 

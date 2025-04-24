@@ -25,7 +25,6 @@ export interface ExchangeMemory {
     latency: number;
     tickers: Record<string, Ticker>;
     markets: Record<string, Market>;
-    orderBooks: Record<string, OrderBook>;
   };
 }
 

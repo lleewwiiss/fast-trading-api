@@ -17,7 +17,6 @@ describe("MemoryStore", () => {
           latency: 0,
           tickers: {},
           markets: {},
-          orderBooks: {},
         },
         private: {},
       },

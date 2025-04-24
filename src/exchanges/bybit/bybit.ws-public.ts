@@ -268,13 +268,7 @@ export class BybitWsPublic {
         sortOrderBook(orderBook);
         calcOrderBookTotal(orderBook);
 
-        this.parent.emitChanges([
-          {
-            type: "update",
-            path: `public.orderBooks.${symbol}`,
-            value: orderBook,
-          },
-        ]);
+        this.parent.emitOrderBook({ symbol, orderBook });
       }
     };
 
@@ -313,14 +307,6 @@ export class BybitWsPublic {
 
     delete this.messageHandlers[orderBookTopic];
     this.orderBookTopics.delete(orderBookTopic);
-
-    this.parent.emitChanges([
-      {
-        type: "update",
-        path: `public.orderBooks.${symbol}`,
-        value: { bids: [], asks: [] },
-      },
-    ]);
   }
 
   private onError = (error: Event) => {
