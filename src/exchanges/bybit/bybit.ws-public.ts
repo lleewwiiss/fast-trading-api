@@ -159,13 +159,7 @@ export class BybitWsPublic {
           volume: parseFloat(c.turnover),
         };
 
-        this.parent.emitChanges([
-          {
-            type: "update",
-            path: `public.ohlcv.${symbol}.${timeframe}`,
-            value: candle,
-          },
-        ]);
+        this.parent.emitCandle(candle);
       }
     };
 

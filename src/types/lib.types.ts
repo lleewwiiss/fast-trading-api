@@ -26,7 +26,6 @@ export interface ExchangeMemory {
     tickers: Record<string, Ticker>;
     markets: Record<string, Market>;
     orderBooks: Record<string, OrderBook>;
-    ohlcv: Record<string, Record<Timeframe, Candle>>;
   };
 }
 
@@ -199,6 +198,8 @@ export type Timeframe =
   | "30m";
 
 export interface Candle {
+  symbol: string;
+  timeframe: Timeframe;
   timestamp: number;
   open: number;
   high: number;

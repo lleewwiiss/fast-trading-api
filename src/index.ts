@@ -66,16 +66,18 @@ export class FastTradingApi {
     exchangeName,
     symbol,
     timeframe,
+    callback,
   }: {
     exchangeName: ExchangeName;
     symbol: string;
     timeframe: Timeframe;
+    callback: (candle: Candle) => void;
   }) {
     if (!this.exchanges[exchangeName]) {
       throw new Error(`Exchange ${exchangeName} not started`);
     }
 
-    this.exchanges[exchangeName].listenOHLCV({ symbol, timeframe });
+    this.exchanges[exchangeName].listenOHLCV({ symbol, timeframe, callback });
   }
 
   public unlistenOHLCV({

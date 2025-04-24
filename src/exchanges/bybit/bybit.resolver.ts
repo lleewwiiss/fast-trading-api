@@ -220,6 +220,8 @@ export const fetchBybitOHLCV = async (opts: FetchOHLCVParams) => {
 
   const candles: Candle[] = list.map(
     ([time, open, high, low, close, , volume]) => ({
+      symbol: opts.symbol,
+      timeframe: opts.timeframe,
       timestamp: parseFloat(time) / 1000,
       open: parseFloat(open),
       high: parseFloat(high),

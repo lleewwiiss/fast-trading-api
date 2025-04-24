@@ -27,6 +27,7 @@ import {
   type StoreMemory,
   type FetchOHLCVParams,
   type Order,
+  type Candle,
 } from "~/types/lib.types";
 import type {
   Entries,
@@ -41,7 +42,7 @@ export class BybitWorker {
   private accounts: Account[] = [];
   private memory: StoreMemory[ExchangeName] = {
     loaded: { markets: false, tickers: false },
-    public: { latency: 0, tickers: {}, markets: {}, orderBooks: {}, ohlcv: {} },
+    public: { latency: 0, tickers: {}, markets: {}, orderBooks: {} },
     private: {},
   };
 
@@ -568,6 +569,10 @@ export class BybitWorker {
     });
 
     applyChanges({ obj: this.memory, changes });
+  };
+
+  public emitCandle = (candle: Candle) => {
+    self.postMessage({ type: "candle", candle });
   };
 
   public log = (message: any) => {

@@ -15,6 +15,7 @@ export class BybitExchange {
   private worker: Worker;
 
   private pendingRequests = new Map<string, (data: any) => void>();
+  private ohlcvListeners = new Map<string, (data: Candle) => void>();
 
   constructor({ parent }: { parent: FastTradingApi }) {
     this.parent = parent;
@@ -117,10 +118,13 @@ export class BybitExchange {
   public listenOHLCV({
     symbol,
     timeframe,
+    callback,
   }: {
     symbol: string;
     timeframe: Timeframe;
+    callback: (candle: Candle) => void;
   }) {
+    this.ohlcvListeners.set(`${symbol}:${timeframe}`, callback);
     this.worker.postMessage({ type: "listenOHLCV", symbol, timeframe });
   }
 
@@ -131,6 +135,7 @@ export class BybitExchange {
     symbol: string;
     timeframe: Timeframe;
   }) {
+    this.ohlcvListeners.delete(`${symbol}:${timeframe}`);
     this.worker.postMessage({ type: "unlistenOHLCV", symbol, timeframe });
   }
 
@@ -148,6 +153,7 @@ export class BybitExchange {
       | { type: "response"; requestId: string; data: any }
       | { type: "log"; message: string }
       | { type: "error"; error: Error }
+      | { type: "candle"; candle: Candle }
     >,
   ) => {
     if (event.data.type === "log") {
@@ -156,6 +162,16 @@ export class BybitExchange {
 
     if (event.data.type === "error") {
       this.parent.emit("error", event.data.error);
+    }
+
+    if (event.data.type === "candle") {
+      const listener = this.ohlcvListeners.get(
+        `${event.data.candle.symbol}:${event.data.candle.timeframe}`,
+      );
+
+      if (listener) {
+        listener(event.data.candle);
+      }
     }
 
     if (event.data.type === "response") {

@@ -18,7 +18,6 @@ describe("MemoryStore", () => {
           tickers: {},
           markets: {},
           orderBooks: {},
-          ohlcv: {},
         },
         private: {},
       },
@@ -32,6 +31,7 @@ describe("MemoryStore", () => {
         id: "BTCUSDT",
         symbol: "BTCUSDT",
         cleanSymbol: "BTC/USDT",
+        exchange: ExchangeName.BYBIT,
         bid: 49900,
         ask: 50100,
         last: 50000,
@@ -63,6 +63,7 @@ describe("MemoryStore", () => {
         id: "BTCUSDT",
         symbol: "BTCUSDT",
         cleanSymbol: "BTC/USDT",
+        exchange: ExchangeName.BYBIT,
         bid: 49900,
         ask: 50100,
         last: 50000,
@@ -79,6 +80,7 @@ describe("MemoryStore", () => {
         id: "ETHUSDT",
         symbol: "ETHUSDT",
         cleanSymbol: "ETH/USDT",
+        exchange: ExchangeName.BYBIT,
         bid: 2990,
         ask: 3010,
         last: 3000,
@@ -150,6 +152,8 @@ describe("MemoryStore", () => {
       const position: Position = {
         symbol: "BTCUSDT",
         side: PositionSide.Long,
+        accountId: "main",
+        exchange: ExchangeName.BYBIT,
         entryPrice: 50000,
         notional: 10000,
         leverage: 10,
@@ -174,6 +178,8 @@ describe("MemoryStore", () => {
 
       const newPosition: Position = {
         symbol: "ETHUSDT",
+        accountId: "main",
+        exchange: ExchangeName.BYBIT,
         side: PositionSide.Short,
         entryPrice: 3000,
         notional: 6000,
@@ -204,6 +210,8 @@ describe("MemoryStore", () => {
       const store = new MemoryStore();
       const position1: Position = {
         symbol: "BTCUSDT",
+        accountId: "main",
+        exchange: ExchangeName.BYBIT,
         side: PositionSide.Long,
         entryPrice: 50000,
         notional: 10000,
@@ -215,6 +223,8 @@ describe("MemoryStore", () => {
 
       const position2: Position = {
         symbol: "ETHUSDT",
+        accountId: "main",
+        exchange: ExchangeName.BYBIT,
         side: PositionSide.Short,
         entryPrice: 3000,
         notional: 6000,
@@ -259,6 +269,8 @@ describe("MemoryStore", () => {
       const store = new MemoryStore();
       const position1: Position = {
         symbol: "BTCUSDT",
+        accountId: "main",
+        exchange: ExchangeName.BYBIT,
         side: PositionSide.Long,
         entryPrice: 50000,
         notional: 10000,
@@ -270,6 +282,8 @@ describe("MemoryStore", () => {
 
       const position2: Position = {
         symbol: "ETHUSDT",
+        accountId: "main",
+        exchange: ExchangeName.BYBIT,
         side: PositionSide.Short,
         entryPrice: 3000,
         notional: 6000,
@@ -391,6 +405,8 @@ describe("MemoryStore", () => {
       const store = new MemoryStore();
       const position: Position = {
         symbol: "BTCUSDT",
+        accountId: "main",
+        exchange: ExchangeName.BYBIT,
         side: PositionSide.Long,
         entryPrice: 50000,
         notional: 10000,
@@ -404,6 +420,7 @@ describe("MemoryStore", () => {
         id: "BTCUSDT",
         symbol: "BTCUSDT",
         cleanSymbol: "BTC/USDT",
+        exchange: ExchangeName.BYBIT,
         bid: 49900,
         ask: 50100,
         last: 50000,
@@ -439,6 +456,7 @@ describe("MemoryStore", () => {
         id: "ETHUSDT",
         symbol: "ETHUSDT",
         cleanSymbol: "ETH/USDT",
+        exchange: ExchangeName.BYBIT,
         bid: 2990,
         ask: 3010,
         last: 3000,
@@ -512,6 +530,7 @@ describe("MemoryStore", () => {
           value: {
             id: "BTCUSDT",
             symbol: "BTCUSDT",
+            exchange: ExchangeName.BYBIT,
             base: "BTC",
             quote: "USDT",
             active: true,

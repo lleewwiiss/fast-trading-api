@@ -15,7 +15,6 @@ export const defaultStoreState: StoreMemory = {
       tickers: {},
       markets: {},
       orderBooks: {},
-      ohlcv: {},
     },
     private: {},
   },
