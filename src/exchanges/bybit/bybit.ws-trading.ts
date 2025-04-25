@@ -113,7 +113,13 @@ export class BybitWsTrading {
     if (!this.isStopped) this.ws?.send(JSON.stringify(data));
   };
 
-  public placeOrderBatch = (orders: BybitPlaceOrderOpts[]) => {
+  public placeOrderBatch = ({
+    orders,
+    priority = false,
+  }: {
+    orders: BybitPlaceOrderOpts[];
+    priority?: boolean;
+  }) => {
     return new Promise<string[]>((resolve) => {
       const batches = chunk(orders, 20);
       const responses: BybitPlaceOrderBatchResponse[] = [];
@@ -140,6 +146,7 @@ export class BybitWsTrading {
 
         this.enqueueSend({
           consume: batch.length,
+          priority,
           payload: {
             op: "order.create-batch",
             reqId,
@@ -150,13 +157,17 @@ export class BybitWsTrading {
     });
   };
 
-  public updateOrders = (
+  public updateOrders = ({
+    updates,
+    priority = false,
+  }: {
     updates: {
       order: Order;
       market: Market;
       update: { price: number } | { amount: number };
-    }[],
-  ) => {
+    }[];
+    priority?: boolean;
+  }) => {
     return new Promise((resolve) => {
       const batches = chunk(updates, 10);
       const responses: any[] = [];
@@ -174,6 +185,7 @@ export class BybitWsTrading {
 
         this.enqueueSend({
           consume: batch.length,
+          priority,
           payload: {
             op: "order.amend-batch",
             reqId,
@@ -208,7 +220,13 @@ export class BybitWsTrading {
     });
   };
 
-  public cancelOrders = (orders: Order[]) => {
+  public cancelOrders = ({
+    orders,
+    priority = false,
+  }: {
+    orders: Order[];
+    priority?: boolean;
+  }) => {
     return new Promise((resolve) => {
       const batches = chunk(orders, 10);
       const responses: any[] = [];
@@ -226,6 +244,7 @@ export class BybitWsTrading {
 
         this.enqueueSend({
           consume: batch.length,
+          priority,
           payload: {
             op: "order.cancel-batch",
             reqId,
@@ -247,11 +266,17 @@ export class BybitWsTrading {
   private enqueueSend = ({
     payload,
     consume = 1,
+    priority = false,
   }: {
     payload: Data;
     consume?: number;
+    priority?: boolean;
   }) => {
-    this.queue.push({ payload, consume });
+    if (priority) {
+      this.queue.unshift({ payload, consume });
+    } else {
+      this.queue.push({ payload, consume });
+    }
 
     if (!this.isProcessing) {
       this.processQueue();

@@ -231,12 +231,14 @@ export type BybitWorkerMessage = MessageEvent<
       orders: PlaceOrderOpts[];
       accountId: string;
       requestId: string;
+      priority?: boolean;
     }
   | {
       type: "cancelOrders";
       orderIds: string[];
       accountId: string;
       requestId: string;
+      priority?: boolean;
     }
   | {
       type: "updateOrders";
@@ -246,6 +248,7 @@ export type BybitWorkerMessage = MessageEvent<
       }[];
       accountId: string;
       requestId: string;
+      priority?: boolean;
     }
 >;
 

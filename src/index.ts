@@ -130,19 +130,23 @@ export class FastTradingApi {
   public placeOrder({
     order,
     accountId,
+    priority = false,
   }: {
     order: PlaceOrderOpts;
     accountId: string;
+    priority?: boolean;
   }) {
-    return this.placeOrders({ orders: [order], accountId });
+    return this.placeOrders({ orders: [order], accountId, priority });
   }
 
   public placeOrders({
     orders,
     accountId,
+    priority = false,
   }: {
     orders: PlaceOrderOpts[];
     accountId: string;
+    priority?: boolean;
   }) {
     const account = this.accounts.find((acc) => acc.id === accountId);
     const exchange = account?.exchange;
@@ -151,27 +155,39 @@ export class FastTradingApi {
       throw new Error(`No accounts by id found for: ${accountId}`);
     }
 
-    return this.exchanges[exchange].placeOrders({ orders, accountId });
+    return this.exchanges[exchange].placeOrders({
+      orders,
+      accountId,
+      priority,
+    });
   }
 
   public updateOrder({
     order,
     update,
     accountId,
+    priority = false,
   }: {
     order: Order;
     update: { amount: number } | { price: number };
     accountId: string;
+    priority?: boolean;
   }) {
-    return this.updateOrders({ updates: [{ order, update }], accountId });
+    return this.updateOrders({
+      updates: [{ order, update }],
+      accountId,
+      priority,
+    });
   }
 
   public updateOrders({
     updates,
     accountId,
+    priority = false,
   }: {
     updates: { order: Order; update: { amount: number } | { price: number } }[];
     accountId: string;
+    priority?: boolean;
   }) {
     const account = this.accounts.find((acc) => acc.id === accountId);
     const exchange = account?.exchange;
@@ -180,25 +196,33 @@ export class FastTradingApi {
       throw new Error(`No accounts by id found for: ${accountId}`);
     }
 
-    return this.exchanges[exchange].updateOrders({ updates, accountId });
+    return this.exchanges[exchange].updateOrders({
+      updates,
+      accountId,
+      priority,
+    });
   }
 
   public cancelOrder({
     orderId,
     accountId,
+    priority = false,
   }: {
     orderId: string;
     accountId: string;
+    priority?: boolean;
   }) {
-    return this.cancelOrders({ orderIds: [orderId], accountId });
+    return this.cancelOrders({ orderIds: [orderId], accountId, priority });
   }
 
   public cancelOrders({
     orderIds,
     accountId,
+    priority = false,
   }: {
     orderIds: string[];
     accountId: string;
+    priority?: boolean;
   }) {
     const account = this.accounts.find((acc) => acc.id === accountId);
     const exchange = account?.exchange;
@@ -207,7 +231,11 @@ export class FastTradingApi {
       throw new Error(`No accounts by id found for: ${accountId}`);
     }
 
-    return this.exchanges[exchange].cancelOrders({ orderIds, accountId });
+    return this.exchanges[exchange].cancelOrders({
+      orderIds,
+      accountId,
+      priority,
+    });
   }
 
   public on(event: "log" | "error", listener: (message: string) => void) {

@@ -62,9 +62,11 @@ export class BybitExchange {
   public placeOrders({
     orders,
     accountId,
+    priority = false,
   }: {
     orders: PlaceOrderOpts[];
     accountId: string;
+    priority?: boolean;
   }): Promise<string[]> {
     const requestId = genId();
 
@@ -75,6 +77,7 @@ export class BybitExchange {
         orders,
         accountId,
         requestId,
+        priority,
       });
     });
   }
@@ -82,9 +85,11 @@ export class BybitExchange {
   public updateOrders({
     updates,
     accountId,
+    priority = false,
   }: {
     updates: { order: Order; update: { amount: number } | { price: number } }[];
     accountId: string;
+    priority?: boolean;
   }) {
     const requestId = genId();
 
@@ -95,6 +100,7 @@ export class BybitExchange {
         updates,
         accountId,
         requestId,
+        priority,
       });
     });
   }
@@ -102,9 +108,11 @@ export class BybitExchange {
   public cancelOrders({
     orderIds,
     accountId,
+    priority = false,
   }: {
     orderIds: string[];
     accountId: string;
+    priority?: boolean;
   }): Promise<void> {
     const requestId = genId();
 
@@ -115,6 +123,7 @@ export class BybitExchange {
         orderIds,
         accountId,
         requestId,
+        priority,
       });
     });
   }

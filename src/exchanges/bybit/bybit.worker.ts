@@ -521,10 +521,12 @@ export class BybitWorker {
     orders,
     accountId,
     requestId,
+    priority = false,
   }: {
     orders: PlaceOrderOpts[];
     accountId: string;
     requestId: string;
+    priority?: boolean;
   }) {
     const orderIds: string[] = [];
     const [normalOrders, conditionalOrders] = partition(
@@ -534,14 +536,16 @@ export class BybitWorker {
     );
 
     if (normalOrders.length > 0) {
-      const normalOrderIds = await this.tradingWs[accountId].placeOrderBatch(
-        normalOrders.flatMap((o) =>
+      const normalOrderIds = await this.tradingWs[accountId].placeOrderBatch({
+        priority,
+        orders: normalOrders.flatMap((o) =>
           formatMarkerOrLimitOrder({
             order: o,
             market: this.memory.public.markets[o.symbol],
           }),
         ),
-      );
+      });
+
       orderIds.push(...normalOrderIds);
     }
 
@@ -565,18 +569,21 @@ export class BybitWorker {
     updates,
     accountId,
     requestId,
+    priority = false,
   }: {
     updates: { order: Order; update: { amount: number } | { price: number } }[];
     accountId: string;
     requestId: string;
+    priority?: boolean;
   }) {
-    await this.tradingWs[accountId].updateOrders(
-      updates.map((update) => ({
+    await this.tradingWs[accountId].updateOrders({
+      priority,
+      updates: updates.map((update) => ({
         order: update.order,
         update: update.update,
         market: this.memory.public.markets[update.order.symbol],
       })),
-    );
+    });
 
     self.postMessage({ type: "response", requestId, data: [] });
   }
@@ -585,20 +592,23 @@ export class BybitWorker {
     orderIds,
     accountId,
     requestId,
+    priority = false,
   }: {
     orderIds: string[];
     accountId: string;
     requestId: string;
+    priority?: boolean;
   }) {
-    await this.tradingWs[accountId].cancelOrders(
-      orderIds.reduce((acc, id) => {
+    await this.tradingWs[accountId].cancelOrders({
+      priority,
+      orders: orderIds.reduce((acc, id) => {
         const order = this.memory.private[accountId].orders.find(
           (o) => o.id === id,
         );
 
         return order ? [...acc, order] : acc;
       }, [] as Order[]),
-    );
+    });
 
     self.postMessage({ type: "response", requestId, data: [] });
   }
