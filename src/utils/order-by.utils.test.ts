@@ -89,4 +89,36 @@ describe("orderBy", () => {
       { name: "Alice", age: 25 },
     ]);
   });
+
+  test("should use identity as default iteratee", () => {
+    const nums = [3, 1, 2];
+    const result = orderBy(nums);
+    expect(result).toEqual([1, 2, 3]);
+  });
+
+  test("should support function iteratees", () => {
+    const words = ["apple", "pear", "banana", "kiwi"];
+    const result = orderBy(words, [(w: string) => w.length], ["desc"]);
+    expect(result).toEqual(["banana", "apple", "pear", "kiwi"]);
+  });
+
+  test("should support mix of key and function iteratees", () => {
+    const items = [
+      { name: "aa", value: 2 },
+      { name: "a", value: 1 },
+      { name: "aaa", value: 1 },
+      { name: "a", value: 3 },
+    ];
+    const result = orderBy(
+      items,
+      [(u) => u.name.length, "value"],
+      ["asc", "desc"],
+    );
+    expect(result).toEqual([
+      { name: "a", value: 3 },
+      { name: "a", value: 1 },
+      { name: "aa", value: 2 },
+      { name: "aaa", value: 1 },
+    ]);
+  });
 });
