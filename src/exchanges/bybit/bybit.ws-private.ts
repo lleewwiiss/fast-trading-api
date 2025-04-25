@@ -8,7 +8,8 @@ import type {
 import { mapBybitBalance, mapBybitPosition } from "./bybit.utils";
 import type { BybitWorker } from "./bybit.worker";
 
-import type { Account } from "~/types/lib.types";
+import { partition } from "~/utils/partition.utils";
+import { PositionSide, type Account } from "~/types/lib.types";
 
 export class BybitWsPrivate {
   private parent: BybitWorker;
@@ -67,12 +68,40 @@ export class BybitWsPrivate {
         event.data,
       );
 
-      this.parent.updateAccountPositions({
-        accountId: this.account.id,
-        positions: data.map((p) =>
-          mapBybitPosition({ position: p, accountId: this.account.id }),
-        ),
-      });
+      const [toRemove, toUpdate] = partition(
+        data,
+        (p) => p.side === "" || p.size === "0",
+      );
+
+      if (toRemove.length > 0) {
+        this.parent.removeAccountPositions({
+          accountId: this.account.id,
+          positions: toRemove.flatMap((p) => {
+            if (p.side === "") {
+              return [
+                { side: PositionSide.Long, symbol: p.symbol },
+                { side: PositionSide.Short, symbol: p.symbol },
+              ];
+            }
+
+            return [
+              {
+                side: p.side === "Buy" ? PositionSide.Long : PositionSide.Short,
+                symbol: p.symbol,
+              },
+            ];
+          }),
+        });
+      }
+
+      if (toUpdate.length > 0) {
+        this.parent.updateAccountPositions({
+          accountId: this.account.id,
+          positions: toUpdate.map((p) =>
+            mapBybitPosition({ position: p, accountId: this.account.id }),
+          ),
+        });
+      }
     }
 
     if (event.data.includes('"topic":"wallet"')) {

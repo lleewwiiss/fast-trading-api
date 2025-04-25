@@ -235,6 +235,38 @@ export class BybitWorker {
     ]);
   }
 
+  public removeAccountPositions({
+    accountId,
+    positions,
+  }: {
+    accountId: Account["id"];
+    positions: { side: PositionSide; symbol: string }[];
+  }) {
+    const changes = positions.reduce<
+      {
+        type: "removeArrayElement";
+        path: `private.${string}.positions`;
+        index: number;
+      }[]
+    >((acc, p) => {
+      const idx = this.memory.private[accountId].positions.findIndex(
+        (pos) => pos.symbol === p.symbol && pos.side === p.side,
+      );
+
+      if (idx !== -1) {
+        acc.push({
+          type: "removeArrayElement",
+          path: `private.${accountId}.positions`,
+          index: idx - acc.length,
+        });
+      }
+
+      return acc;
+    }, []);
+
+    this.emitChanges(changes);
+  }
+
   public updateAccountPositions({
     accountId,
     positions,
