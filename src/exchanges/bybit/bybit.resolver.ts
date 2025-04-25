@@ -126,33 +126,23 @@ export const fetchBybitBalance = async ({
   return mapBybitBalance(firstAccount);
 };
 
-export const fetchBybitPositions = async ({
-  id,
-  apiKey,
-  apiSecret,
-}: Account) => {
+export const fetchBybitPositions = async (account: Account) => {
   const json = await bybit<{ result: { list: BybitPosition[] } }>({
-    key: apiKey,
-    secret: apiSecret,
+    key: account.apiKey,
+    secret: account.apiSecret,
     url: `${BYBIT_API.BASE_URL}${BYBIT_API.ENDPOINTS.POSITIONS}`,
     params: { category: "linear", settleCoin: "USDT", limit: 200 },
     retries: 3,
   });
 
   const positions: Position[] = json.result.list.map((p) =>
-    mapBybitPosition({ position: p, accountId: id }),
+    mapBybitPosition({ position: p, accountId: account.id }),
   );
 
   return positions;
 };
 
-export const fetchBybitOrders = async ({
-  key,
-  secret,
-}: {
-  key: string;
-  secret: string;
-}) => {
+export const fetchBybitOrders = async (account: Account) => {
   const recursiveFetch = async (
     cursor: string = "",
     orders: BybitOrder[] = [],
@@ -160,8 +150,8 @@ export const fetchBybitOrders = async ({
     const json = await bybit<{
       result: { list: BybitOrder[]; nextPageCursor?: string };
     }>({
-      key,
-      secret,
+      key: account.apiKey,
+      secret: account.apiSecret,
       url: `${BYBIT_API.BASE_URL}${BYBIT_API.ENDPOINTS.ORDERS}`,
       params: {
         category: "linear",
@@ -190,7 +180,9 @@ export const fetchBybitOrders = async ({
   };
 
   const bybitOrders: BybitOrder[] = await recursiveFetch();
-  const orders: Order[] = bybitOrders.flatMap(mapBybitOrder);
+  const orders: Order[] = bybitOrders.flatMap((o) =>
+    mapBybitOrder({ accountId: account.id, order: o }),
+  );
 
   return orders;
 };

@@ -90,7 +90,13 @@ export const mapBybitPosition = ({
   };
 };
 
-export const mapBybitOrder = (o: BybitOrder): Order[] => {
+export const mapBybitOrder = ({
+  order: o,
+  accountId,
+}: {
+  order: BybitOrder;
+  accountId: string;
+}): Order[] => {
   const isStop = o.stopOrderType !== "UNKNOWN" && o.stopOrderType !== "";
 
   const oPrice = isStop ? o.triggerPrice : o.price;
@@ -99,6 +105,8 @@ export const mapBybitOrder = (o: BybitOrder): Order[] => {
   const orders: Order[] = [
     {
       id: o.orderId,
+      exchange: ExchangeName.BYBIT,
+      accountId,
       status: ORDER_STATUS[o.orderStatus],
       symbol: o.symbol,
       type: ORDER_TYPE[oType as keyof typeof ORDER_TYPE],

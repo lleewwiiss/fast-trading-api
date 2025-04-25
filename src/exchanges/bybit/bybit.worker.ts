@@ -202,10 +202,7 @@ export class BybitWorker {
 
     // 8. Fetch orders per account
     for (const account of this.accounts) {
-      const orders = await fetchBybitOrders({
-        key: account.apiKey,
-        secret: account.apiSecret,
-      });
+      const orders = await fetchBybitOrders(account);
 
       this.emitChanges([
         {
@@ -377,7 +374,7 @@ export class BybitWorker {
     bybitOrders: BybitOrder[];
   }) {
     for (const bybitOrder of bybitOrders) {
-      const orders = mapBybitOrder(bybitOrder);
+      const orders = mapBybitOrder({ accountId, order: bybitOrder });
 
       const price = parseFloat(bybitOrder.price);
       const amount = parseFloat(bybitOrder.qty);

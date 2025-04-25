@@ -149,6 +149,8 @@ export enum OrderTimeInForce {
 
 export interface Order {
   id: string;
+  exchange: ExchangeName;
+  accountId: string;
   parentId?: string;
   status: OrderStatus;
   symbol: string;
