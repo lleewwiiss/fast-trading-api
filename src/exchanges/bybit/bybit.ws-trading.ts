@@ -30,7 +30,7 @@ export class BybitWsTrading {
 
   private pendingRequests = new Map<string, (data: any) => void>();
 
-  private queue: Data[] = [];
+  private queue: { payload: Data; consume: number }[] = [];
   private isProcessing = false;
   private rateLimit = 10;
   private queueInterval = 1000 / this.rateLimit;
@@ -139,14 +139,12 @@ export class BybitWsTrading {
         );
 
         this.enqueueSend({
-          op: "order.create-batch",
-          reqId,
-          args: [
-            {
-              category: "linear",
-              request: batch,
-            },
-          ],
+          consume: batch.length,
+          payload: {
+            op: "order.create-batch",
+            reqId,
+            args: [{ category: "linear", request: batch }],
+          },
         });
       }
     });
@@ -175,33 +173,36 @@ export class BybitWsTrading {
         });
 
         this.enqueueSend({
-          op: "order.amend-batch",
-          reqId,
-          args: [
-            {
-              category: "linear",
-              request: batch.map(({ order, market, update }) => {
-                const amendedOrder: Record<string, string> = {
-                  symbol: order.symbol,
-                  orderId: order.id,
-                };
+          consume: batch.length,
+          payload: {
+            op: "order.amend-batch",
+            reqId,
+            args: [
+              {
+                category: "linear",
+                request: batch.map(({ order, market, update }) => {
+                  const amendedOrder: Record<string, string> = {
+                    symbol: order.symbol,
+                    orderId: order.id,
+                  };
 
-                if ("price" in update) {
-                  amendedOrder["price"] = adjust(
-                    update.price,
-                    market.precision.price,
-                  ).toString();
-                }
+                  if ("price" in update) {
+                    amendedOrder["price"] = adjust(
+                      update.price,
+                      market.precision.price,
+                    ).toString();
+                  }
 
-                if ("amount" in update) {
-                  amendedOrder["qty"] = adjust(
-                    update.amount,
-                    market.precision.amount,
-                  ).toString();
-                }
-              }),
-            },
-          ],
+                  if ("amount" in update) {
+                    amendedOrder["qty"] = adjust(
+                      update.amount,
+                      market.precision.amount,
+                    ).toString();
+                  }
+                }),
+              },
+            ],
+          },
         });
       }
     });
@@ -224,21 +225,33 @@ export class BybitWsTrading {
         });
 
         this.enqueueSend({
-          op: "order.cancel-batch",
-          reqId,
-          args: [
-            {
-              category: "linear",
-              request: batch.map((o) => ({ symbol: o.symbol, orderId: o.id })),
-            },
-          ],
+          consume: batch.length,
+          payload: {
+            op: "order.cancel-batch",
+            reqId,
+            args: [
+              {
+                category: "linear",
+                request: batch.map((o) => ({
+                  symbol: o.symbol,
+                  orderId: o.id,
+                })),
+              },
+            ],
+          },
         });
       }
     });
   };
 
-  private enqueueSend = (payload: Data) => {
-    this.queue.push(payload);
+  private enqueueSend = ({
+    payload,
+    consume = 1,
+  }: {
+    payload: Data;
+    consume?: number;
+  }) => {
+    this.queue.push({ payload, consume });
 
     if (!this.isProcessing) {
       this.processQueue();
@@ -249,10 +262,13 @@ export class BybitWsTrading {
     this.isProcessing = true;
 
     while (this.queue.length > 0) {
-      const payload = this.queue.shift();
+      const item = this.queue.shift();
 
-      if (payload) {
-        const payloadWithHeader = Object.assign(payload, {
+      if (item) {
+        const { payload, consume } = item;
+
+        this.send({
+          ...payload,
           header: {
             "X-BAPI-TIMESTAMP": `${Date.now()}`,
             "X-BAPI-RECV-WINDOW": `${RECV_WINDOW}`,
@@ -260,8 +276,7 @@ export class BybitWsTrading {
           },
         });
 
-        this.send(payloadWithHeader);
-        await sleep(this.queueInterval);
+        await sleep(this.queueInterval * consume);
       }
     }
 
