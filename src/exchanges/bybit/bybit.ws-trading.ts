@@ -211,6 +211,8 @@ export class BybitWsTrading {
                       market.precision.amount,
                     ).toString();
                   }
+
+                  return amendedOrder;
                 }),
               },
             ],
