@@ -249,16 +249,25 @@ export class BybitWorker {
         index: number;
       }[]
     >((acc, p) => {
-      const idx = this.memory.private[accountId].positions.findIndex(
-        (pos) => pos.symbol === p.symbol && pos.side === p.side,
-      );
+      const indices = this.memory.private[accountId].positions
+        .filter((pos) =>
+          pos.isHedged
+            ? pos.symbol === p.symbol && pos.side === p.side
+            : pos.symbol === p.symbol,
+        )
+        .map((pos) => this.memory.private[accountId].positions.indexOf(pos));
 
-      if (idx !== -1) {
-        acc.push({
-          type: "removeArrayElement",
-          path: `private.${accountId}.positions`,
-          index: idx - acc.length,
-        });
+      if (indices.length > 0) {
+        acc.push(
+          ...indices.map(
+            (posIdx, idx) =>
+              ({
+                type: "removeArrayElement",
+                path: `private.${accountId}.positions`,
+                index: posIdx - acc.length - idx,
+              }) as const,
+          ),
+        );
       }
 
       return acc;
@@ -275,14 +284,18 @@ export class BybitWorker {
     positions: Position[];
   }) {
     const [updatePositions, addPositions] = partition(positions, (position) =>
-      this.memory.private[accountId].positions.some(
-        (p) => p.symbol === position.symbol && p.side === position.side,
+      this.memory.private[accountId].positions.some((p) =>
+        p.isHedged
+          ? p.symbol === position.symbol && p.side === position.side
+          : p.symbol === position.symbol,
       ),
     );
 
     const updatePositionsChanges = updatePositions.map((position) => {
-      const idx = this.memory.private[accountId].positions.findIndex(
-        (p) => p.symbol === position.symbol && p.side === position.side,
+      const idx = this.memory.private[accountId].positions.findIndex((p) =>
+        position.isHedged
+          ? p.symbol === position.symbol && p.side === position.side
+          : p.symbol === position.symbol,
       );
 
       return {
