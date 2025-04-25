@@ -22,8 +22,10 @@ export class BybitExchange {
   constructor({ parent }: { parent: FastTradingApi }) {
     this.parent = parent;
 
-    const module = new URL("./bybit.worker", import.meta.url);
-    this.worker = new Worker(module, { type: "module" });
+    this.worker = new Worker(new URL("./bybit.worker", import.meta.url), {
+      type: "module",
+    });
+
     this.worker.addEventListener("message", this.onWorkerMessage);
   }
 
