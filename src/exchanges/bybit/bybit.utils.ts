@@ -32,6 +32,7 @@ import { TICKER_REGEX } from "~/utils/regex.utils";
 import { omitUndefined } from "~/utils/omit-undefined.utils";
 import { times } from "~/utils/times.utils";
 import { omit } from "~/utils/omit.utils";
+import { toUSD } from "~/utils/to-usd.utils";
 
 export const mapBybitTicker = (t: BybitTicker): Ticker => {
   return {
@@ -57,16 +58,14 @@ export const mapBybitBalance = (b?: BybitBalance) => {
     return { total: 0, upnl: 0, used: 0, free: 0 };
   }
 
-  const upnl = parseFloat(b.totalPerpUPL);
-  const total = parseFloat(b.totalEquity) - upnl;
+  const upnl = toUSD(parseFloat(b.totalPerpUPL));
+  const total = toUSD(parseFloat(b.totalEquity) - upnl);
+  const free = toUSD(parseFloat(b.totalMarginBalance));
+  const used = toUSD(
+    parseFloat(b.totalMaintenanceMargin) + parseFloat(b.totalInitialMargin),
+  );
 
-  return {
-    total,
-    upnl,
-    used:
-      parseFloat(b.totalMaintenanceMargin) + parseFloat(b.totalInitialMargin),
-    free: parseFloat(b.totalMarginBalance),
-  };
+  return { total, upnl, used, free };
 };
 
 export const mapBybitPosition = ({
@@ -82,9 +81,9 @@ export const mapBybitPosition = ({
     symbol: p.symbol,
     side: p.side === "Buy" ? PositionSide.Long : PositionSide.Short,
     entryPrice: parseFloat("avgPrice" in p ? p.avgPrice : p.entryPrice),
-    notional: parseFloat(p.positionValue) + parseFloat(p.unrealisedPnl),
+    notional: toUSD(parseFloat(p.positionValue) + parseFloat(p.unrealisedPnl)),
     leverage: parseFloat(p.leverage),
-    upnl: parseFloat(p.unrealisedPnl),
+    upnl: toUSD(parseFloat(p.unrealisedPnl)),
     contracts: parseFloat(p.size || "0"),
     liquidationPrice: parseFloat(p.liqPrice || "0"),
     isHedged: p.positionIdx !== 0,

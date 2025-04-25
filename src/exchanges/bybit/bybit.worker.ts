@@ -38,6 +38,8 @@ import type {
 import { partition } from "~/utils/partition.utils";
 import { subtract } from "~/utils/safe-math.utils";
 import { omit } from "~/utils/omit.utils";
+import { toUSD } from "~/utils/to-usd.utils";
+import { sumBy } from "~/utils/sum-by.utils";
 
 export class BybitWorker {
   private accounts: Account[] = [];
@@ -180,7 +182,7 @@ export class BybitWorker {
           {
             type: "update",
             path: `private.${account.id}.balance.upnl`,
-            value: positions.reduce((acc, p) => acc + p.upnl, 0 as number),
+            value: toUSD(sumBy(positions, "upnl")),
           },
         ]);
 
@@ -349,15 +351,16 @@ export class BybitWorker {
             {
               type: "update" as const,
               path: `private.${acc.id}.positions.${idx}.notional` as const,
-              value: ticker.last! * p.contracts,
+              value: toUSD(ticker.last! * p.contracts),
             },
             {
               type: "update" as const,
               path: `private.${acc.id}.positions.${idx}.upnl` as const,
-              value:
+              value: toUSD(
                 p.side === PositionSide.Long
                   ? p.contracts * ticker.last! - p.contracts * p.entryPrice
                   : p.contracts * p.entryPrice - p.contracts * ticker.last!,
+              ),
             },
           ];
         });
