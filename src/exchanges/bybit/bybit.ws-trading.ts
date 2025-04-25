@@ -1,5 +1,5 @@
 import { bybitWebsocketAuth } from "./bybit.api";
-import { BYBIT_API } from "./bybit.config";
+import { BROKER_ID, BYBIT_API, RECV_WINDOW } from "./bybit.config";
 import type {
   BybitPlaceOrderBatchResponse,
   BybitPlaceOrderOpts,
@@ -10,6 +10,14 @@ import { chunk } from "~/utils/chunk.utils";
 import type { Account, Market, Order } from "~/types/lib.types";
 import { genId } from "~/utils/gen-id.utils";
 import { adjust } from "~/utils/safe-math.utils";
+import { sleep } from "~/utils/sleep.utils";
+
+type Data = {
+  op: string;
+  reqId?: string;
+  header?: Record<string, string>;
+  args?: string[] | Record<string, any>[];
+};
 
 export class BybitWsTrading {
   private account: Account;
@@ -21,6 +29,11 @@ export class BybitWsTrading {
   private interval: NodeJS.Timeout | null = null;
 
   private pendingRequests = new Map<string, (data: any) => void>();
+
+  private queue: Data[] = [];
+  private isProcessing = false;
+  private rateLimit = 10;
+  private queueInterval = 1000 / this.rateLimit;
 
   constructor({ account, parent }: { account: Account; parent: BybitWorker }) {
     this.account = account;
@@ -96,12 +109,7 @@ export class BybitWsTrading {
     this.listenWebsocket();
   };
 
-  private send = (data: {
-    op: string;
-    reqId?: string;
-    header?: Record<string, string>;
-    args?: string[] | Record<string, any>[];
-  }) => {
+  private send = (data: Data) => {
     if (!this.isStopped) this.ws?.send(JSON.stringify(data));
   };
 
@@ -130,13 +138,9 @@ export class BybitWsTrading {
           },
         );
 
-        this.send({
+        this.enqueueSend({
           op: "order.create-batch",
           reqId,
-          header: {
-            "X-BAPI-TIMESTAMP": Date.now().toString(),
-            "X-BAPI-RECV-WINDOW": "5000",
-          },
           args: [
             {
               category: "linear",
@@ -170,13 +174,9 @@ export class BybitWsTrading {
           }
         });
 
-        this.send({
+        this.enqueueSend({
           op: "order.amend-batch",
           reqId,
-          header: {
-            "X-BAPI-TIMESTAMP": Date.now().toString(),
-            "X-BAPI-RECV-WINDOW": "5000",
-          },
           args: [
             {
               category: "linear",
@@ -223,13 +223,9 @@ export class BybitWsTrading {
           }
         });
 
-        this.send({
+        this.enqueueSend({
           op: "order.cancel-batch",
           reqId,
-          header: {
-            "X-BAPI-TIMESTAMP": Date.now().toString(),
-            "X-BAPI-RECV-WINDOW": "5000",
-          },
           args: [
             {
               category: "linear",
@@ -239,6 +235,37 @@ export class BybitWsTrading {
         });
       }
     });
+  };
+
+  private enqueueSend = (payload: Data) => {
+    this.queue.push(payload);
+
+    if (!this.isProcessing) {
+      this.processQueue();
+    }
+  };
+
+  private processQueue = async () => {
+    this.isProcessing = true;
+
+    while (this.queue.length > 0) {
+      const payload = this.queue.shift();
+
+      if (payload) {
+        const payloadWithHeader = Object.assign(payload, {
+          header: {
+            "X-BAPI-TIMESTAMP": `${Date.now()}`,
+            "X-BAPI-RECV-WINDOW": `${RECV_WINDOW}`,
+            Referer: BROKER_ID,
+          },
+        });
+
+        this.send(payloadWithHeader);
+        await sleep(this.queueInterval);
+      }
+    }
+
+    this.isProcessing = false;
   };
 
   public stop = () => {
