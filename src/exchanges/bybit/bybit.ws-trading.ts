@@ -11,7 +11,7 @@ import type { Account, Market, Order } from "~/types/lib.types";
 import { genId } from "~/utils/gen-id.utils";
 import { adjust } from "~/utils/safe-math.utils";
 import { sleep } from "~/utils/sleep.utils";
-import { ReconnectingWebSocket } from "~/websocket";
+import { ReconnectingWebSocket } from "~/lib/reconnecting-websocket.lib";
 
 type Data = {
   op: string;

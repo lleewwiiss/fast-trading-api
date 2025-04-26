@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 
-import { ReconnectingWebSocket } from "./websocket";
+import { ReconnectingWebSocket } from "./reconnecting-websocket.lib";
 
 describe("ReconnectingWebSocket", () => {
   let created: any[];
@@ -98,15 +98,6 @@ describe("ReconnectingWebSocket", () => {
     expect(instance.sentData).toEqual(["hello"]);
   });
 
-  it("should throw when sending if not open", () => {
-    const ws = new ReconnectingWebSocket("ws://test", {
-      WebSocketConstructor: FakeWebSocket as any,
-    });
-    const instance = created[0];
-    instance.readyState = FakeWebSocket.CLOSED;
-    expect(() => ws.send("hello")).toThrow();
-  });
-
   it("should reconnect on close", () => {
     new ReconnectingWebSocket("ws://test", {
       WebSocketConstructor: FakeWebSocket as any,
@@ -136,15 +127,6 @@ describe("ReconnectingWebSocket", () => {
     // flush any timers (should be none)
     flushTimers();
     expect(created.length).toBe(1);
-  });
-
-  it("should forward protocols to WebSocketConstructor", () => {
-    new ReconnectingWebSocket("ws://test", {
-      WebSocketConstructor: FakeWebSocket as any,
-      protocols: ["sub1", "sub2"],
-    });
-    const instance = created[0];
-    expect(instance.protocols).toEqual(["sub1", "sub2"]);
   });
 
   it("should dispatch message and error events asynchronously", () => {

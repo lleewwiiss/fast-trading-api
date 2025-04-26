@@ -10,7 +10,7 @@ import {
   type Ticker,
   type Timeframe,
 } from "~/types/lib.types";
-import { ReconnectingWebSocket } from "~/websocket";
+import { ReconnectingWebSocket } from "~/lib/reconnecting-websocket.lib";
 
 export class BybitWsPublic {
   private parent: BybitWorker;
