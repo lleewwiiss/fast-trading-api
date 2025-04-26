@@ -121,4 +121,59 @@ describe("orderBy", () => {
       { name: "aaa", value: 1 },
     ]);
   });
+
+  test("should handle null and undefined values in single criteria sort", () => {
+    const items = [{ x: null }, { x: 1 }, { x: 0 }, { x: undefined }];
+    const resultAsc = orderBy(items, ["x"], ["asc"]);
+    expect(resultAsc).toEqual([
+      { x: null },
+      { x: undefined },
+      { x: 0 },
+      { x: 1 },
+    ]);
+
+    const resultDesc = orderBy(items, ["x"], ["desc"]);
+    expect(resultDesc).toEqual([
+      { x: 1 },
+      { x: 0 },
+      { x: null },
+      { x: undefined },
+    ]);
+  });
+
+  test("should maintain stability when values are equal in two-criteria sort", () => {
+    const items = [
+      { a: 1, b: 2, id: "first" },
+      { a: 1, b: 2, id: "second" },
+      { a: 1, b: 2, id: "third" },
+    ];
+    const result = orderBy(items, ["a", "b"], ["asc", "asc"]);
+    expect(result.map((item) => item.id)).toEqual(["first", "second", "third"]);
+  });
+
+  test("should support generic multi-criteria with more than two iteratees", () => {
+    const items = [
+      { a: 2, b: 1, c: 3 },
+      { a: 1, b: 3, c: 2 },
+      { a: 1, b: 2, c: 1 },
+      { a: 2, b: 1, c: 2 },
+    ];
+    const result = orderBy(items, ["a", "b", "c"], ["asc", "asc", "desc"]);
+    expect(result).toEqual([
+      { a: 1, b: 2, c: 1 },
+      { a: 1, b: 3, c: 2 },
+      { a: 2, b: 1, c: 3 },
+      { a: 2, b: 1, c: 2 },
+    ]);
+  });
+
+  test("should maintain stability when values are equal in generic multi-criteria sort", () => {
+    const items = [
+      { a: 1, b: 2, c: 3, id: "first" },
+      { a: 1, b: 2, c: 3, id: "second" },
+      { a: 2, b: 1, c: 0, id: "third" },
+    ];
+    const result = orderBy(items, ["a", "b", "c"], ["asc", "asc", "asc"]);
+    expect(result.map((item) => item.id)).toEqual(["first", "second", "third"]);
+  });
 });
