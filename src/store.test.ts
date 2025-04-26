@@ -1,6 +1,6 @@
 import { describe, test, expect } from "bun:test";
 
-import { MemoryStore } from "./store";
+import { MemoryStore, defaultStoreState } from "./store";
 import { ExchangeName, OrderSide, PositionSide } from "./types/lib.types";
 import type { Ticker, Position } from "./types/lib.types";
 
@@ -21,6 +21,35 @@ describe("MemoryStore", () => {
         private: {},
       },
     });
+  });
+
+  test("reset restores default state after modifications", () => {
+    const store = new MemoryStore();
+    // apply a change to memory
+    store.applyChanges([
+      {
+        type: "update",
+        path: `${ExchangeName.BYBIT}.public.latency`,
+        value: 123,
+      },
+    ]);
+    expect(store.memory[ExchangeName.BYBIT].public.latency).toBe(123);
+    // reset to default
+    store.reset();
+    expect(store.memory).toEqual(defaultStoreState);
+  });
+
+  test("applyChanges does not mutate defaultStoreState", () => {
+    const store = new MemoryStore();
+    store.applyChanges([
+      {
+        type: "update",
+        path: `${ExchangeName.BYBIT}.public.latency`,
+        value: 456,
+      },
+    ]);
+    // defaultStoreState should remain unchanged
+    expect(defaultStoreState[ExchangeName.BYBIT].public.latency).toBe(0);
   });
 
   describe("applyChanges", () => {
