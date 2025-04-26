@@ -147,18 +147,42 @@ export class ReconnectingWebSocket extends EventTarget {
       }
     });
 
-    // Bind event handlers with async dispatch
-    this.ws.addEventListener("open", (event: Event) => {
-      this.onOpen(event);
+    // Bind event handlers with cloned data so downstream `postMessage` works
+
+    // OPEN
+    this.ws.addEventListener("open", () => {
+      const ev = new Event("open");
+      this.onOpen(ev);
     });
+
+    // MESSAGE
     this.ws.addEventListener("message", (event: MessageEvent) => {
-      setTimeout(() => this.dispatchEvent(event), 0);
+      const msg = new MessageEvent("message", {
+        data: event.data,
+        origin: event.origin,
+        lastEventId: event.lastEventId,
+        ports: [...event.ports],
+        source: event.source,
+      });
+      setTimeout(() => this.dispatchEvent(msg), 0);
     });
-    this.ws.addEventListener("error", (event: Event) => {
-      setTimeout(() => this.dispatchEvent(event), 0);
+
+    // ERROR
+    this.ws.addEventListener("error", () => {
+      const err = new ErrorEvent("error", {
+        message: "WebSocket connection error",
+      });
+      setTimeout(() => this.dispatchEvent(err), 0);
     });
+
+    // CLOSE
     this.ws.addEventListener("close", (event: CloseEvent) => {
-      this.onClose(event);
+      const closeEv = new CloseEvent("close", {
+        code: event.code,
+        reason: event.reason,
+        wasClean: event.wasClean,
+      });
+      this.onClose(closeEv);
     });
   }
 
