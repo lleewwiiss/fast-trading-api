@@ -10,13 +10,14 @@ import {
   type Ticker,
   type Timeframe,
 } from "~/types/lib.types";
+import { ReconnectingWebSocket } from "~/websocket";
 
 export class BybitWsPublic {
   private parent: BybitWorker;
   private isStopped = false;
   private pingAt = 0;
 
-  private ws: WebSocket | null = null;
+  private ws: ReconnectingWebSocket | null = null;
   private interval: NodeJS.Timeout | null = null;
 
   private markets: string[] = [];
@@ -39,11 +40,11 @@ export class BybitWsPublic {
   }
 
   private listenWebsocket = () => {
-    this.ws = new WebSocket(BYBIT_API.BASE_WS_PUBLIC_URL);
-    this.ws.onopen = this.onOpen;
-    this.ws.onerror = this.onError;
-    this.ws.onmessage = this.onMessage;
-    this.ws.onclose = this.onClose;
+    this.ws = new ReconnectingWebSocket(BYBIT_API.BASE_WS_PUBLIC_URL);
+    this.ws.addEventListener("open", this.onOpen);
+    this.ws.addEventListener("error", this.onError);
+    this.ws.addEventListener("message", this.onMessage);
+    this.ws.addEventListener("close", this.onClose);
   };
 
   private onOpen = () => {
@@ -317,15 +318,10 @@ export class BybitWsPublic {
   private onClose = () => {
     this.parent.error(`Bybit Public Websocket Closed`);
 
-    if (this.isStopped) return;
-
     if (this.interval) {
       clearInterval(this.interval);
       this.interval = null;
     }
-
-    this.ws = null;
-    this.listenWebsocket();
   };
 
   private send = (data: { op: string; args?: string[] }) => {

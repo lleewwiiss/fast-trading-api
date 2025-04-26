@@ -10,12 +10,13 @@ import type { BybitWorker } from "./bybit.worker";
 
 import { partition } from "~/utils/partition.utils";
 import { PositionSide, type Account } from "~/types/lib.types";
+import { ReconnectingWebSocket } from "~/websocket";
 
 export class BybitWsPrivate {
   private parent: BybitWorker;
   private isStopped = false;
 
-  private ws: WebSocket | null = null;
+  private ws: ReconnectingWebSocket | null = null;
   private interval: NodeJS.Timeout | null = null;
 
   private account: Account;
@@ -28,11 +29,11 @@ export class BybitWsPrivate {
   }
 
   private listenWebsocket = () => {
-    this.ws = new WebSocket(BYBIT_API.BASE_WS_PRIVATE_URL);
-    this.ws.onopen = this.onOpen;
-    this.ws.onerror = this.onError;
-    this.ws.onmessage = this.onMessage;
-    this.ws.onclose = this.onClose;
+    this.ws = new ReconnectingWebSocket(BYBIT_API.BASE_WS_PRIVATE_URL);
+    this.ws.addEventListener("open", this.onOpen);
+    this.ws.addEventListener("error", this.onError);
+    this.ws.addEventListener("message", this.onMessage);
+    this.ws.addEventListener("close", this.onClose);
   };
 
   private onOpen = async () => {
@@ -136,15 +137,10 @@ export class BybitWsPrivate {
       `Bybit Private Websocket Closed for account [${this.account.id}]`,
     );
 
-    if (this.isStopped) return;
-
     if (this.interval) {
       clearInterval(this.interval);
       this.interval = null;
     }
-
-    this.ws = null;
-    this.listenWebsocket();
   };
 
   private send = (data: { op: string; args?: string[] }) => {

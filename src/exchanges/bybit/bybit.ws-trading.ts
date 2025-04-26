@@ -11,6 +11,7 @@ import type { Account, Market, Order } from "~/types/lib.types";
 import { genId } from "~/utils/gen-id.utils";
 import { adjust } from "~/utils/safe-math.utils";
 import { sleep } from "~/utils/sleep.utils";
+import { ReconnectingWebSocket } from "~/websocket";
 
 type Data = {
   op: string;
@@ -25,7 +26,7 @@ export class BybitWsTrading {
 
   private isStopped = false;
 
-  private ws: WebSocket | null = null;
+  private ws: ReconnectingWebSocket | null = null;
   private interval: NodeJS.Timeout | null = null;
 
   private pendingRequests = new Map<string, (data: any) => void>();
@@ -42,11 +43,11 @@ export class BybitWsTrading {
   }
 
   private listenWebsocket = () => {
-    this.ws = new WebSocket(BYBIT_API.BASE_WS_TRADE_URL);
-    this.ws.onopen = this.onOpen;
-    this.ws.onerror = this.onError;
-    this.ws.onmessage = this.onMessage;
-    this.ws.onclose = this.onClose;
+    this.ws = new ReconnectingWebSocket(BYBIT_API.BASE_WS_TRADE_URL);
+    this.ws.addEventListener("open", this.onOpen);
+    this.ws.addEventListener("error", this.onError);
+    this.ws.addEventListener("message", this.onMessage);
+    this.ws.addEventListener("close", this.onClose);
   };
 
   private onOpen = async () => {
@@ -98,15 +99,10 @@ export class BybitWsTrading {
       `Bybit Trading Websocket Closed for account [${this.account.id}]`,
     );
 
-    if (this.isStopped) return;
-
     if (this.interval) {
       clearInterval(this.interval);
       this.interval = null;
     }
-
-    this.ws = null;
-    this.listenWebsocket();
   };
 
   private send = (data: Data) => {
