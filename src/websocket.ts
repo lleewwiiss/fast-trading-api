@@ -1,5 +1,6 @@
 // ReconnectingWebSocket.ts
 // A wrapper around the native WebSocket with automatic reconnect and connection timeout.
+// Now emits plain‐object “events” so that downstream postMessage() never trips over a non‐cloneable host object.
 
 export interface ReconnectOptions {
   /** Time in milliseconds before first reconnect attempt */
@@ -19,43 +20,9 @@ export interface ReconnectOptions {
   };
 }
 
-// Map WebSocket event types to their event objects
-interface WebSocketEventMap {
-  open: Event;
-  message: MessageEvent;
-  error: Event;
-  close: CloseEvent;
-}
+type Listener = (payload: any) => void;
 
-export class ReconnectingWebSocket extends EventTarget {
-  // Typed overloads for addEventListener
-  public addEventListener<K extends keyof WebSocketEventMap>(
-    type: K,
-    listener: (this: ReconnectingWebSocket, ev: WebSocketEventMap[K]) => any,
-    options?: boolean | AddEventListenerOptions,
-  ): void;
-  public addEventListener(
-    type: string,
-    listener: EventListenerOrEventListenerObject,
-    options?: boolean | AddEventListenerOptions,
-  ): void {
-    super.addEventListener(type, listener as EventListener, options);
-  }
-
-  // Typed overloads for removeEventListener
-  public removeEventListener<K extends keyof WebSocketEventMap>(
-    type: K,
-    listener: (this: ReconnectingWebSocket, ev: WebSocketEventMap[K]) => any,
-    options?: boolean | EventListenerOptions | boolean,
-  ): void;
-  public removeEventListener(
-    type: string,
-    listener: EventListenerOrEventListenerObject,
-    options?: boolean | EventListenerOptions,
-  ): void {
-    super.removeEventListener(type, listener as EventListener, options);
-  }
-
+export class ReconnectingWebSocket {
   private url: string;
   private protocols?: string | string[];
   private WebSocketConstructor: {
@@ -67,25 +34,21 @@ export class ReconnectingWebSocket extends EventTarget {
   >;
 
   private ws?: WebSocket;
-  private reconnectTimer?: ReturnType<typeof setTimeout>;
   private connectTimer?: ReturnType<typeof setTimeout>;
+  private reconnectTimer?: ReturnType<typeof setTimeout>;
   private abortController?: AbortController;
 
   private forcedClose = false;
   private retryCount = 0;
 
-  /**
-   * Create a new ReconnectingWebSocket.
-   * @param url WebSocket URL
-   * @param options Configuration options
-   */
+  // simple in-memory listener registry
+  private listeners: Record<string, Listener[]> = {};
+
   constructor(url: string, options: ReconnectOptions = {}) {
-    super();
     this.url = url;
     this.protocols = options.protocols;
     this.WebSocketConstructor =
       options.WebSocketConstructor ?? (globalThis as any).WebSocket;
-
     this.options = {
       retryDelay: options.retryDelay ?? 1000,
       maxRetryDelay: options.maxRetryDelay ?? 30000,
@@ -96,7 +59,7 @@ export class ReconnectingWebSocket extends EventTarget {
     this.connect();
   }
 
-  /** Send data through the WebSocket if open */
+  /** Exactly like native: throws if socket isn’t open. */
   public send(data: string | ArrayBuffer | Blob | ArrayBufferView): void {
     if (
       this.ws &&
@@ -111,29 +74,59 @@ export class ReconnectingWebSocket extends EventTarget {
     }
   }
 
-  /** Close the WebSocket and disable further reconnects */
+  /** Close and prevent any further reconnects */
   public close(code?: number, reason?: string): void {
     this.forcedClose = true;
     this.clearTimers();
-    if (this.ws) {
-      this.ws.close(code, reason);
-    }
+    if (this.ws) this.ws.close(code, reason);
   }
 
-  /** The current readyState of the underlying socket */
+  /** Mirror of WebSocket.readyState */
   public get readyState(): number {
     return this.ws
       ? this.ws.readyState
       : this.WebSocketConstructor.prototype.CLOSED;
   }
 
-  /** Internal: establish a new WebSocket connection */
+  /**
+   * Subscribe exactly like native:
+   *
+   *   socket.addEventListener('message', e => { console.log(e.data) });
+   *   socket.addEventListener('error', e => { console.error(e.message) });
+   */
+  public addEventListener(
+    type: "open" | "message" | "error" | "close",
+    listener: Listener,
+  ): void {
+    (this.listeners[type] ||= []).push(listener);
+  }
+
+  public removeEventListener(
+    type: "open" | "message" | "error" | "close",
+    listener: Listener,
+  ): void {
+    const arr = this.listeners[type];
+    if (!arr) return;
+    const idx = arr.indexOf(listener);
+    if (idx !== -1) arr.splice(idx, 1);
+  }
+
+  /** Internally emit a *plain object* to each listener of `type` */
+  private emit(type: string, payload: any): void {
+    const arr = this.listeners[type];
+    if (!arr) return;
+    for (const fn of arr) {
+      setTimeout(() => fn.call(this, payload), 0);
+    }
+  }
+
+  /** (Re)establish the underlying socket */
   private connect(): void {
     this.clearTimers();
     this.abortController = new AbortController();
-
     this.ws = new this.WebSocketConstructor(this.url, this.protocols);
 
+    // tear down if it takes too long
     this.connectTimer = setTimeout(() => {
       this.abortController?.abort();
     }, this.options.connectionTimeout);
@@ -147,63 +140,47 @@ export class ReconnectingWebSocket extends EventTarget {
       }
     });
 
-    // Bind event handlers with cloned data so downstream `postMessage` works
-
-    // OPEN
+    // OPEN → reset backoff, notify subscribers
     this.ws.addEventListener("open", () => {
-      const ev = new Event("open");
-      this.onOpen(ev);
+      this.clearTimers();
+      this.retryCount = 0;
+      this.emit("open", {}); // no extra data
     });
 
-    // MESSAGE
+    // MESSAGE → forward only the `data`-style payload
     this.ws.addEventListener("message", (event: MessageEvent) => {
-      const msg = new MessageEvent("message", {
+      this.emit("message", {
         data: event.data,
         origin: event.origin,
         lastEventId: event.lastEventId,
-        ports: [...event.ports],
+        ports: event.ports,
         source: event.source,
       });
-      setTimeout(() => this.dispatchEvent(msg), 0);
     });
 
-    // ERROR
-    this.ws.addEventListener("error", () => {
-      const err = new ErrorEvent("error", {
-        message: "WebSocket connection error",
-      });
-      setTimeout(() => this.dispatchEvent(err), 0);
+    // ERROR → only a simple `{ message }` object
+    this.ws.addEventListener("error", (event: Event) => {
+      const msg =
+        event instanceof ErrorEvent
+          ? event.message
+          : "WebSocket connection error";
+      this.emit("error", { message: msg });
     });
 
-    // CLOSE
+    // CLOSE → code, reason, wasClean; *then* schedule a reconnect if we didn’t `.close()` manually
     this.ws.addEventListener("close", (event: CloseEvent) => {
-      const closeEv = new CloseEvent("close", {
+      this.emit("close", {
         code: event.code,
         reason: event.reason,
         wasClean: event.wasClean,
       });
-      this.onClose(closeEv);
+      if (!this.forcedClose) {
+        this.scheduleReconnect();
+      }
     });
   }
 
-  /** Internal: handle successful connection */
-  private onOpen(event: Event): void {
-    this.clearTimers();
-    this.retryCount = 0;
-    setTimeout(() => this.dispatchEvent(event), 0);
-  }
-
-  /** Internal: handle socket close and schedule reconnect */
-  private onClose(event: CloseEvent): void {
-    this.clearTimers();
-    setTimeout(() => this.dispatchEvent(event), 0);
-
-    if (!this.forcedClose) {
-      this.scheduleReconnect();
-    }
-  }
-
-  /** Internal: clear timers and controllers */
+  /** Kill any pending timers/controllers */
   private clearTimers(): void {
     if (this.connectTimer) {
       clearTimeout(this.connectTimer);
@@ -216,7 +193,7 @@ export class ReconnectingWebSocket extends EventTarget {
     this.abortController = undefined;
   }
 
-  /** Internal: calculate backoff and retry */
+  /** Backoff + retry */
   private scheduleReconnect(): void {
     const delay = Math.min(
       this.options.retryDelay *
@@ -224,8 +201,6 @@ export class ReconnectingWebSocket extends EventTarget {
       this.options.maxRetryDelay,
     );
     this.retryCount++;
-    this.reconnectTimer = setTimeout(() => {
-      this.connect();
-    }, delay);
+    this.reconnectTimer = setTimeout(() => this.connect(), delay);
   }
 }
