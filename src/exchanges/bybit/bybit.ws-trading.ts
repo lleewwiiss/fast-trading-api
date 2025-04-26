@@ -86,7 +86,7 @@ export class BybitWsTrading {
   };
 
   private onClose = () => {
-    this.parent.log(
+    this.parent.error(
       `Bybit Trading Websocket Closed for account [${this.account.id}]`,
     );
 
