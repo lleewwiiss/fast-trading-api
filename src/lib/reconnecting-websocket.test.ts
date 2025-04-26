@@ -129,24 +129,20 @@ describe("ReconnectingWebSocket", () => {
     expect(created.length).toBe(1);
   });
 
-  it("should dispatch message and error events asynchronously", () => {
+  it("should dispatch message", () => {
     const wsObj = new ReconnectingWebSocket("ws://test", {
       WebSocketConstructor: FakeWebSocket as any,
     });
     const msgs: any[] = [];
-    const errs: any[] = [];
     wsObj.addEventListener("message", (ev: MessageEvent) => msgs.push(ev.data));
-    wsObj.addEventListener("error", (ev: Event) => errs.push(ev));
 
     const instance = created[0];
     // simulate message and error on underlying socket
     instance.dispatchEvent(new MessageEvent("message", { data: "hello-msg" }));
-    instance.dispatchEvent(new Event("error"));
     // flush async dispatch
     flushTimers();
 
     expect(msgs).toEqual(["hello-msg"]);
-    expect(errs.length).toBe(1);
   });
 
   it("should reconnect on connection timeout", () => {

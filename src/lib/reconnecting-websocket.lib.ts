@@ -1,4 +1,4 @@
-type EventType = "open" | "message" | "error" | "close";
+type EventType = "open" | "message" | "close";
 type Listener = (payload: any) => void;
 
 interface ReconnectOptions {
@@ -24,7 +24,6 @@ export class ReconnectingWebSocket {
   private listeners: Record<EventType, Listener[]> = {
     open: [],
     message: [],
-    error: [],
     close: [],
   };
 
@@ -69,12 +68,8 @@ export class ReconnectingWebSocket {
       this.emit("message", event);
     });
 
-    this.ws.addEventListener("error", (event: Event) => {
-      this.emit("error", event);
-    });
-
     this.ws.addEventListener("close", (event: CloseEvent) => {
-      this.emit("close", event);
+      this.emit("close", { code: event.code, reason: event.reason });
 
       if (!this.forcedClose) {
         this.scheduleReconnect();

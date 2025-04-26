@@ -45,7 +45,6 @@ export class BybitWsTrading {
   private listenWebsocket = () => {
     this.ws = new ReconnectingWebSocket(BYBIT_API.BASE_WS_TRADE_URL);
     this.ws.addEventListener("open", this.onOpen);
-    this.ws.addEventListener("error", this.onError);
     this.ws.addEventListener("message", this.onMessage);
     this.ws.addEventListener("close", this.onClose);
   };
@@ -84,14 +83,6 @@ export class BybitWsTrading {
         this.pendingRequests.delete(data.reqId);
       }
     }
-  };
-
-  private onError = (error: Event) => {
-    this.parent.error(
-      `Bybit Trading Websocket Error for account [${this.account.id}]`,
-    );
-
-    this.parent.error(error);
   };
 
   private onClose = () => {

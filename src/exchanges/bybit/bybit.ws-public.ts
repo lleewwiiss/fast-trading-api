@@ -42,7 +42,6 @@ export class BybitWsPublic {
   private listenWebsocket = () => {
     this.ws = new ReconnectingWebSocket(BYBIT_API.BASE_WS_PUBLIC_URL);
     this.ws.addEventListener("open", this.onOpen);
-    this.ws.addEventListener("error", this.onError);
     this.ws.addEventListener("message", this.onMessage);
     this.ws.addEventListener("close", this.onClose);
   };
@@ -309,11 +308,6 @@ export class BybitWsPublic {
     delete this.messageHandlers[orderBookTopic];
     this.orderBookTopics.delete(orderBookTopic);
   }
-
-  private onError = (error: Event) => {
-    this.parent.error(`Bybit Public Websocket Error`);
-    this.parent.error(error);
-  };
 
   private onClose = () => {
     this.parent.error(`Bybit Public Websocket Closed`);

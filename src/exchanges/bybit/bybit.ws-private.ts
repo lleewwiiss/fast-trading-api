@@ -31,7 +31,6 @@ export class BybitWsPrivate {
   private listenWebsocket = () => {
     this.ws = new ReconnectingWebSocket(BYBIT_API.BASE_WS_PRIVATE_URL);
     this.ws.addEventListener("open", this.onOpen);
-    this.ws.addEventListener("error", this.onError);
     this.ws.addEventListener("message", this.onMessage);
     this.ws.addEventListener("close", this.onClose);
   };
@@ -122,14 +121,6 @@ export class BybitWsPrivate {
         bybitOrders: data,
       });
     }
-  };
-
-  private onError = (error: Event) => {
-    this.parent.error(
-      `Bybit Private Websocket Error for account [${this.account.id}]`,
-    );
-
-    this.parent.error(error);
   };
 
   private onClose = () => {
