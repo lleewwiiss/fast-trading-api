@@ -133,7 +133,7 @@ export class BybitWsPrivate {
   };
 
   private onClose = () => {
-    this.parent.log(
+    this.parent.error(
       `Bybit Private Websocket Closed for account [${this.account.id}]`,
     );
 
