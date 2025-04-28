@@ -1,7 +1,6 @@
-import { ExchangeName } from "./types/lib.types";
-import type { Store, StoreMemory } from "./types/lib.types";
-import type { ObjectPaths, ObjectChangeCommand } from "./types/misc.types";
-
+import type { ObjectPaths, ObjectChangeCommand } from "~/types/misc.types";
+import type { Store, StoreMemory } from "~/types/lib.types";
+import { ExchangeName } from "~/types/lib.types";
 import { applyChanges } from "~/utils/update-obj-path.utils";
 
 export const defaultStoreState: StoreMemory = {

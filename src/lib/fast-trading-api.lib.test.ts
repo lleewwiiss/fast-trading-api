@@ -5,9 +5,9 @@ import {
   OrderType,
   OrderSide,
   OrderStatus,
-} from "./types/lib.types";
+} from "../types/lib.types";
 
-import { FastTradingApi } from "./index";
+import { FastTradingApi } from "./fast-trading-api.lib";
 
 const moduleMocker = {
   mocks: [] as Record<string, any>[],
@@ -73,7 +73,7 @@ describe("FastTradingApi", () => {
       cancelOrders: cancelOrdersMock,
     }));
 
-    await moduleMocker.mock("./exchanges/bybit/bybit.exchange", () => ({
+    await moduleMocker.mock("../exchanges/bybit/bybit.exchange", () => ({
       BybitExchange: BybitExchangeMock,
     }));
   });

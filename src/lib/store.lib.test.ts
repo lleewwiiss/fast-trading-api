@@ -1,8 +1,9 @@
 import { describe, test, expect } from "bun:test";
 
-import { MemoryStore, defaultStoreState } from "./store";
-import { ExchangeName, OrderSide, PositionSide } from "./types/lib.types";
-import type { Ticker, Position } from "./types/lib.types";
+import type { Ticker, Position } from "../types/lib.types";
+import { ExchangeName, OrderSide, PositionSide } from "../types/lib.types";
+
+import { MemoryStore, defaultStoreState } from "./store.lib";
 
 describe("MemoryStore", () => {
   test("should initialize with default state", () => {

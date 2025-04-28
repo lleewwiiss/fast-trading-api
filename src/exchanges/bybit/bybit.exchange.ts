@@ -1,4 +1,4 @@
-import type { FastTradingApi } from "~/index";
+import type { FastTradingApi } from "~/lib/fast-trading-api.lib";
 import type {
   Candle,
   PlaceOrderOpts,

@@ -1,8 +1,12 @@
 {
   "name": "fast-trading-api",
-  "module": "dist/index.js",
   "type": "module",
-  "private": true,
+  "exports": {
+    ".": "./dist/index.js",
+    "./utils": "./dist/utils.js",
+    "./types": "./dist/types.js"
+  },
+  "private": false,
   "scripts": {
     "start": "bun run dist/index.js",
     "build": "rm -rf dist && tsc && tsc-alias",
