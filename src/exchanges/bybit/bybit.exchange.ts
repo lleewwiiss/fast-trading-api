@@ -168,53 +168,55 @@ export class BybitExchange {
     this.worker.postMessage({ type: "unlistenOB", symbol });
   }
 
-  private onWorkerMessage = <P extends ObjectPaths<StoreMemory>>(
-    event: MessageEvent<
-      | { type: "update"; changes: ObjectChangeCommand<StoreMemory, P>[] }
-      | { type: "response"; requestId: string; data: any }
-      | { type: "log"; message: string }
-      | { type: "error"; error: Error }
-      | { type: "candle"; candle: Candle }
-      | { type: "orderBook"; symbol: string; orderBook: OrderBook }
-    >,
-  ) => {
-    if (event.data.type === "log") {
-      this.parent.emit("log", event.data.message);
+  private handleCandle = (candle: Candle) => {
+    const name = `${candle.symbol}:${candle.timeframe}`;
+    const listener = this.ohlcvListeners.get(name);
+    if (listener) listener(candle);
+  };
+
+  private handleOrderBook = ({
+    symbol,
+    orderBook,
+  }: {
+    symbol: string;
+    orderBook: OrderBook;
+  }) => {
+    const listener = this.orderBookListeners.get(symbol);
+    if (listener) listener(orderBook);
+  };
+
+  private handleResponse = ({
+    requestId,
+    data,
+  }: {
+    requestId: string;
+    data: any;
+  }) => {
+    const resolver = this.pendingRequests.get(requestId);
+
+    if (resolver) {
+      resolver(data);
+      this.pendingRequests.delete(requestId);
     }
+  };
 
-    if (event.data.type === "error") {
-      this.parent.emit("error", event.data.error);
-    }
-
-    if (event.data.type === "candle") {
-      const listener = this.ohlcvListeners.get(
-        `${event.data.candle.symbol}:${event.data.candle.timeframe}`,
-      );
-
-      if (listener) {
-        listener(event.data.candle);
-      }
-    }
-
-    if (event.data.type === "orderBook") {
-      const listener = this.orderBookListeners.get(event.data.symbol);
-
-      if (listener) {
-        listener(event.data.orderBook);
-      }
-    }
-
-    if (event.data.type === "response") {
-      const resolver = this.pendingRequests.get(event.data.requestId);
-
-      if (resolver) {
-        resolver(event.data.data);
-        this.pendingRequests.delete(event.data.requestId);
-      }
-    }
-
-    if (event.data.type === "update") {
-      return this.parent.store.applyChanges(event.data.changes);
+  private onWorkerMessage = <P extends ObjectPaths<StoreMemory>>({
+    data,
+  }: MessageEvent<
+    | { type: "update"; changes: ObjectChangeCommand<StoreMemory, P>[] }
+    | { type: "response"; requestId: string; data: any }
+    | { type: "log"; message: string }
+    | { type: "error"; error: Error }
+    | { type: "candle"; candle: Candle }
+    | { type: "orderBook"; symbol: string; orderBook: OrderBook }
+  >) => {
+    if (data.type === "log") return this.parent.emit("log", data.message);
+    if (data.type === "error") return this.parent.emit("error", data.error);
+    if (data.type === "candle") return this.handleCandle(data.candle);
+    if (data.type === "orderBook") return this.handleOrderBook(data);
+    if (data.type === "response") return this.handleResponse(data);
+    if (data.type === "update") {
+      return this.parent.store.applyChanges(data.changes);
     }
   };
 }
