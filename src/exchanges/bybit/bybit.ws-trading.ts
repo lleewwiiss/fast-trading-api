@@ -108,7 +108,7 @@ export class BybitWsTrading {
     priority?: boolean;
   }) => {
     return new Promise<string[]>((resolve) => {
-      const batches = chunk(orders, 20);
+      const batches = chunk(orders, 10);
       const responses: BybitPlaceOrderBatchResponse[] = [];
 
       for (const batch of batches) {
