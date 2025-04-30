@@ -249,36 +249,25 @@ export class BybitWorker {
     accountId: Account["id"];
     positions: { side: PositionSide; symbol: string }[];
   }) {
-    const changes = positions.reduce<
-      {
+    const changes = this.memory.private[accountId].positions.reduce(
+      (acc, p, idx) => {
+        if (
+          positions.some((p2) => p2.symbol === p.symbol && p2.side === p.side)
+        ) {
+          acc.push({
+            type: "removeArrayElement" as const,
+            path: `private.${accountId}.positions` as const,
+            index: idx - acc.length,
+          });
+        }
+        return acc;
+      },
+      [] as {
         type: "removeArrayElement";
         path: `private.${string}.positions`;
         index: number;
-      }[]
-    >((acc, p) => {
-      const indices = this.memory.private[accountId].positions
-        .filter((pos) =>
-          pos.isHedged
-            ? pos.symbol === p.symbol && pos.side === p.side
-            : pos.symbol === p.symbol,
-        )
-        .map((pos) => this.memory.private[accountId].positions.indexOf(pos));
-
-      if (indices.length > 0) {
-        acc.push(
-          ...indices.map(
-            (posIdx, idx) =>
-              ({
-                type: "removeArrayElement",
-                path: `private.${accountId}.positions`,
-                index: posIdx - acc.length - idx,
-              }) as const,
-          ),
-        );
-      }
-
-      return acc;
-    }, []);
+      }[],
+    );
 
     this.emitChanges(changes);
   }
@@ -291,18 +280,14 @@ export class BybitWorker {
     positions: Position[];
   }) {
     const [updatePositions, addPositions] = partition(positions, (position) =>
-      this.memory.private[accountId].positions.some((p) =>
-        p.isHedged
-          ? p.symbol === position.symbol && p.side === position.side
-          : p.symbol === position.symbol,
+      this.memory.private[accountId].positions.some(
+        (p) => p.symbol === position.symbol && p.side === position.side,
       ),
     );
 
     const updatePositionsChanges = updatePositions.map((position) => {
-      const idx = this.memory.private[accountId].positions.findIndex((p) =>
-        position.isHedged
-          ? p.symbol === position.symbol && p.side === position.side
-          : p.symbol === position.symbol,
+      const idx = this.memory.private[accountId].positions.findIndex(
+        (p) => p.symbol === position.symbol && p.side === position.side,
       );
 
       return {

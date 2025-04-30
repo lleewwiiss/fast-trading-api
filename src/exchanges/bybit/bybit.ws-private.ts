@@ -9,6 +9,7 @@ import { mapBybitBalance, mapBybitPosition } from "./bybit.utils";
 import type { BybitWorker } from "./bybit.worker";
 
 import { partition } from "~/utils/partition.utils";
+import { uniqBy } from "~/utils/uniq-by.utils";
 import { PositionSide, type Account } from "~/types/lib.types";
 import { ReconnectingWebSocket } from "~/utils/reconnecting-websocket.utils";
 
@@ -68,29 +69,44 @@ export class BybitWsPrivate {
         event.data,
       );
 
-      const [toRemove, toUpdate] = partition(
-        data,
-        (p) => p.side === "" || p.size === "0",
-      );
+      // I don't know why but bybit sends empty positions with side ""
+      // see: https://bybit-exchange.github.io/docs/v5/websocket/private/position
+      const [toRemoveClosed, toUpdate] = partition(data, (p) => p.side === "");
+
+      // We can have a case where user closees a side of a position when placing
+      // an order on the opposite side bigger than the current position
+      const toRemoveOppositeSide = toUpdate.filter((p) => p.positionIdx === 0);
+      const toRemove: Array<{ side: PositionSide; symbol: string }> = [];
+
+      if (toRemoveOppositeSide.length > 0) {
+        toRemove.push(
+          ...toRemoveOppositeSide.map(({ side, symbol }) => ({
+            side: side === "Buy" ? PositionSide.Short : PositionSide.Long,
+            symbol,
+          })),
+        );
+      }
+
+      if (toRemoveClosed.length > 0) {
+        toRemove.push(
+          ...toRemoveClosed.flatMap(({ positionIdx: pIdx, symbol }) => {
+            if (pIdx === 0) {
+              return [
+                { side: PositionSide.Long, symbol },
+                { side: PositionSide.Short, symbol },
+              ];
+            }
+
+            const side = pIdx === 1 ? PositionSide.Long : PositionSide.Short;
+            return [{ side, symbol }];
+          }),
+        );
+      }
 
       if (toRemove.length > 0) {
         this.parent.removeAccountPositions({
           accountId: this.account.id,
-          positions: toRemove.flatMap((p) => {
-            if (p.side === "") {
-              return [
-                { side: PositionSide.Long, symbol: p.symbol },
-                { side: PositionSide.Short, symbol: p.symbol },
-              ];
-            }
-
-            return [
-              {
-                side: p.side === "Buy" ? PositionSide.Long : PositionSide.Short,
-                symbol: p.symbol,
-              },
-            ];
-          }),
+          positions: uniqBy(toRemove, (p) => p.side + p.symbol),
         });
       }
 
