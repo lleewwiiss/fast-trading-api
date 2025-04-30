@@ -175,6 +175,8 @@ export interface OrderBook {
 }
 
 export type Notification = {
+  id: string;
+  accountId: Account["id"];
   type: "order_fill";
   data: {
     side: OrderSide;

@@ -40,6 +40,7 @@ import { subtract } from "~/utils/safe-math.utils";
 import { omit } from "~/utils/omit.utils";
 import { toUSD } from "~/utils/to-usd.utils";
 import { sumBy } from "~/utils/sum-by.utils";
+import { genId } from "~/utils";
 
 export class BybitWorker {
   private accounts: Account[] = [];
@@ -402,6 +403,8 @@ export class BybitWorker {
             type: "update",
             path: `private.${accountId}.notifications.${this.memory.private[accountId].notifications.length}`,
             value: {
+              id: genId(),
+              accountId,
               type: "order_fill",
               data: {
                 symbol: orders[0].symbol,
