@@ -36,7 +36,7 @@ export class ReconnectingWebSocket {
       url,
       retryDelay: options.retryDelay ?? 1000,
       maxRetryDelay: options.maxRetryDelay ?? 30000,
-      connectionTimeout: options.connectionTimeout ?? 5000,
+      connectionTimeout: options.connectionTimeout ?? 10_000,
       backoffFactor: options.backoffFactor ?? 2,
       WebSocketConstructor: options.WebSocketConstructor ?? WebSocket,
     };
