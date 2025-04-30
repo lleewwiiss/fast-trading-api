@@ -95,6 +95,45 @@ describe("updateObjectPath", () => {
     expect(store.bybit.private.main.positions[0].upnl).toBe(300);
   });
 
+  test("removeArrayElementAtPath with out of bounds index", () => {
+    // Setup nested structure with arrays in the path
+    updateObjectPath({
+      obj: store,
+      path: "bybit.private.main",
+      value: {
+        balance: { total: 1000 },
+        positions: [{ upnl: 100 }, { upnl: 200 }],
+      },
+    });
+
+    expect(store.bybit.private.main.positions.length).toBe(2);
+
+    removeArrayElementAtPath({
+      obj: store,
+      path: "bybit.private.main.positions",
+      index: -1,
+    });
+
+    expect(store.bybit.private.main.positions.length).toBe(2);
+
+    removeArrayElementAtPath({
+      obj: store,
+      path: "bybit.private.main.positions",
+      index: 2,
+    });
+
+    expect(store.bybit.private.main.positions.length).toBe(2);
+
+    removeArrayElementAtPath({
+      obj: store,
+      path: "bybit.private.main.positions",
+      index: 0,
+    });
+
+    expect(store.bybit.private.main.positions.length).toBe(1);
+    expect(store.bybit.private.main.positions[0].upnl).toBe(200);
+  });
+
   test("removeArrayElementAtPath with numeric path segment", () => {
     // Setup nested structure with arrays in the path
     updateObjectPath({

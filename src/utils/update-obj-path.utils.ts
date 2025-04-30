@@ -44,7 +44,10 @@ export const removeArrayElementAtPath = <T, P extends ObjectPaths<T>>({
   index: number;
 }): void => {
   const { current, lastKey } = traverseObj(obj, path);
-  current[lastKey].splice(index, 1);
+
+  if (index > -1 && index < current[lastKey].length) {
+    current[lastKey].splice(index, 1);
+  }
 };
 
 export const applyChanges = <T, P extends ObjectPaths<T>>({
