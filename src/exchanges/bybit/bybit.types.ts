@@ -265,4 +265,10 @@ export type BybitPlaceOrderBatchResponse = {
       createdAt: string;
     }>;
   };
+  retExtInfo: {
+    list: Array<{
+      code: number;
+      msg: string;
+    }>;
+  };
 };

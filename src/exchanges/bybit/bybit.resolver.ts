@@ -8,6 +8,7 @@ import type {
   BybitTicker,
 } from "./bybit.types";
 import {
+  getHedgedOrderPositionIdx,
   mapBybitBalance,
   mapBybitOrder,
   mapBybitPosition,
@@ -16,7 +17,6 @@ import {
 
 import { retry } from "~/utils/retry.utils";
 import {
-  OrderSide,
   OrderType,
   type Account,
   type Candle,
@@ -246,7 +246,7 @@ export const createBybitTradingStop = async ({
     tpslMode: "Full",
     tpExchangeOrderType: "Market",
     slOrderType: "Market",
-    positionIdx: isHedged ? (order.side === OrderSide.Buy ? 2 : 1) : 0,
+    positionIdx: isHedged ? getHedgedOrderPositionIdx(order) : 0,
   };
 
   if (order.type === OrderType.StopLoss) {

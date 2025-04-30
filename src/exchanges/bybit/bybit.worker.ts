@@ -54,6 +54,8 @@ export class BybitWorker {
   private privateWs: Record<Account["id"], BybitWsPrivate> = {};
   private tradingWs: Record<Account["id"], BybitWsTrading> = {};
 
+  public hedgedCache: Record<Account["id"], Record<string, boolean>> = {};
+
   public onMessage = ({ data }: BybitWorkerMessage) => {
     if (data.type === "start") return this.start(data);
     if (data.type === "stop") return this.stop();
@@ -114,6 +116,7 @@ export class BybitWorker {
 
     // 2. Start trading websocket
     for (const account of this.accounts) {
+      this.hedgedCache[account.id] = {};
       this.tradingWs[account.id] = new BybitWsTrading({
         parent: this,
         account,
@@ -186,6 +189,10 @@ export class BybitWorker {
             value: toUSD(sumBy(positions, "upnl")),
           },
         ]);
+
+        positions.forEach((p) => {
+          this.hedgedCache[account.id][p.symbol] = p.isHedged ?? false;
+        });
 
         this.log(
           `Loaded ${positions.length} Bybit positions for account [${account.id}]`,
@@ -313,6 +320,10 @@ export class BybitWorker {
     }));
 
     this.emitChanges([...updatePositionsChanges, ...addPositionsChanges]);
+
+    positions.forEach((p) => {
+      this.hedgedCache[accountId][p.symbol] = p.isHedged ?? false;
+    });
   }
 
   public updateTicker(ticker: Ticker) {
@@ -545,6 +556,7 @@ export class BybitWorker {
           formatMarkerOrLimitOrder({
             order: o,
             market: this.memory.public.markets[o.symbol],
+            isHedged: this.hedgedCache[accountId][o.symbol],
           }),
         ),
       });
@@ -561,6 +573,7 @@ export class BybitWorker {
           account,
           market: this.memory.public.markets[order.symbol],
           ticker: this.memory.public.tickers[order.symbol],
+          isHedged: this.hedgedCache[accountId][order.symbol],
         });
       }
     }

@@ -5,6 +5,7 @@ import type {
   BybitPlaceOrderOpts,
 } from "./bybit.types";
 import type { BybitWorker } from "./bybit.worker";
+import { getHedgedOrderPositionIdx } from "./bybit.utils";
 
 import { chunk } from "~/utils/chunk.utils";
 import type { Account, Market, Order } from "~/types/lib.types";
@@ -103,25 +104,53 @@ export class BybitWsTrading {
   public placeOrderBatch = ({
     orders,
     priority = false,
+    retry = true,
   }: {
     orders: BybitPlaceOrderOpts[];
     priority?: boolean;
+    retry?: boolean;
   }) => {
     return new Promise<string[]>((resolve) => {
       const batches = chunk(orders, 10);
-      const responses: BybitPlaceOrderBatchResponse[] = [];
+
+      const responses: BybitPlaceOrderBatchResponse["data"]["list"] = [];
+      const toRetry: BybitPlaceOrderOpts[] = [];
 
       for (const batch of batches) {
         const reqId = genId();
 
         this.pendingRequests.set(
           reqId,
-          (data: BybitPlaceOrderBatchResponse) => {
-            responses.push(data);
+          async (data: BybitPlaceOrderBatchResponse) => {
+            data.retExtInfo.list.forEach((res, idx) => {
+              if (
+                res.code === 10001 &&
+                res.msg === "position idx not match position mode"
+              ) {
+                const order = batch[idx];
+                const positionIdx = getHedgedOrderPositionIdx(order);
+                this.parent.hedgedCache[this.account.id][order.symbol] = true;
+                toRetry.push({ ...order, positionIdx });
+              }
+            });
 
-            if (responses.length === batches.length) {
-              const orderIds = responses.flatMap((res) =>
-                res.data.list
+            responses.push(...data.data.list);
+
+            if (responses.length === orders.length) {
+              const orderIds: string[] = [];
+
+              if (toRetry.length > 0 && retry) {
+                const retriedOrderIds = await this.placeOrderBatch({
+                  orders: toRetry,
+                  priority,
+                  retry: false,
+                });
+
+                orderIds.push(...retriedOrderIds);
+              }
+
+              orderIds.push(
+                ...responses
                   .filter((o) => o.orderId !== "")
                   .map((o) => o.orderId),
               );

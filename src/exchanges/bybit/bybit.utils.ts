@@ -164,12 +164,9 @@ export const formatMarkerOrLimitOrder = ({
   market: Market;
   isHedged?: boolean;
 }): BybitPlaceOrderOpts[] => {
-  let positionIdx: 0 | 1 | 2 = 0;
-
-  if (isHedged) {
-    positionIdx = order.side === OrderSide.Buy ? 1 : 2;
-    if (order.reduceOnly) positionIdx = positionIdx === 1 ? 2 : 1;
-  }
+  const positionIdx: 0 | 1 | 2 = isHedged
+    ? getHedgedOrderPositionIdx(order)
+    : 0;
 
   const maxSize =
     order.type === OrderType.Market
@@ -226,4 +223,20 @@ export const formatMarkerOrLimitOrder = ({
   }
 
   return payloads;
+};
+
+export const getHedgedOrderPositionIdx = (
+  order:
+    | Pick<BybitPlaceOrderOpts, "side" | "reduceOnly">
+    | Pick<PlaceOrderOpts, "side" | "reduceOnly">,
+): 1 | 2 => {
+  if (order.side === "Buy" || order.side === OrderSide.Buy) {
+    return order.reduceOnly ? 2 : 1;
+  }
+
+  if (order.side === "Sell" || order.side === OrderSide.Sell) {
+    return order.reduceOnly ? 1 : 2;
+  }
+
+  throw new Error(`Invalid order side: ${order.side}`);
 };
