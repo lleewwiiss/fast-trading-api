@@ -19,3 +19,4 @@ export * from "~/utils/sum.utils";
 export * from "~/utils/times.utils";
 export * from "~/utils/to-usd.utils";
 export * from "~/utils/update-obj-path.utils";
+export * from "~/utils/reconnecting-websocket.utils";

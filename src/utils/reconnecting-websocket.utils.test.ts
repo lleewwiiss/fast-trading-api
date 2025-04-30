@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 
-import { ReconnectingWebSocket } from "./reconnecting-websocket.lib";
+import { ReconnectingWebSocket } from "./reconnecting-websocket.utils";
 
 describe("ReconnectingWebSocket", () => {
   let created: any[];

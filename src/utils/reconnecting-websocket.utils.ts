@@ -50,7 +50,7 @@ export class ReconnectingWebSocket {
 
     this.connectTimeout = setTimeout(() => {
       this.abortController?.abort();
-    }, this.options.connectionTimeout);
+    }, this.options.connectionTimeout * this.retryCount);
 
     this.abortController.signal.addEventListener("abort", () => {
       if (this.ws?.readyState === WebSocket.CONNECTING) {

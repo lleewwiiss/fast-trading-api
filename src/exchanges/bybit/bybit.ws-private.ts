@@ -10,7 +10,7 @@ import type { BybitWorker } from "./bybit.worker";
 
 import { partition } from "~/utils/partition.utils";
 import { PositionSide, type Account } from "~/types/lib.types";
-import { ReconnectingWebSocket } from "~/lib/reconnecting-websocket.lib";
+import { ReconnectingWebSocket } from "~/utils/reconnecting-websocket.utils";
 
 export class BybitWsPrivate {
   private parent: BybitWorker;
