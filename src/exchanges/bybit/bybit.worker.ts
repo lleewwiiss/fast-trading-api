@@ -67,6 +67,7 @@ export class BybitWorker {
     if (data.type === "cancelOrders") return this.cancelOrders(data);
     if (data.type === "listenOB") return this.listenOrderBook(data.symbol);
     if (data.type === "unlistenOB") return this.unlistenOrderBook(data.symbol);
+    if (data.type === "addAccounts") return this.addAccounts(data);
 
     // TODO: move this into an error log
     throw new Error(`Unsupported command to bybit worker`);
@@ -99,31 +100,14 @@ export class BybitWorker {
     this.log(`Bybit Exchange Worker Starting`);
     this.log(`Initializing Bybit exchange data`);
 
-    // 1. Set accounts
-    this.accounts = accounts;
-    this.emitChanges(
-      this.accounts.map((acc) => ({
-        type: "update",
-        path: `private.${acc.id}`,
-        value: {
-          balance: { used: 0, free: 0, total: 0, upnl: 0 },
-          positions: [],
-          orders: [],
-          notifications: [],
-        },
-      })),
-    );
+    this.addAccounts({ accounts });
 
-    // 2. Start trading websocket
-    for (const account of this.accounts) {
-      this.hedgedCache[account.id] = {};
-      this.tradingWs[account.id] = new BybitWsTrading({
-        parent: this,
-        account,
-      });
-    }
+    await this.fetchPublic();
+    self.postMessage({ type: "response", requestId });
+  }
 
-    // 3. Fetch markets and tickers
+  private async fetchPublic() {
+    // 1. Fetch markets and tickers
     const [markets, tickers] = await Promise.all([
       fetchBybitMarkets(),
       fetchBybitTickers(),
@@ -144,17 +128,45 @@ export class BybitWorker {
     ]);
 
     this.log(`Loaded ${Object.keys(markets).length} Bybit markets`);
-    self.postMessage({ type: "response", requestId });
 
-    // 4. Start public websocket
+    // 2. Start public websocket
     this.publicWs = new BybitWsPublic({
       parent: this,
       markets: Object.values(markets).map((m) => m.symbol),
     });
+  }
 
-    // 5. Fetch and poll balance per account
+  private async addAccounts({
+    accounts,
+    requestId,
+  }: {
+    accounts: Account[];
+    requestId?: string;
+  }) {
+    this.accounts.push(...accounts);
+    this.emitChanges(
+      accounts.map((acc) => ({
+        type: "update",
+        path: `private.${acc.id}`,
+        value: {
+          balance: { used: 0, free: 0, total: 0, upnl: 0 },
+          positions: [],
+          orders: [],
+          notifications: [],
+        },
+      })),
+    );
+
+    for (const account of this.accounts) {
+      this.hedgedCache[account.id] = {};
+      this.tradingWs[account.id] = new BybitWsTrading({
+        parent: this,
+        account,
+      });
+    }
+
     await Promise.all(
-      this.accounts.map(async (account) => {
+      accounts.map(async (account) => {
         const balance = await fetchBybitBalance({
           key: account.apiKey,
           secret: account.apiSecret,
@@ -172,9 +184,8 @@ export class BybitWorker {
       }),
     );
 
-    // 6. Fetch positions per account
     await Promise.all(
-      this.accounts.map(async (account) => {
+      accounts.map(async (account) => {
         const positions = await fetchBybitPositions(account);
 
         this.emitChanges([
@@ -200,7 +211,6 @@ export class BybitWorker {
       }),
     );
 
-    // 7. Start private websocket per account
     for (const account of this.accounts) {
       this.privateWs[account.id] = new BybitWsPrivate({
         parent: this,
@@ -208,7 +218,6 @@ export class BybitWorker {
       });
     }
 
-    // 8. Fetch orders per account
     for (const account of this.accounts) {
       const orders = await fetchBybitOrders(account);
 
@@ -223,6 +232,10 @@ export class BybitWorker {
       this.log(
         `Loaded ${orders.length} Bybit orders for account [${account.id}]`,
       );
+    }
+
+    if (requestId) {
+      self.postMessage({ type: "response", requestId });
     }
   }
 

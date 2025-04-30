@@ -7,6 +7,7 @@ import type {
   StoreMemory,
   Order,
   OrderBook,
+  Account,
 } from "~/types/lib.types";
 import type { ObjectChangeCommand, ObjectPaths } from "~/types/misc.types";
 import { genId } from "~/utils/gen-id.utils";
@@ -41,6 +42,25 @@ export class BybitExchange {
       });
 
       this.parent.emit("log", "Starting Bybit Exchange");
+    });
+  };
+
+  public addAccounts = (accounts: Account[]) => {
+    const requestId = genId();
+
+    return new Promise((resolve) => {
+      this.pendingRequests.set(requestId, resolve);
+
+      this.worker.postMessage({
+        type: "addAccounts",
+        accounts,
+        requestId,
+      });
+
+      this.parent.emit(
+        "log",
+        `Adding ${accounts.length} accounts to Bybit Exchange`,
+      );
     });
   };
 

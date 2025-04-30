@@ -13,6 +13,7 @@ import {
   type Order,
   type OrderBook,
 } from "~/types/lib.types";
+import { groupBy } from "~/utils/group-by.utils";
 
 export class FastTradingApi {
   public store: Store;
@@ -48,6 +49,39 @@ export class FastTradingApi {
     this.exchanges = {};
     this.listeners = {};
     this.store.reset();
+  }
+
+  public async addAccounts(accounts: Account[]) {
+    const newAccounts = accounts.filter(
+      (acc) => !this.accounts.some((a) => a.id === acc.id),
+    );
+
+    if (newAccounts.length === 0) return;
+
+    this.emit("log", `Adding ${newAccounts} accounts to FastTradingApi SDK`);
+
+    this.accounts.push(...newAccounts);
+    const groupedByExchange = groupBy(newAccounts, (acc) => acc.exchange);
+
+    const promises = Object.entries(groupedByExchange).map(
+      async ([exchangeName, exchangeAccounts]) => {
+        if (exchangeName === ExchangeName.BYBIT) {
+          if (!this.exchanges[ExchangeName.BYBIT]) {
+            this.exchanges[ExchangeName.BYBIT] = new BybitExchange({
+              parent: this,
+            });
+
+            await this.exchanges[ExchangeName.BYBIT].start();
+          } else {
+            await this.exchanges[ExchangeName.BYBIT].addAccounts(
+              exchangeAccounts,
+            );
+          }
+        }
+      },
+    );
+
+    await Promise.all(promises);
   }
 
   public fetchOHLCV({

@@ -220,6 +220,7 @@ export type BybitPlaceOrderOpts = {
 
 export type BybitWorkerMessage = MessageEvent<
   | { type: "start"; accounts: Account[]; requestId: string }
+  | { type: "addAccounts"; accounts: Account[]; requestId: string }
   | { type: "stop" }
   | { type: "listenOB"; symbol: string }
   | { type: "unlistenOB"; symbol: string }
