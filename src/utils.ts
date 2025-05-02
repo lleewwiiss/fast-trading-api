@@ -21,3 +21,4 @@ export * from "~/utils/to-usd.utils";
 export * from "~/utils/update-obj-path.utils";
 export * from "~/utils/reconnecting-websocket.utils";
 export * from "~/utils/uniq-by.utils";
+export * from "~/utils/uniq.utils";
