@@ -35,7 +35,7 @@ export class ReconnectingWebSocket {
     this.options = {
       url,
       retryDelay: options.retryDelay ?? 1000,
-      maxRetryDelay: options.maxRetryDelay ?? 30000,
+      maxRetryDelay: options.maxRetryDelay ?? 30_000,
       connectionTimeout: options.connectionTimeout ?? 10_000,
       backoffFactor: options.backoffFactor ?? 2,
       WebSocketConstructor: options.WebSocketConstructor ?? WebSocket,
@@ -46,17 +46,17 @@ export class ReconnectingWebSocket {
 
   private connect() {
     this.abortController = new AbortController();
-    this.ws = new this.options.WebSocketConstructor(this.options.url);
-
-    this.connectTimeout = setTimeout(() => {
-      this.abortController?.abort();
-    }, this.options.connectionTimeout * this.retryCount);
-
     this.abortController.signal.addEventListener("abort", () => {
       if (this.ws?.readyState === WebSocket.CONNECTING) {
         this.ws.close();
       }
     });
+
+    this.ws = new this.options.WebSocketConstructor(this.options.url);
+
+    this.connectTimeout = setTimeout(() => {
+      this.abortController?.abort();
+    }, this.options.connectionTimeout);
 
     this.ws.addEventListener("open", (event) => {
       this.clearTimers();
