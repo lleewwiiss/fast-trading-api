@@ -131,6 +131,14 @@ export class BybitWsTrading {
                 const positionIdx = getHedgedOrderPositionIdx(order);
                 this.parent.hedgedCache[this.account.id][order.symbol] = true;
                 toRetry.push({ ...order, positionIdx });
+                return;
+              }
+
+              if (res.code !== 0) {
+                this.parent.error(
+                  `[${this.account.id}] Bybit place order error: ${res.msg}`,
+                );
+                return;
               }
             });
 
