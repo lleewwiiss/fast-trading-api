@@ -171,6 +171,29 @@ export class BybitExchange {
     });
   }
 
+  public setLeverage({
+    accountId,
+    symbol,
+    leverage,
+  }: {
+    accountId: string;
+    symbol: string;
+    leverage: number;
+  }): Promise<boolean> {
+    const requestId = genId();
+
+    return new Promise((resolve) => {
+      this.pendingRequests.set(requestId, resolve);
+      this.worker.postMessage({
+        type: "setLeverage",
+        requestId,
+        accountId,
+        symbol,
+        leverage,
+      });
+    });
+  }
+
   public listenOHLCV({
     symbol,
     timeframe,

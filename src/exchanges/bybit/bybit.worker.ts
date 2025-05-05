@@ -9,6 +9,7 @@ import {
   fetchBybitOHLCV,
   createBybitTradingStop,
   fetchBybitSymbolPositions,
+  setBybitLeverage,
 } from "./bybit.resolver";
 import type { BybitOrder, BybitWorkerMessage } from "./bybit.types";
 import { formatMarkerOrLimitOrder, mapBybitOrder } from "./bybit.utils";
@@ -67,6 +68,7 @@ export class BybitWorker {
     if (data.type === "listenOB") return this.listenOrderBook(data.symbol);
     if (data.type === "unlistenOB") return this.unlistenOrderBook(data.symbol);
     if (data.type === "addAccounts") return this.addAccounts(data);
+    if (data.type === "setLeverage") return this.setLeverage(data);
     if (data.type === "fetchPositionMetadata") {
       return this.fetchPositionMetadata(data);
     }
@@ -703,6 +705,43 @@ export class BybitWorker {
         leverage,
         isHedged,
       },
+    });
+  }
+
+  private async setLeverage({
+    requestId,
+    accountId,
+    symbol,
+    leverage,
+  }: {
+    requestId: string;
+    accountId: string;
+    symbol: string;
+    leverage: number;
+  }) {
+    const account = this.accounts.find((a) => a.id === accountId);
+
+    if (!account) {
+      this.error(`No account found for id: ${accountId}`);
+      return;
+    }
+
+    const success = await setBybitLeverage({ account, symbol, leverage });
+
+    if (success) {
+      this.emitChanges([
+        {
+          type: `update`,
+          path: `private.${accountId}.metadata.leverage.${symbol}`,
+          value: leverage,
+        },
+      ]);
+    }
+
+    self.postMessage({
+      type: "response",
+      requestId,
+      data: success,
     });
   }
 

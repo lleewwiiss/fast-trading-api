@@ -23,6 +23,7 @@ export const BYBIT_API = {
     ORDERS: "/v5/order/realtime",
     KLINE: "/v5/market/kline",
     TRADING_STOP: "/v5/position/trading-stop",
+    SET_LEVERAGE: "/v5/position/set-leverage",
   },
 };
 

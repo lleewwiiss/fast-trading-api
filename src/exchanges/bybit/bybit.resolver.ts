@@ -303,3 +303,33 @@ export const createBybitTradingStop = async ({
     // use memory store for that as well ?
   }
 };
+
+export const setBybitLeverage = async ({
+  account,
+  symbol,
+  leverage,
+}: {
+  account: Account;
+  symbol: string;
+  leverage: number;
+}) => {
+  const response = await bybit<{ retCode: number; retMsg: string }>({
+    url: `${BYBIT_API.BASE_URL}${BYBIT_API.ENDPOINTS.SET_LEVERAGE}`,
+    method: "POST",
+    body: {
+      category: "linear",
+      symbol,
+      buyLeverage: `${leverage}`,
+      sellLeverage: `${leverage}`,
+    },
+    key: account.apiKey,
+    secret: account.apiSecret,
+    retries: 3,
+  });
+
+  if (response.retCode !== 0) {
+    // TODO: Log error
+  }
+
+  return response.retCode === 0;
+};

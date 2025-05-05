@@ -257,6 +257,13 @@ export type BybitWorkerMessage = MessageEvent<
       accountId: string;
       symbol: string;
     }
+  | {
+      type: "setLeverage";
+      requestId: string;
+      accountId: string;
+      symbol: string;
+      leverage: number;
+    }
 >;
 
 export type BybitPlaceOrderBatchResponse = {
