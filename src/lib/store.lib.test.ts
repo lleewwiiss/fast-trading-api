@@ -155,6 +155,10 @@ describe("MemoryStore", () => {
             positions: [],
             orders: [],
             notifications: [],
+            metadata: {
+              leverage: {},
+              hedgedPosition: {},
+            },
           },
         },
       ]);
@@ -201,6 +205,10 @@ describe("MemoryStore", () => {
             positions: [position],
             orders: [],
             notifications: [],
+            metadata: {
+              leverage: {},
+              hedgedPosition: {},
+            },
           },
         },
       ]);
@@ -273,6 +281,10 @@ describe("MemoryStore", () => {
             positions: [position1, position2],
             orders: [],
             notifications: [],
+            metadata: {
+              leverage: {},
+              hedgedPosition: {},
+            },
           },
         },
       ]);
@@ -332,6 +344,10 @@ describe("MemoryStore", () => {
             positions: [position1, position2],
             orders: [],
             notifications: [],
+            metadata: {
+              leverage: {},
+              hedgedPosition: {},
+            },
           },
         },
       ]);
@@ -376,6 +392,8 @@ describe("MemoryStore", () => {
             orders: [],
             notifications: [
               {
+                id: "notification1",
+                accountId: "account1",
                 type: "order_fill",
                 data: {
                   side: OrderSide.Buy,
@@ -385,6 +403,8 @@ describe("MemoryStore", () => {
                 },
               },
               {
+                id: "notification2",
+                accountId: "account1",
                 type: "order_fill",
                 data: {
                   side: OrderSide.Sell,
@@ -394,6 +414,8 @@ describe("MemoryStore", () => {
                 },
               },
               {
+                id: "notification3",
+                accountId: "account1",
                 type: "order_fill",
                 data: {
                   side: OrderSide.Buy,
@@ -403,6 +425,10 @@ describe("MemoryStore", () => {
                 },
               },
             ],
+            metadata: {
+              leverage: {},
+              hedgedPosition: {},
+            },
           },
         },
       ]);
@@ -472,6 +498,10 @@ describe("MemoryStore", () => {
             positions: [position],
             orders: [],
             notifications: [],
+            metadata: {
+              leverage: {},
+              hedgedPosition: {},
+            },
           },
         },
         {
@@ -523,6 +553,8 @@ describe("MemoryStore", () => {
           type: "update",
           path: `${ExchangeName.BYBIT}.private.account1.notifications.0`,
           value: {
+            id: "notification1",
+            accountId: "account1",
             type: "order_fill",
             data: {
               side: OrderSide.Buy,

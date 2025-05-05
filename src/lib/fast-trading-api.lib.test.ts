@@ -23,17 +23,17 @@ const moduleMocker = {
 };
 
 describe("FastTradingApi", () => {
-  let BaseExchangeMock;
-  let fetchOHLCVMock;
-  let listenOrderBookMock;
-  let unlistenOrderBookMock;
-  let startMock;
-  let stopMock;
-  let listenOHLCVMock;
-  let unlistenOHLCVMock;
-  let placeOrdersMock;
-  let updateOrdersMock;
-  let cancelOrdersMock;
+  let BaseExchangeMock: ReturnType<typeof mock>;
+  let fetchOHLCVMock: ReturnType<typeof mock>;
+  let listenOrderBookMock: ReturnType<typeof mock>;
+  let unlistenOrderBookMock: ReturnType<typeof mock>;
+  let startMock: ReturnType<typeof mock>;
+  let stopMock: ReturnType<typeof mock>;
+  let listenOHLCVMock: ReturnType<typeof mock>;
+  let unlistenOHLCVMock: ReturnType<typeof mock>;
+  let placeOrdersMock: ReturnType<typeof mock>;
+  let updateOrdersMock: ReturnType<typeof mock>;
+  let cancelOrdersMock: ReturnType<typeof mock>;
 
   beforeEach(async () => {
     startMock = mock(() => Promise.resolve());

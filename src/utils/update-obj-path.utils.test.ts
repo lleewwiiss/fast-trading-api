@@ -13,7 +13,13 @@ type Store = Record<
     public: {
       tickers: Record<string, { last: number }>;
     };
-    private: Record<
+    private: {
+      accounts?: {
+        balance: { total: number };
+        positions: { upnl: number }[];
+        subaccounts: { positions: { upnl: number }[] }[];
+      }[];
+    } & Record<
       string,
       {
         balance: { total: number };
@@ -142,6 +148,8 @@ describe("updateObjectPath", () => {
       path: "bybit.private.accounts",
       value: [
         {
+          balance: { total: 1000 },
+          positions: [{ upnl: 100 }],
           subaccounts: [{ positions: [{ upnl: 100 }, { upnl: 200 }] }],
         },
       ],
@@ -155,10 +163,10 @@ describe("updateObjectPath", () => {
     });
 
     expect(
-      store.bybit.private.accounts[0].subaccounts[0].positions.length,
+      store.bybit.private.accounts![0].subaccounts[0].positions.length,
     ).toBe(1);
     expect(
-      store.bybit.private.accounts[0].subaccounts[0].positions[0].upnl,
+      store.bybit.private.accounts![0].subaccounts[0].positions[0].upnl,
     ).toBe(200);
   });
 
