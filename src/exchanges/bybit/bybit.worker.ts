@@ -8,6 +8,7 @@ import {
   fetchBybitTickers,
   fetchBybitOHLCV,
   createBybitTradingStop,
+  fetchBybitSymbolPositions,
 } from "./bybit.resolver";
 import type { BybitOrder, BybitWorkerMessage } from "./bybit.types";
 import { formatMarkerOrLimitOrder, mapBybitOrder } from "./bybit.utils";
@@ -66,6 +67,9 @@ export class BybitWorker {
     if (data.type === "listenOB") return this.listenOrderBook(data.symbol);
     if (data.type === "unlistenOB") return this.unlistenOrderBook(data.symbol);
     if (data.type === "addAccounts") return this.addAccounts(data);
+    if (data.type === "getPositionMetadata") {
+      return this.getPositionMetadata(data);
+    }
 
     // TODO: move this into an error log
     throw new Error(`Unsupported command to bybit worker`);
@@ -656,6 +660,50 @@ export class BybitWorker {
     });
 
     self.postMessage({ type: "response", requestId, data: [] });
+  }
+
+  private async getPositionMetadata({
+    requestId,
+    accountId,
+    symbol,
+  }: {
+    requestId: string;
+    accountId: string;
+    symbol: string;
+  }) {
+    const account = this.accounts.find((a) => a.id === accountId);
+
+    if (!account) {
+      this.error(`No account found for id: ${accountId}`);
+      return;
+    }
+
+    const positions = await fetchBybitSymbolPositions({ account, symbol });
+
+    const leverage = positions[0]?.leverage ?? 1;
+    const isHedged = positions.some((p) => p.isHedged);
+
+    this.emitChanges([
+      {
+        type: `update`,
+        path: `private.${accountId}.metadata.leverage.${symbol}`,
+        value: leverage,
+      },
+      {
+        type: `update`,
+        path: `private.${accountId}.metadata.hedgedPosition.${symbol}`,
+        value: isHedged,
+      },
+    ]);
+
+    self.postMessage({
+      type: "response",
+      requestId,
+      data: {
+        leverage,
+        isHedged,
+      },
+    });
   }
 
   public emitChanges = <P extends ObjectPaths<StoreMemory[ExchangeName]>>(

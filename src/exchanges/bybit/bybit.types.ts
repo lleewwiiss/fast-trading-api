@@ -251,6 +251,12 @@ export type BybitWorkerMessage = MessageEvent<
       requestId: string;
       priority?: boolean;
     }
+  | {
+      type: "getPositionMetadata";
+      requestId: string;
+      accountId: string;
+      symbol: string;
+    }
 >;
 
 export type BybitPlaceOrderBatchResponse = {

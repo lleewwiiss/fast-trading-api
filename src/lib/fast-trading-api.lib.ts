@@ -273,6 +273,23 @@ export class FastTradingApi {
     });
   }
 
+  public getPositionMetadata({
+    accountId,
+    symbol,
+  }: {
+    accountId: string;
+    symbol: string;
+  }) {
+    const account = this.accounts.find((acc) => acc.id === accountId);
+    const exchange = account?.exchange;
+
+    if (!exchange || !this.exchanges[exchange]) {
+      throw new Error(`No accounts by id found for: ${accountId}`);
+    }
+
+    return this.exchanges[exchange].getPositionMetadata({ accountId, symbol });
+  }
+
   public on(event: "log" | "error", listener: (message: string) => void) {
     if (!this.listeners[event]) this.listeners[event] = [];
     this.listeners[event].push(listener);

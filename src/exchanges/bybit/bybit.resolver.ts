@@ -142,6 +142,28 @@ export const fetchBybitPositions = async (account: Account) => {
   return positions;
 };
 
+export const fetchBybitSymbolPositions = async ({
+  account,
+  symbol,
+}: {
+  account: Account;
+  symbol: string;
+}) => {
+  const json = await bybit<{ result: { list: BybitPosition[] } }>({
+    key: account.apiKey,
+    secret: account.apiSecret,
+    url: `${BYBIT_API.BASE_URL}${BYBIT_API.ENDPOINTS.POSITIONS}`,
+    params: { category: "linear", symbol },
+    retries: 3,
+  });
+
+  const positions: Position[] = json.result.list.map((p) =>
+    mapBybitPosition({ position: p, accountId: account.id }),
+  );
+
+  return positions;
+};
+
 export const fetchBybitOrders = async (account: Account) => {
   const recursiveFetch = async (
     cursor: string = "",

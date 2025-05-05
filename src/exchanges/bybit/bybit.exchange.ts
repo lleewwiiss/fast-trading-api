@@ -148,6 +148,29 @@ export class BybitExchange {
     });
   }
 
+  public getPositionMetadata({
+    accountId,
+    symbol,
+  }: {
+    accountId: string;
+    symbol: string;
+  }): Promise<{
+    leverage: number;
+    isHedged: boolean;
+  }> {
+    const requestId = genId();
+
+    return new Promise((resolve) => {
+      this.pendingRequests.set(requestId, resolve);
+      this.worker.postMessage({
+        type: "getPositionMetadata",
+        requestId,
+        accountId,
+        symbol,
+      });
+    });
+  }
+
   public listenOHLCV({
     symbol,
     timeframe,
