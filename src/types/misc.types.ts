@@ -34,6 +34,7 @@ export type ValueAtPath<T, Parts extends readonly string[]> = Parts extends [
 
 export type ObjectChangeCommand<T, P extends ObjectPaths<T>> =
   | { type: "update"; path: P; value: ValueAtPath<T, Split<P, ".">> }
+  | { type: "removeObjectKey"; path: P; key: string }
   | {
       type: "removeArrayElement";
       path: P & (ValueAtPath<T, Split<P, ".">> extends any[] ? unknown : never);

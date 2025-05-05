@@ -4,6 +4,7 @@ import {
   applyChanges,
   removeArrayElementAtPath,
   updateObjectPath,
+  removeObjectKeyAtPath,
 } from "./update-obj-path.utils";
 
 type Store = Record<
@@ -202,5 +203,56 @@ describe("updateObjectPath", () => {
     });
 
     expect(store.bybit.private.main.balance.total).toBe(5000);
+  });
+});
+
+describe("removeObjectKeyAtPath", () => {
+  test("remove existing key", () => {
+    // Set a key to remove
+    updateObjectPath({
+      obj: store,
+      path: "bybit.public.tickers",
+      value: { ETHUSDT: { last: 123 } },
+    });
+    expect(store.bybit.public.tickers.ETHUSDT).toBeDefined();
+    removeObjectKeyAtPath({
+      obj: store,
+      path: "bybit.public.tickers",
+      key: "ETHUSDT",
+    });
+    expect(store.bybit.public.tickers.ETHUSDT).toBeUndefined();
+  });
+
+  test("non-existing key does nothing", () => {
+    const keysBefore = Object.keys(store.bybit.public.tickers);
+    removeObjectKeyAtPath({
+      obj: store,
+      path: "bybit.public.tickers",
+      key: "UNKNOWN",
+    });
+    expect(Object.keys(store.bybit.public.tickers)).toEqual(keysBefore);
+  });
+});
+
+describe("applyChanges with removeObjectKey", () => {
+  test("removeObjectKey change in applyChanges", () => {
+    // Setup key to remove via applyChanges
+    updateObjectPath({
+      obj: store,
+      path: "bybit.public.tickers",
+      value: { XRPUSDT: { last: 321 } },
+    });
+    expect(store.bybit.public.tickers.XRPUSDT).toBeDefined();
+    applyChanges({
+      obj: store,
+      changes: [
+        {
+          type: "removeObjectKey",
+          path: "bybit.public.tickers",
+          key: "XRPUSDT",
+        },
+      ],
+    });
+    expect(store.bybit.public.tickers.XRPUSDT).toBeUndefined();
   });
 });

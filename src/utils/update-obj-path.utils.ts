@@ -50,6 +50,22 @@ export const removeArrayElementAtPath = <T, P extends ObjectPaths<T>>({
   }
 };
 
+export const removeObjectKeyAtPath = <T, P extends ObjectPaths<T>>({
+  obj,
+  path,
+  key,
+}: {
+  obj: T;
+  path: P;
+  key: string;
+}): void => {
+  const { current, lastKey } = traverseObj(obj, path);
+
+  if (key in current[lastKey]) {
+    delete current[lastKey][key];
+  }
+};
+
 export const applyChanges = <T, P extends ObjectPaths<T>>({
   obj,
   changes,
@@ -62,6 +78,8 @@ export const applyChanges = <T, P extends ObjectPaths<T>>({
       updateObjectPath({ obj, path: change.path, value: change.value });
     } else if (change.type === "removeArrayElement") {
       removeArrayElementAtPath({ obj, path: change.path, index: change.index });
+    } else if (change.type === "removeObjectKey") {
+      removeObjectKeyAtPath({ obj, path: change.path, key: change.key });
     }
   }
 };
