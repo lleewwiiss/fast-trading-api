@@ -23,7 +23,7 @@ const moduleMocker = {
 };
 
 describe("FastTradingApi", () => {
-  let BybitExchangeMock;
+  let BaseExchangeMock;
   let fetchOHLCVMock;
   let listenOrderBookMock;
   let unlistenOrderBookMock;
@@ -60,7 +60,7 @@ describe("FastTradingApi", () => {
     updateOrdersMock = mock(() => {});
     cancelOrdersMock = mock(() => {});
 
-    BybitExchangeMock = mock(() => ({
+    BaseExchangeMock = mock(() => ({
       stop: stopMock,
       start: startMock,
       fetchOHLCV: fetchOHLCVMock,
@@ -73,8 +73,8 @@ describe("FastTradingApi", () => {
       cancelOrders: cancelOrdersMock,
     }));
 
-    await moduleMocker.mock("../exchanges/bybit/bybit.exchange", () => ({
-      BybitExchange: BybitExchangeMock,
+    await moduleMocker.mock("../exchanges/base.exchange", () => ({
+      BaseExchange: BaseExchangeMock,
     }));
   });
 
@@ -97,7 +97,7 @@ describe("FastTradingApi", () => {
 
       await api.start();
 
-      expect(BybitExchangeMock).toHaveBeenCalledTimes(1);
+      expect(BaseExchangeMock).toHaveBeenCalledTimes(1);
       expect(api.store).toBeDefined();
     });
 
@@ -107,7 +107,7 @@ describe("FastTradingApi", () => {
         accounts: [],
       });
 
-      expect(BybitExchangeMock).not.toHaveBeenCalled();
+      expect(BaseExchangeMock).not.toHaveBeenCalled();
     });
   });
 

@@ -1,6 +1,7 @@
 import { MemoryStore } from "./store.lib";
 
-import { BybitExchange } from "~/exchanges/bybit/bybit.exchange";
+import type { BaseExchange } from "~/exchanges/base.exchange";
+import { createBybitExchange } from "~/exchanges/bybit/bybit.exchange";
 import {
   type FastTradingApiOptions,
   type FetchOHLCVParams,
@@ -19,7 +20,7 @@ export class FastTradingApi {
   store: Store;
   accounts: Account[];
 
-  exchanges: { [ExchangeName.BYBIT]?: BybitExchange } = {};
+  exchanges: Partial<Record<ExchangeName, BaseExchange>> = {};
   listeners: { [key: string]: ((...args: any[]) => void)[] } = {};
 
   constructor({ accounts, store = new MemoryStore() }: FastTradingApiOptions) {
@@ -34,7 +35,7 @@ export class FastTradingApi {
     );
 
     this.exchanges = {
-      [ExchangeName.BYBIT]: new BybitExchange({ parent: this }),
+      [ExchangeName.BYBIT]: createBybitExchange({ api: this }),
     };
 
     await Promise.all(
@@ -67,8 +68,8 @@ export class FastTradingApi {
       async ([exchangeName, exchangeAccounts]) => {
         if (exchangeName === ExchangeName.BYBIT) {
           if (!this.exchanges[ExchangeName.BYBIT]) {
-            this.exchanges[ExchangeName.BYBIT] = new BybitExchange({
-              parent: this,
+            this.exchanges[ExchangeName.BYBIT] = createBybitExchange({
+              api: this,
             });
 
             await this.exchanges[ExchangeName.BYBIT].start();

@@ -1,3 +1,5 @@
+import { BaseWorker } from "../base.worker";
+
 import { BybitWsPublic } from "./bybit.ws-public";
 import { BybitWsPrivate } from "./bybit.ws-private";
 import {
@@ -11,32 +13,19 @@ import {
   fetchBybitSymbolPositions,
   setBybitLeverage,
 } from "./bybit.resolver";
-import type { BybitOrder, BybitWorkerMessage } from "./bybit.types";
+import type { BybitOrder } from "./bybit.types";
 import { formatMarkerOrLimitOrder, mapBybitOrder } from "./bybit.utils";
 import { BybitWsTrading } from "./bybit.ws-trading";
 
-import { applyChanges } from "~/utils/update-obj-path.utils";
 import {
   ExchangeName,
   OrderType,
-  PositionSide,
   type Account,
-  type Balance,
   type PlaceOrderOpts,
-  type Position,
-  type Ticker,
   type Timeframe,
-  type StoreMemory,
   type FetchOHLCVParams,
   type Order,
-  type Candle,
-  type OrderBook,
 } from "~/types/lib.types";
-import type {
-  Entries,
-  ObjectChangeCommand,
-  ObjectPaths,
-} from "~/types/misc.types";
 import { partition } from "~/utils/partition.utils";
 import { subtract } from "~/utils/safe-math.utils";
 import { omit } from "~/utils/omit.utils";
@@ -44,38 +33,22 @@ import { toUSD } from "~/utils/to-usd.utils";
 import { sumBy } from "~/utils/sum-by.utils";
 import { genId } from "~/utils";
 
-export class BybitWorker {
-  accounts: Account[] = [];
-  memory: StoreMemory[ExchangeName] = {
-    loaded: { markets: false, tickers: false },
-    public: { latency: 0, tickers: {}, markets: {} },
-    private: {},
-  };
-
+export class BybitWorker extends BaseWorker {
   publicWs: BybitWsPublic | null = null;
   privateWs: Record<Account["id"], BybitWsPrivate> = {};
   tradingWs: Record<Account["id"], BybitWsTrading> = {};
 
-  onMessage = ({ data }: BybitWorkerMessage) => {
-    if (data.type === "start") return this.start(data);
-    if (data.type === "stop") return this.stop();
-    if (data.type === "fetchOHLCV") return this.fetchOHLCV(data);
-    if (data.type === "listenOHLCV") return this.listenOHLCV(data);
-    if (data.type === "unlistenOHLCV") return this.unlistenOHLCV(data);
-    if (data.type === "placeOrders") return this.placeOrders(data);
-    if (data.type === "updateOrders") return this.updateOrders(data);
-    if (data.type === "cancelOrders") return this.cancelOrders(data);
-    if (data.type === "listenOB") return this.listenOrderBook(data.symbol);
-    if (data.type === "unlistenOB") return this.unlistenOrderBook(data.symbol);
-    if (data.type === "addAccounts") return this.addAccounts(data);
-    if (data.type === "setLeverage") return this.setLeverage(data);
-    if (data.type === "fetchPositionMetadata") {
-      return this.fetchPositionMetadata(data);
-    }
-
-    // TODO: move this into an error log
-    throw new Error(`Unsupported command to bybit worker`);
-  };
+  async start({
+    accounts,
+    requestId,
+  }: {
+    accounts: Account[];
+    requestId: string;
+  }) {
+    await super.start({ accounts, requestId });
+    await this.fetchPublic();
+    self.postMessage({ type: "response", requestId });
+  }
 
   stop() {
     if (this.publicWs) {
@@ -92,22 +65,6 @@ export class BybitWorker {
       Object.values(this.tradingWs).forEach((ws) => ws.stop());
       this.tradingWs = {};
     }
-  }
-
-  async start({
-    accounts,
-    requestId,
-  }: {
-    accounts: Account[];
-    requestId: string;
-  }) {
-    this.log(`Bybit Exchange Worker Starting`);
-    this.log(`Initializing Bybit exchange data`);
-
-    this.addAccounts({ accounts });
-
-    await this.fetchPublic();
-    self.postMessage({ type: "response", requestId });
   }
 
   async fetchPublic() {
@@ -147,23 +104,7 @@ export class BybitWorker {
     accounts: Account[];
     requestId?: string;
   }) {
-    this.accounts.push(...accounts);
-    this.emitChanges(
-      accounts.map((acc) => ({
-        type: "update",
-        path: `private.${acc.id}`,
-        value: {
-          balance: { used: 0, free: 0, total: 0, upnl: 0 },
-          positions: [],
-          orders: [],
-          notifications: [],
-          metadata: {
-            leverage: {},
-            hedgedPosition: {},
-          },
-        },
-      })),
-    );
+    super.addAccounts({ accounts, requestId });
 
     for (const account of this.accounts) {
       this.tradingWs[account.id] = new BybitWsTrading({
@@ -254,159 +195,6 @@ export class BybitWorker {
     if (requestId) {
       self.postMessage({ type: "response", requestId });
     }
-  }
-
-  updateAccountBalance({
-    accountId,
-    balance,
-  }: {
-    accountId: Account["id"];
-    balance: Balance;
-  }) {
-    this.emitChanges([
-      {
-        type: "update",
-        path: `private.${accountId}.balance`,
-        value: balance,
-      },
-    ]);
-  }
-
-  removeAccountPositions({
-    accountId,
-    positions,
-  }: {
-    accountId: Account["id"];
-    positions: { side: PositionSide; symbol: string }[];
-  }) {
-    const changes = this.memory.private[accountId].positions.reduce(
-      (acc, p, idx) => {
-        if (
-          positions.some((p2) => p2.symbol === p.symbol && p2.side === p.side)
-        ) {
-          acc.push({
-            type: "removeArrayElement" as const,
-            path: `private.${accountId}.positions` as const,
-            index: idx - acc.length,
-          });
-        }
-        return acc;
-      },
-      [] as {
-        type: "removeArrayElement";
-        path: `private.${string}.positions`;
-        index: number;
-      }[],
-    );
-
-    this.emitChanges(changes);
-  }
-
-  updateAccountPositions({
-    accountId,
-    positions,
-  }: {
-    accountId: Account["id"];
-    positions: Position[];
-  }) {
-    const [updatePositions, addPositions] = partition(positions, (position) =>
-      this.memory.private[accountId].positions.some(
-        (p) => p.symbol === position.symbol && p.side === position.side,
-      ),
-    );
-
-    const updatePositionsChanges = updatePositions.map((position) => {
-      const idx = this.memory.private[accountId].positions.findIndex(
-        (p) => p.symbol === position.symbol && p.side === position.side,
-      );
-
-      return {
-        type: "update" as const,
-        path: `private.${accountId}.positions.${idx}` as const,
-        value: position,
-      };
-    });
-
-    const positionsLength = this.memory.private[accountId].positions.length;
-    const addPositionsChanges = addPositions.map((position, idx) => ({
-      type: "update" as const,
-      path: `private.${accountId}.positions.${positionsLength + idx}` as const,
-      value: position,
-    }));
-
-    const metadataChanges = positions.flatMap(
-      (p) =>
-        [
-          {
-            type: "update",
-            path: `private.${accountId}.metadata.leverage.${p.symbol}`,
-            value: p.leverage,
-          },
-          {
-            type: "update",
-            path: `private.${accountId}.metadata.hedgedPosition.${p.symbol}`,
-            value: p.isHedged ?? false,
-          },
-        ] as const,
-    );
-
-    this.emitChanges([
-      ...updatePositionsChanges,
-      ...addPositionsChanges,
-      ...metadataChanges,
-    ]);
-  }
-
-  updateTicker(ticker: Ticker) {
-    this.emitChanges([
-      {
-        type: "update",
-        path: `public.tickers.${ticker.symbol}`,
-        value: ticker,
-      },
-    ]);
-  }
-
-  updateTickerDelta(ticker: Partial<Ticker> & { symbol: string }) {
-    const tickerChanges = (Object.entries(ticker) as Entries<Ticker>).map(
-      ([key, value]) => ({
-        type: "update" as const,
-        path: `public.tickers.${ticker.symbol}.${key}` as const,
-        value,
-      }),
-    );
-
-    if (!ticker.last) {
-      this.emitChanges(tickerChanges);
-      return;
-    }
-
-    const positionsChanges = this.accounts.flatMap((acc) => {
-      const positions = this.memory.private[acc.id].positions;
-      return positions
-        .filter((p) => p.symbol === ticker.symbol)
-        .flatMap((p) => {
-          const idx = positions.indexOf(p);
-          return [
-            {
-              type: "update" as const,
-              path: `private.${acc.id}.positions.${idx}.notional` as const,
-              value: toUSD(ticker.last! * p.contracts),
-            },
-            {
-              type: "update" as const,
-              path: `private.${acc.id}.positions.${idx}.upnl` as const,
-              value: toUSD(
-                p.side === PositionSide.Long
-                  ? p.contracts * ticker.last! - p.contracts * p.entryPrice
-                  : p.contracts * p.entryPrice - p.contracts * ticker.last!,
-              ),
-            },
-          ];
-        });
-    });
-
-    this.emitChanges([...tickerChanges, ...positionsChanges]);
   }
 
   updateAccountOrders({
@@ -738,44 +526,9 @@ export class BybitWorker {
       data: success,
     });
   }
-
-  emitChanges = <P extends ObjectPaths<StoreMemory[ExchangeName]>>(
-    changes: ObjectChangeCommand<StoreMemory[ExchangeName], P>[],
-  ) => {
-    self.postMessage({
-      type: "update",
-      changes: changes.map(({ path, ...rest }) => ({
-        ...rest,
-        path: `${ExchangeName.BYBIT}.${path}`,
-      })),
-    });
-
-    applyChanges({ obj: this.memory, changes });
-  };
-
-  emitCandle = (candle: Candle) => {
-    self.postMessage({ type: "candle", candle });
-  };
-
-  emitOrderBook = ({
-    symbol,
-    orderBook,
-  }: {
-    symbol: string;
-    orderBook: OrderBook;
-  }) => {
-    self.postMessage({ type: "orderBook", symbol, orderBook });
-  };
-
-  log = (message: any) => {
-    self.postMessage({ type: "log", message });
-  };
-
-  error = (error: any) => {
-    self.postMessage({ type: "error", error });
-  };
 }
 
-const worker = new BybitWorker();
-
-self.addEventListener("message", worker.onMessage);
+new BybitWorker({
+  parent: self,
+  exchangeName: ExchangeName.BYBIT,
+});
