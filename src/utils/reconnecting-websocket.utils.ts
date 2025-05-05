@@ -10,24 +10,24 @@ interface ReconnectOptions {
 }
 
 export class ReconnectingWebSocket {
-  private options: Required<ReconnectOptions & { url: string }>;
+  options: Required<ReconnectOptions & { url: string }>;
 
-  private ws?: WebSocket;
-  private abortController?: AbortController;
+  ws?: WebSocket;
+  abortController?: AbortController;
 
-  private connectTimeout?: ReturnType<typeof setTimeout>;
-  private reconnectTimeout?: ReturnType<typeof setTimeout>;
+  connectTimeout?: ReturnType<typeof setTimeout>;
+  reconnectTimeout?: ReturnType<typeof setTimeout>;
 
-  private retryCount = 0;
-  private forcedClose = false;
+  retryCount = 0;
+  forcedClose = false;
 
-  private listeners: Record<EventType, Listener[]> = {
+  listeners: Record<EventType, Listener[]> = {
     open: [],
     message: [],
     close: [],
   };
 
-  public get readyState() {
+  get readyState() {
     return this.ws?.readyState ?? WebSocket.CLOSED;
   }
 
@@ -44,7 +44,7 @@ export class ReconnectingWebSocket {
     this.connect();
   }
 
-  private connect() {
+  connect() {
     this.abortController = new AbortController();
     this.abortController.signal.addEventListener("abort", () => {
       if (this.ws?.readyState === WebSocket.CONNECTING) {
@@ -77,13 +77,13 @@ export class ReconnectingWebSocket {
     });
   }
 
-  private emit(event: EventType, payload: any) {
+  emit(event: EventType, payload: any) {
     for (const listener of this.listeners[event]) {
       listener(payload);
     }
   }
 
-  private scheduleReconnect() {
+  scheduleReconnect() {
     const { retryDelay, backoffFactor, maxRetryDelay } = this.options;
 
     const delay = Math.min(
@@ -95,7 +95,7 @@ export class ReconnectingWebSocket {
     this.reconnectTimeout = setTimeout(() => this.connect(), delay);
   }
 
-  private clearTimers() {
+  clearTimers() {
     if (this.connectTimeout) {
       clearTimeout(this.connectTimeout);
       this.connectTimeout = undefined;
@@ -111,19 +111,19 @@ export class ReconnectingWebSocket {
     }
   }
 
-  public addEventListener(event: EventType, listener: Listener) {
+  addEventListener(event: EventType, listener: Listener) {
     this.listeners[event].push(listener);
   }
 
-  public removeEventListener(event: EventType, listener: Listener) {
+  removeEventListener(event: EventType, listener: Listener) {
     this.listeners[event] = this.listeners[event].filter((l) => l !== listener);
   }
 
-  public send(...args: Parameters<WebSocket["send"]>) {
+  send(...args: Parameters<WebSocket["send"]>) {
     this.ws?.send(...args);
   }
 
-  public close(...args: Parameters<WebSocket["close"]>) {
+  close(...args: Parameters<WebSocket["close"]>) {
     this.forcedClose = true;
     this.clearTimers();
 

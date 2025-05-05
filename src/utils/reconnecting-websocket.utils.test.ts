@@ -17,10 +17,7 @@ describe("ReconnectingWebSocket", () => {
     // ensure instance properties match code expectations
     readyState: number = FakeWebSocket.CONNECTING;
     sentData: any[] = [];
-    constructor(
-      public url: string,
-      public protocols?: string | string[],
-    ) {
+    constructor(_url: string, _protocols?: string | string[]) {
       super();
       created.push(this);
       this.readyState = FakeWebSocket.CONNECTING;

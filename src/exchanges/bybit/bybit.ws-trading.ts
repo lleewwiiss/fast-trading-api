@@ -22,20 +22,20 @@ type Data = {
 };
 
 export class BybitWsTrading {
-  private account: Account;
-  private parent: BybitWorker;
+  account: Account;
+  parent: BybitWorker;
 
-  private isStopped = false;
+  isStopped = false;
 
-  private ws: ReconnectingWebSocket | null = null;
-  private interval: NodeJS.Timeout | null = null;
+  ws: ReconnectingWebSocket | null = null;
+  interval: NodeJS.Timeout | null = null;
 
-  private pendingRequests = new Map<string, (data: any) => void>();
+  pendingRequests = new Map<string, (data: any) => void>();
 
-  private queue: { payload: Data; consume: number }[] = [];
-  private isProcessing = false;
-  private rateLimit = 10;
-  private queueInterval = 1000 / this.rateLimit;
+  queue: { payload: Data; consume: number }[] = [];
+  isProcessing = false;
+  rateLimit = 10;
+  queueInterval = 1000 / this.rateLimit;
 
   constructor({ account, parent }: { account: Account; parent: BybitWorker }) {
     this.account = account;
@@ -43,14 +43,14 @@ export class BybitWsTrading {
     this.listenWebsocket();
   }
 
-  private listenWebsocket = () => {
+  listenWebsocket = () => {
     this.ws = new ReconnectingWebSocket(BYBIT_API.BASE_WS_TRADE_URL);
     this.ws.addEventListener("open", this.onOpen);
     this.ws.addEventListener("message", this.onMessage);
     this.ws.addEventListener("close", this.onClose);
   };
 
-  private onOpen = async () => {
+  onOpen = async () => {
     this.parent.log(
       `Bybit Trading Websocket Opened for account [${this.account.id}]`,
     );
@@ -59,7 +59,7 @@ export class BybitWsTrading {
     this.ping();
   };
 
-  private auth = async () => {
+  auth = async () => {
     const authArgs = await bybitWebsocketAuth({
       key: this.account.apiKey,
       secret: this.account.apiSecret,
@@ -68,13 +68,13 @@ export class BybitWsTrading {
     this.send({ op: "auth", args: authArgs });
   };
 
-  private ping = () => {
+  ping = () => {
     this.interval = setInterval(() => {
       this.send({ op: "ping" });
     }, 10_000);
   };
 
-  private onMessage = (event: MessageEvent) => {
+  onMessage = (event: MessageEvent) => {
     if (event.data.includes("reqId")) {
       const data = JSON.parse(event.data);
       const callback = this.pendingRequests.get(data.reqId);
@@ -86,7 +86,7 @@ export class BybitWsTrading {
     }
   };
 
-  private onClose = () => {
+  onClose = () => {
     this.parent.error(
       `Bybit Trading Websocket Closed for account [${this.account.id}]`,
     );
@@ -97,11 +97,11 @@ export class BybitWsTrading {
     }
   };
 
-  private send = (data: Data) => {
+  send = (data: Data) => {
     if (!this.isStopped) this.ws?.send(JSON.stringify(data));
   };
 
-  public placeOrderBatch = ({
+  placeOrderBatch = ({
     orders,
     priority = false,
     retry = true,
@@ -189,7 +189,7 @@ export class BybitWsTrading {
     });
   };
 
-  public updateOrders = ({
+  updateOrders = ({
     updates,
     priority = false,
   }: {
@@ -254,7 +254,7 @@ export class BybitWsTrading {
     });
   };
 
-  public cancelOrders = ({
+  cancelOrders = ({
     orders,
     priority = false,
   }: {
@@ -297,7 +297,7 @@ export class BybitWsTrading {
     });
   };
 
-  private enqueueSend = ({
+  enqueueSend = ({
     payload,
     consume = 1,
     priority = false,
@@ -317,7 +317,7 @@ export class BybitWsTrading {
     }
   };
 
-  private processQueue = async () => {
+  processQueue = async () => {
     this.isProcessing = true;
 
     while (this.queue.length > 0) {
@@ -342,7 +342,7 @@ export class BybitWsTrading {
     this.isProcessing = false;
   };
 
-  public stop = () => {
+  stop = () => {
     this.isStopped = true;
 
     if (this.interval) {

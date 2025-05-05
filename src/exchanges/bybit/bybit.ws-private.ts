@@ -14,13 +14,13 @@ import { PositionSide, type Account } from "~/types/lib.types";
 import { ReconnectingWebSocket } from "~/utils/reconnecting-websocket.utils";
 
 export class BybitWsPrivate {
-  private parent: BybitWorker;
-  private isStopped = false;
+  parent: BybitWorker;
+  isStopped = false;
 
-  private ws: ReconnectingWebSocket | null = null;
-  private interval: NodeJS.Timeout | null = null;
+  ws: ReconnectingWebSocket | null = null;
+  interval: NodeJS.Timeout | null = null;
 
-  private account: Account;
+  account: Account;
 
   constructor({ parent, account }: { parent: BybitWorker; account: Account }) {
     this.parent = parent;
@@ -29,14 +29,14 @@ export class BybitWsPrivate {
     this.listenWebsocket();
   }
 
-  private listenWebsocket = () => {
+  listenWebsocket = () => {
     this.ws = new ReconnectingWebSocket(BYBIT_API.BASE_WS_PRIVATE_URL);
     this.ws.addEventListener("open", this.onOpen);
     this.ws.addEventListener("message", this.onMessage);
     this.ws.addEventListener("close", this.onClose);
   };
 
-  private onOpen = async () => {
+  onOpen = async () => {
     this.parent.log(
       `Bybit Private Websocket Opened for account [${this.account.id}]`,
     );
@@ -48,7 +48,7 @@ export class BybitWsPrivate {
     this.send({ op: "subscribe", args: ["wallet"] });
   };
 
-  private auth = async () => {
+  auth = async () => {
     const authArgs = await bybitWebsocketAuth({
       key: this.account.apiKey,
       secret: this.account.apiSecret,
@@ -57,13 +57,13 @@ export class BybitWsPrivate {
     this.send({ op: "auth", args: authArgs });
   };
 
-  private ping = () => {
+  ping = () => {
     this.interval = setInterval(() => {
       this.send({ op: "ping" });
     }, 10_000);
   };
 
-  private onMessage = (event: MessageEvent) => {
+  onMessage = (event: MessageEvent) => {
     if (event.data.includes('"topic":"position.linear"')) {
       const { data }: { data: BybitWebsocketPosition[] } = JSON.parse(
         event.data,
@@ -139,7 +139,7 @@ export class BybitWsPrivate {
     }
   };
 
-  private onClose = () => {
+  onClose = () => {
     this.parent.error(
       `Bybit Private Websocket Closed for account [${this.account.id}]`,
     );
@@ -150,11 +150,11 @@ export class BybitWsPrivate {
     }
   };
 
-  private send = (data: { op: string; args?: string[] }) => {
+  send = (data: { op: string; args?: string[] }) => {
     if (!this.isStopped) this.ws?.send(JSON.stringify(data));
   };
 
-  public stop = () => {
+  stop = () => {
     this.isStopped = true;
 
     if (this.interval) {

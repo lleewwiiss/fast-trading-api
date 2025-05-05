@@ -13,12 +13,12 @@ import type { ObjectChangeCommand, ObjectPaths } from "~/types/misc.types";
 import { genId } from "~/utils/gen-id.utils";
 
 export class BybitExchange {
-  private parent: FastTradingApi;
-  private worker: Worker;
+  parent: FastTradingApi;
+  worker: Worker;
 
-  private pendingRequests = new Map<string, (data: any) => void>();
-  private ohlcvListeners = new Map<string, (data: Candle) => void>();
-  private orderBookListeners = new Map<string, (data: OrderBook) => void>();
+  pendingRequests = new Map<string, (data: any) => void>();
+  ohlcvListeners = new Map<string, (data: Candle) => void>();
+  orderBookListeners = new Map<string, (data: OrderBook) => void>();
 
   constructor({ parent }: { parent: FastTradingApi }) {
     this.parent = parent;
@@ -30,7 +30,7 @@ export class BybitExchange {
     this.worker.addEventListener("message", this.onWorkerMessage);
   }
 
-  public start = () => {
+  start = () => {
     const requestId = genId();
 
     return new Promise((resolve) => {
@@ -45,7 +45,7 @@ export class BybitExchange {
     });
   };
 
-  public addAccounts = (accounts: Account[]) => {
+  addAccounts = (accounts: Account[]) => {
     const requestId = genId();
 
     return new Promise((resolve) => {
@@ -64,13 +64,13 @@ export class BybitExchange {
     });
   };
 
-  public stop = () => {
+  stop = () => {
     this.worker.removeEventListener("message", this.onWorkerMessage);
     this.worker.postMessage({ type: "stop" });
     this.worker.terminate();
   };
 
-  public fetchOHLCV(params: FetchOHLCVParams): Promise<Candle[]> {
+  fetchOHLCV(params: FetchOHLCVParams): Promise<Candle[]> {
     const requestId = genId();
 
     return new Promise((resolve) => {
@@ -79,7 +79,7 @@ export class BybitExchange {
     });
   }
 
-  public placeOrders({
+  placeOrders({
     orders,
     accountId,
     priority = false,
@@ -102,7 +102,7 @@ export class BybitExchange {
     });
   }
 
-  public updateOrders({
+  updateOrders({
     updates,
     accountId,
     priority = false,
@@ -125,7 +125,7 @@ export class BybitExchange {
     });
   }
 
-  public cancelOrders({
+  cancelOrders({
     orderIds,
     accountId,
     priority = false,
@@ -148,7 +148,7 @@ export class BybitExchange {
     });
   }
 
-  public fetchPositionMetadata({
+  fetchPositionMetadata({
     accountId,
     symbol,
   }: {
@@ -171,7 +171,7 @@ export class BybitExchange {
     });
   }
 
-  public setLeverage({
+  setLeverage({
     accountId,
     symbol,
     leverage,
@@ -194,7 +194,7 @@ export class BybitExchange {
     });
   }
 
-  public listenOHLCV({
+  listenOHLCV({
     symbol,
     timeframe,
     callback,
@@ -207,7 +207,7 @@ export class BybitExchange {
     this.worker.postMessage({ type: "listenOHLCV", symbol, timeframe });
   }
 
-  public unlistenOHLCV({
+  unlistenOHLCV({
     symbol,
     timeframe,
   }: {
@@ -218,7 +218,7 @@ export class BybitExchange {
     this.worker.postMessage({ type: "unlistenOHLCV", symbol, timeframe });
   }
 
-  public listenOrderBook({
+  listenOrderBook({
     symbol,
     callback,
   }: {
@@ -229,18 +229,18 @@ export class BybitExchange {
     this.worker.postMessage({ type: "listenOB", symbol });
   }
 
-  public unlistenOrderBook(symbol: string) {
+  unlistenOrderBook(symbol: string) {
     this.orderBookListeners.delete(symbol);
     this.worker.postMessage({ type: "unlistenOB", symbol });
   }
 
-  private handleCandle = (candle: Candle) => {
+  handleCandle = (candle: Candle) => {
     const name = `${candle.symbol}:${candle.timeframe}`;
     const listener = this.ohlcvListeners.get(name);
     if (listener) listener(candle);
   };
 
-  private handleOrderBook = ({
+  handleOrderBook = ({
     symbol,
     orderBook,
   }: {
@@ -251,13 +251,7 @@ export class BybitExchange {
     if (listener) listener(orderBook);
   };
 
-  private handleResponse = ({
-    requestId,
-    data,
-  }: {
-    requestId: string;
-    data: any;
-  }) => {
+  handleResponse = ({ requestId, data }: { requestId: string; data: any }) => {
     const resolver = this.pendingRequests.get(requestId);
 
     if (resolver) {
@@ -266,7 +260,7 @@ export class BybitExchange {
     }
   };
 
-  private onWorkerMessage = <P extends ObjectPaths<StoreMemory>>({
+  onWorkerMessage = <P extends ObjectPaths<StoreMemory>>({
     data,
   }: MessageEvent<
     | { type: "update"; changes: ObjectChangeCommand<StoreMemory, P>[] }

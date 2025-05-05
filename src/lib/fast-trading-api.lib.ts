@@ -16,18 +16,18 @@ import {
 import { groupBy } from "~/utils/group-by.utils";
 
 export class FastTradingApi {
-  public store: Store;
-  public accounts: Account[];
+  store: Store;
+  accounts: Account[];
 
-  private exchanges: { [ExchangeName.BYBIT]?: BybitExchange } = {};
-  private listeners: { [key: string]: ((...args: any[]) => void)[] } = {};
+  exchanges: { [ExchangeName.BYBIT]?: BybitExchange } = {};
+  listeners: { [key: string]: ((...args: any[]) => void)[] } = {};
 
   constructor({ accounts, store = new MemoryStore() }: FastTradingApiOptions) {
     this.accounts = accounts;
     this.store = store;
   }
 
-  public async start() {
+  async start() {
     this.emit(
       "log",
       `Starting FastTradingApi SDK with ${this.accounts.length} accounts`,
@@ -42,7 +42,7 @@ export class FastTradingApi {
     );
   }
 
-  public async stop() {
+  async stop() {
     this.emit("log", "Stopping FastTradingApi SDK");
 
     Object.values(this.exchanges).forEach((exchange) => exchange.stop());
@@ -51,7 +51,7 @@ export class FastTradingApi {
     this.store.reset();
   }
 
-  public async addAccounts(accounts: Account[]) {
+  async addAccounts(accounts: Account[]) {
     const newAccounts = accounts.filter(
       (acc) => !this.accounts.some((a) => a.id === acc.id),
     );
@@ -84,7 +84,7 @@ export class FastTradingApi {
     await Promise.all(promises);
   }
 
-  public fetchOHLCV({
+  fetchOHLCV({
     exchangeName,
     params,
   }: {
@@ -98,7 +98,7 @@ export class FastTradingApi {
     return this.exchanges[exchangeName].fetchOHLCV(params);
   }
 
-  public listenOHLCV({
+  listenOHLCV({
     exchangeName,
     symbol,
     timeframe,
@@ -116,7 +116,7 @@ export class FastTradingApi {
     this.exchanges[exchangeName].listenOHLCV({ symbol, timeframe, callback });
   }
 
-  public unlistenOHLCV({
+  unlistenOHLCV({
     exchangeName,
     symbol,
     timeframe,
@@ -132,7 +132,7 @@ export class FastTradingApi {
     this.exchanges[exchangeName].unlistenOHLCV({ symbol, timeframe });
   }
 
-  public listenOrderBook({
+  listenOrderBook({
     exchangeName,
     symbol,
     callback,
@@ -148,7 +148,7 @@ export class FastTradingApi {
     this.exchanges[exchangeName].listenOrderBook({ symbol, callback });
   }
 
-  public unlistenOrderBook({
+  unlistenOrderBook({
     exchangeName,
     symbol,
   }: {
@@ -162,7 +162,7 @@ export class FastTradingApi {
     this.exchanges[exchangeName].unlistenOrderBook(symbol);
   }
 
-  public placeOrder({
+  placeOrder({
     order,
     accountId,
     priority = false,
@@ -174,7 +174,7 @@ export class FastTradingApi {
     return this.placeOrders({ orders: [order], accountId, priority });
   }
 
-  public placeOrders({
+  placeOrders({
     orders,
     accountId,
     priority = false,
@@ -197,7 +197,7 @@ export class FastTradingApi {
     });
   }
 
-  public updateOrder({
+  updateOrder({
     order,
     update,
     accountId,
@@ -215,7 +215,7 @@ export class FastTradingApi {
     });
   }
 
-  public updateOrders({
+  updateOrders({
     updates,
     accountId,
     priority = false,
@@ -238,7 +238,7 @@ export class FastTradingApi {
     });
   }
 
-  public cancelOrder({
+  cancelOrder({
     orderId,
     accountId,
     priority = false,
@@ -250,7 +250,7 @@ export class FastTradingApi {
     return this.cancelOrders({ orderIds: [orderId], accountId, priority });
   }
 
-  public cancelOrders({
+  cancelOrders({
     orderIds,
     accountId,
     priority = false,
@@ -273,7 +273,7 @@ export class FastTradingApi {
     });
   }
 
-  public fetchPositionMetadata({
+  fetchPositionMetadata({
     accountId,
     symbol,
   }: {
@@ -293,7 +293,7 @@ export class FastTradingApi {
     });
   }
 
-  public setLeverage({
+  setLeverage({
     accountId,
     symbol,
     leverage,
@@ -316,12 +316,12 @@ export class FastTradingApi {
     });
   }
 
-  public on(event: "log" | "error", listener: (message: string) => void) {
+  on(event: "log" | "error", listener: (message: string) => void) {
     if (!this.listeners[event]) this.listeners[event] = [];
     this.listeners[event].push(listener);
   }
 
-  public emit(event: "log" | "error", ...args: any[]) {
+  emit(event: "log" | "error", ...args: any[]) {
     for (const listener of this.listeners[event] || []) {
       listener(...args);
     }

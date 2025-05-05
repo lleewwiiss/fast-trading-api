@@ -45,18 +45,18 @@ import { sumBy } from "~/utils/sum-by.utils";
 import { genId } from "~/utils";
 
 export class BybitWorker {
-  private accounts: Account[] = [];
-  private memory: StoreMemory[ExchangeName] = {
+  accounts: Account[] = [];
+  memory: StoreMemory[ExchangeName] = {
     loaded: { markets: false, tickers: false },
     public: { latency: 0, tickers: {}, markets: {} },
     private: {},
   };
 
-  private publicWs: BybitWsPublic | null = null;
-  private privateWs: Record<Account["id"], BybitWsPrivate> = {};
-  private tradingWs: Record<Account["id"], BybitWsTrading> = {};
+  publicWs: BybitWsPublic | null = null;
+  privateWs: Record<Account["id"], BybitWsPrivate> = {};
+  tradingWs: Record<Account["id"], BybitWsTrading> = {};
 
-  public onMessage = ({ data }: BybitWorkerMessage) => {
+  onMessage = ({ data }: BybitWorkerMessage) => {
     if (data.type === "start") return this.start(data);
     if (data.type === "stop") return this.stop();
     if (data.type === "fetchOHLCV") return this.fetchOHLCV(data);
@@ -77,7 +77,7 @@ export class BybitWorker {
     throw new Error(`Unsupported command to bybit worker`);
   };
 
-  private stop() {
+  stop() {
     if (this.publicWs) {
       this.publicWs.stop();
       this.publicWs = null;
@@ -94,7 +94,7 @@ export class BybitWorker {
     }
   }
 
-  private async start({
+  async start({
     accounts,
     requestId,
   }: {
@@ -110,7 +110,7 @@ export class BybitWorker {
     self.postMessage({ type: "response", requestId });
   }
 
-  private async fetchPublic() {
+  async fetchPublic() {
     // 1. Fetch markets and tickers
     const [markets, tickers] = await Promise.all([
       fetchBybitMarkets(),
@@ -140,7 +140,7 @@ export class BybitWorker {
     });
   }
 
-  private async addAccounts({
+  async addAccounts({
     accounts,
     requestId,
   }: {
@@ -256,7 +256,7 @@ export class BybitWorker {
     }
   }
 
-  public updateAccountBalance({
+  updateAccountBalance({
     accountId,
     balance,
   }: {
@@ -272,7 +272,7 @@ export class BybitWorker {
     ]);
   }
 
-  public removeAccountPositions({
+  removeAccountPositions({
     accountId,
     positions,
   }: {
@@ -302,7 +302,7 @@ export class BybitWorker {
     this.emitChanges(changes);
   }
 
-  public updateAccountPositions({
+  updateAccountPositions({
     accountId,
     positions,
   }: {
@@ -357,7 +357,7 @@ export class BybitWorker {
     ]);
   }
 
-  public updateTicker(ticker: Ticker) {
+  updateTicker(ticker: Ticker) {
     this.emitChanges([
       {
         type: "update",
@@ -367,7 +367,7 @@ export class BybitWorker {
     ]);
   }
 
-  public updateTickerDelta(ticker: Partial<Ticker> & { symbol: string }) {
+  updateTickerDelta(ticker: Partial<Ticker> & { symbol: string }) {
     const tickerChanges = (Object.entries(ticker) as Entries<Ticker>).map(
       ([key, value]) => ({
         type: "update" as const,
@@ -409,7 +409,7 @@ export class BybitWorker {
     this.emitChanges([...tickerChanges, ...positionsChanges]);
   }
 
-  public updateAccountOrders({
+  updateAccountOrders({
     accountId,
     bybitOrders,
   }: {
@@ -523,15 +523,15 @@ export class BybitWorker {
     }
   }
 
-  private listenOrderBook(symbol: string) {
+  listenOrderBook(symbol: string) {
     this.publicWs?.listenOrderBook(symbol);
   }
 
-  private unlistenOrderBook(symbol: string) {
+  unlistenOrderBook(symbol: string) {
     this.publicWs?.unlistenOrderBook(symbol);
   }
 
-  private async fetchOHLCV({
+  async fetchOHLCV({
     requestId,
     params,
   }: {
@@ -542,17 +542,11 @@ export class BybitWorker {
     self.postMessage({ type: "response", requestId, data: candles });
   }
 
-  private listenOHLCV({
-    symbol,
-    timeframe,
-  }: {
-    symbol: string;
-    timeframe: Timeframe;
-  }) {
+  listenOHLCV({ symbol, timeframe }: { symbol: string; timeframe: Timeframe }) {
     this.publicWs?.listenOHLCV({ symbol, timeframe });
   }
 
-  private unlistenOHLCV({
+  unlistenOHLCV({
     symbol,
     timeframe,
   }: {
@@ -562,7 +556,7 @@ export class BybitWorker {
     this.publicWs?.unlistenOHLCV({ symbol, timeframe });
   }
 
-  private async placeOrders({
+  async placeOrders({
     orders,
     accountId,
     requestId,
@@ -616,7 +610,7 @@ export class BybitWorker {
     self.postMessage({ type: "response", requestId, data: orderIds });
   }
 
-  private async updateOrders({
+  async updateOrders({
     updates,
     accountId,
     requestId,
@@ -639,7 +633,7 @@ export class BybitWorker {
     self.postMessage({ type: "response", requestId, data: [] });
   }
 
-  private async cancelOrders({
+  async cancelOrders({
     orderIds,
     accountId,
     requestId,
@@ -664,7 +658,7 @@ export class BybitWorker {
     self.postMessage({ type: "response", requestId, data: [] });
   }
 
-  private async fetchPositionMetadata({
+  async fetchPositionMetadata({
     requestId,
     accountId,
     symbol,
@@ -708,7 +702,7 @@ export class BybitWorker {
     });
   }
 
-  private async setLeverage({
+  async setLeverage({
     requestId,
     accountId,
     symbol,
@@ -745,7 +739,7 @@ export class BybitWorker {
     });
   }
 
-  public emitChanges = <P extends ObjectPaths<StoreMemory[ExchangeName]>>(
+  emitChanges = <P extends ObjectPaths<StoreMemory[ExchangeName]>>(
     changes: ObjectChangeCommand<StoreMemory[ExchangeName], P>[],
   ) => {
     self.postMessage({
@@ -759,11 +753,11 @@ export class BybitWorker {
     applyChanges({ obj: this.memory, changes });
   };
 
-  public emitCandle = (candle: Candle) => {
+  emitCandle = (candle: Candle) => {
     self.postMessage({ type: "candle", candle });
   };
 
-  public emitOrderBook = ({
+  emitOrderBook = ({
     symbol,
     orderBook,
   }: {
@@ -773,11 +767,11 @@ export class BybitWorker {
     self.postMessage({ type: "orderBook", symbol, orderBook });
   };
 
-  public log = (message: any) => {
+  log = (message: any) => {
     self.postMessage({ type: "log", message });
   };
 
-  public error = (error: any) => {
+  error = (error: any) => {
     self.postMessage({ type: "error", error });
   };
 }

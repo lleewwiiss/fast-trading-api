@@ -13,21 +13,21 @@ import {
 import { ReconnectingWebSocket } from "~/utils/reconnecting-websocket.utils";
 
 export class BybitWsPublic {
-  private parent: BybitWorker;
-  private isStopped = false;
-  private pingAt = 0;
+  parent: BybitWorker;
+  isStopped = false;
+  pingAt = 0;
 
-  private ws: ReconnectingWebSocket | null = null;
-  private interval: NodeJS.Timeout | null = null;
+  ws: ReconnectingWebSocket | null = null;
+  interval: NodeJS.Timeout | null = null;
 
-  private markets: string[] = [];
-  private messageHandlers: Record<string, (event: MessageEvent) => void> = {};
+  markets: string[] = [];
+  messageHandlers: Record<string, (event: MessageEvent) => void> = {};
 
-  private orderBookTopics = new Set<string>();
-  private orderBookTimeouts = new Map<string, NodeJS.Timeout>();
+  orderBookTopics = new Set<string>();
+  orderBookTimeouts = new Map<string, NodeJS.Timeout>();
 
-  private ohlcvTopics = new Set<string>();
-  private ohlcvTimeouts = new Map<string, NodeJS.Timeout>();
+  ohlcvTopics = new Set<string>();
+  ohlcvTimeouts = new Map<string, NodeJS.Timeout>();
 
   constructor({ parent, markets }: { parent: BybitWorker; markets: string[] }) {
     this.parent = parent;
@@ -39,14 +39,14 @@ export class BybitWsPublic {
     this.listenWebsocket();
   }
 
-  private listenWebsocket = () => {
+  listenWebsocket = () => {
     this.ws = new ReconnectingWebSocket(BYBIT_API.BASE_WS_PUBLIC_URL);
     this.ws.addEventListener("open", this.onOpen);
     this.ws.addEventListener("message", this.onMessage);
     this.ws.addEventListener("close", this.onClose);
   };
 
-  private onOpen = () => {
+  onOpen = () => {
     this.parent.log(`Bybit Public Websocket Opened`);
 
     this.ping();
@@ -71,12 +71,12 @@ export class BybitWsPublic {
     }
   };
 
-  private ping = () => {
+  ping = () => {
     this.pingAt = performance.now();
     this.send({ op: "ping" });
   };
 
-  private onPong = (event: MessageEvent) => {
+  onPong = (event: MessageEvent) => {
     if (event.data.includes("pong")) {
       const latency = (performance.now() - this.pingAt) / 2;
       this.parent.emitChanges([
@@ -89,11 +89,11 @@ export class BybitWsPublic {
     }
   };
 
-  private onMessage = (event: MessageEvent) => {
+  onMessage = (event: MessageEvent) => {
     Object.values(this.messageHandlers).forEach((handler) => handler(event));
   };
 
-  private handleTickers = (event: MessageEvent) => {
+  handleTickers = (event: MessageEvent) => {
     if (event.data.startsWith('{"topic":"tickers.')) {
       const json = JSON.parse(event.data);
 
@@ -125,13 +125,7 @@ export class BybitWsPublic {
     }
   };
 
-  public listenOHLCV({
-    symbol,
-    timeframe,
-  }: {
-    symbol: string;
-    timeframe: Timeframe;
-  }) {
+  listenOHLCV({ symbol, timeframe }: { symbol: string; timeframe: Timeframe }) {
     const ohlcvTopic = `kline.${INTERVAL[timeframe]}.${symbol}`;
 
     if (this.ohlcvTopics.has(ohlcvTopic)) return;
@@ -181,7 +175,7 @@ export class BybitWsPublic {
     waitConnectAndSubscribe();
   }
 
-  public unlistenOHLCV({
+  unlistenOHLCV({
     symbol,
     timeframe,
   }: {
@@ -204,7 +198,7 @@ export class BybitWsPublic {
     this.ohlcvTopics.delete(ohlcvTopic);
   }
 
-  public listenOrderBook(symbol: string) {
+  listenOrderBook(symbol: string) {
     const orderBook: OrderBook = { bids: [], asks: [] };
     const orderBookTopic = `orderbook.500.${symbol}`;
 
@@ -292,7 +286,7 @@ export class BybitWsPublic {
     waitConnectAndSubscribe();
   }
 
-  public unlistenOrderBook(symbol: string) {
+  unlistenOrderBook(symbol: string) {
     const orderBookTopic = `orderbook.500.${symbol}`;
     const timeout = this.orderBookTimeouts.get(orderBookTopic);
 
@@ -309,7 +303,7 @@ export class BybitWsPublic {
     this.orderBookTopics.delete(orderBookTopic);
   }
 
-  private onClose = () => {
+  onClose = () => {
     this.parent.error(`Bybit Public Websocket Closed`);
 
     if (this.interval) {
@@ -318,11 +312,11 @@ export class BybitWsPublic {
     }
   };
 
-  private send = (data: { op: string; args?: string[] }) => {
+  send = (data: { op: string; args?: string[] }) => {
     if (!this.isStopped) this.ws?.send(JSON.stringify(data));
   };
 
-  public stop = () => {
+  stop = () => {
     this.isStopped = true;
 
     if (this.interval) {
