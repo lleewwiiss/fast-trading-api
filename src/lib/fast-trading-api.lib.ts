@@ -273,7 +273,7 @@ export class FastTradingApi {
     });
   }
 
-  public getPositionMetadata({
+  public fetchPositionMetadata({
     accountId,
     symbol,
   }: {
@@ -287,7 +287,10 @@ export class FastTradingApi {
       throw new Error(`No accounts by id found for: ${accountId}`);
     }
 
-    return this.exchanges[exchange].getPositionMetadata({ accountId, symbol });
+    return this.exchanges[exchange].fetchPositionMetadata({
+      accountId,
+      symbol,
+    });
   }
 
   public on(event: "log" | "error", listener: (message: string) => void) {

@@ -67,8 +67,8 @@ export class BybitWorker {
     if (data.type === "listenOB") return this.listenOrderBook(data.symbol);
     if (data.type === "unlistenOB") return this.unlistenOrderBook(data.symbol);
     if (data.type === "addAccounts") return this.addAccounts(data);
-    if (data.type === "getPositionMetadata") {
-      return this.getPositionMetadata(data);
+    if (data.type === "fetchPositionMetadata") {
+      return this.fetchPositionMetadata(data);
     }
 
     // TODO: move this into an error log
@@ -662,7 +662,7 @@ export class BybitWorker {
     self.postMessage({ type: "response", requestId, data: [] });
   }
 
-  private async getPositionMetadata({
+  private async fetchPositionMetadata({
     requestId,
     accountId,
     symbol,

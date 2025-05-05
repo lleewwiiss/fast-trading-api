@@ -148,7 +148,7 @@ export class BybitExchange {
     });
   }
 
-  public getPositionMetadata({
+  public fetchPositionMetadata({
     accountId,
     symbol,
   }: {
@@ -163,7 +163,7 @@ export class BybitExchange {
     return new Promise((resolve) => {
       this.pendingRequests.set(requestId, resolve);
       this.worker.postMessage({
-        type: "getPositionMetadata",
+        type: "fetchPositionMetadata",
         requestId,
         accountId,
         symbol,

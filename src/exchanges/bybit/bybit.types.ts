@@ -252,7 +252,7 @@ export type BybitWorkerMessage = MessageEvent<
       priority?: boolean;
     }
   | {
-      type: "getPositionMetadata";
+      type: "fetchPositionMetadata";
       requestId: string;
       accountId: string;
       symbol: string;
