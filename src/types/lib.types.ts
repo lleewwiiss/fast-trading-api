@@ -33,6 +33,10 @@ export interface ExchangeAccountMemory {
   positions: Position[];
   orders: Order[];
   notifications: Notification[];
+  metadata: {
+    leverage: Record<string, number>;
+    hedgedPosition: Record<string, boolean>;
+  };
 }
 
 export interface FetchOHLCVParams {

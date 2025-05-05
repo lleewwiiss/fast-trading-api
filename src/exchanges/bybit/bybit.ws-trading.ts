@@ -129,7 +129,15 @@ export class BybitWsTrading {
               ) {
                 const order = batch[idx];
                 const positionIdx = getHedgedOrderPositionIdx(order);
-                this.parent.hedgedCache[this.account.id][order.symbol] = true;
+
+                this.parent.emitChanges([
+                  {
+                    type: "update",
+                    path: `private.${this.account.id}.metadata.hedgedPosition.${order.symbol}`,
+                    value: true,
+                  },
+                ]);
+
                 toRetry.push({ ...order, positionIdx });
                 return;
               }
