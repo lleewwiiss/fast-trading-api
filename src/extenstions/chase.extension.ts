@@ -44,6 +44,10 @@ class ChaseInstance {
     return this.worker.memory.public.markets[this.opts.symbol];
   }
 
+  get notifications() {
+    return this.worker.memory.private[this.accountId].notifications;
+  }
+
   get orderPrice() {
     const priceKey = this.opts.side === OrderSide.Buy ? "ask" : "bid";
     const price = this.ticker[priceKey];
@@ -98,18 +102,33 @@ class ChaseInstance {
       price: this.orderPrice,
     });
 
-    // We watch notifications to stop the chase when we get a fill
-    // or when the order is partially filled too
+    // We watch notifications to stop the chase when we filled
+    // or we update the amount if we filled partially
     const onNotificationsChange = () => {
-      if (
-        this.worker.memory.private[this.accountId].notifications.find(
-          (n) =>
-            n.type === "order_fill" &&
-            n.accountId === this.accountId &&
-            this.orderIds.includes(n.data.id),
-        )
-      ) {
-        this.stop();
+      const orderFill = this.notifications.find(
+        (n) =>
+          n.type === "order_fill" &&
+          n.accountId === this.accountId &&
+          this.orderIds.includes(n.data.id),
+      );
+
+      if (orderFill) {
+        if (orderFill.data.amount === this.state.amount) {
+          this.worker.log(
+            `Chase ${this.opts.side.toUpperCase()} ${this.opts.symbol} filled`,
+          );
+
+          this.stop();
+        } else {
+          this.worker.log(
+            `Chase ${this.opts.side.toUpperCase()} ${this.opts.symbol} partially filled`,
+          );
+
+          this.setState({
+            ...this.state,
+            amount: this.state.amount - orderFill.data.amount,
+          });
+        }
       }
     };
 
@@ -134,6 +153,10 @@ class ChaseInstance {
       onTickerChange,
     );
 
+    this.worker.log(
+      `Chase ${this.opts.side.toUpperCase()} ${this.opts.symbol} started`,
+    );
+
     // Trigger the infinite order placement asap
     this.infinitePlaceOrder();
   }
@@ -151,7 +174,7 @@ class ChaseInstance {
       side: this.opts.side,
       type: OrderType.Limit,
       price: this.orderPrice,
-      amount: this.opts.amount,
+      amount: this.state.amount,
       reduceOnly: this.opts.reduceOnly,
       timeInForce: OrderTimeInForce.PostOnly,
     };
@@ -186,14 +209,19 @@ class ChaseInstance {
     }
   };
 
-  stop = () => {
+  stop = ({ keepOrders = false } = {}) => {
     this.isStopped = true;
 
     this.disposeWatchNotifications();
     this.disposeWatchTicker();
 
     this.isPlacingOrder = false;
-    this.cancelOrders();
+
+    if (keepOrders) {
+      this.orderIds = [];
+    } else {
+      this.cancelOrders();
+    }
 
     const chaseIdx = this.worker.memory.private[
       this.accountId
