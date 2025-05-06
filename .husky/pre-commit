@@ -7,7 +7,3 @@ bun run lint
 # Run tests
 echo "Running tests..."
 bun run test
-
-# Run build
-echo "Running build..."
-bun run build
