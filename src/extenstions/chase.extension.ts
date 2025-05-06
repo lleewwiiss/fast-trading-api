@@ -133,6 +133,9 @@ class ChaseInstance {
       `public.tickers.${this.opts.symbol}`,
       onTickerChange,
     );
+
+    // Trigger the infinite order placement asap
+    this.infinitePlaceOrder();
   }
 
   infinitePlaceOrder = async () => {
