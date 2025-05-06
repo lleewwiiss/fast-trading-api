@@ -528,7 +528,4 @@ export class BybitWorker extends BaseWorker {
   }
 }
 
-new BybitWorker({
-  parent: self,
-  exchangeName: ExchangeName.BYBIT,
-});
+new BybitWorker({ name: ExchangeName.BYBIT, parent: self });

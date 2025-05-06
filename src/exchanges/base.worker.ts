@@ -26,7 +26,7 @@ import { applyChanges } from "~/utils/update-obj-path.utils";
 
 export class BaseWorker {
   parent: typeof self;
-  exchangeName: ExchangeName;
+  name: ExchangeName;
 
   accounts: Account[] = [];
   memory: StoreMemory[ExchangeName] = {
@@ -35,15 +35,9 @@ export class BaseWorker {
     private: {},
   };
 
-  constructor({
-    parent,
-    exchangeName,
-  }: {
-    parent: typeof self;
-    exchangeName: ExchangeName;
-  }) {
+  constructor({ parent, name }: { parent: typeof self; name: ExchangeName }) {
+    this.name = name;
     this.parent = parent;
-    this.exchangeName = exchangeName;
     this.parent.addEventListener("message", this.onMessage);
   }
 
@@ -65,9 +59,7 @@ export class BaseWorker {
     }
 
     // TODO: move this into an error log
-    this.error(
-      `Unsupported command to ${this.exchangeName.toUpperCase()} worker`,
-    );
+    this.error(`Unsupported command to ${this.name.toUpperCase()} worker`);
   };
 
   stop() {
@@ -75,8 +67,8 @@ export class BaseWorker {
   }
 
   async start({ accounts }: { accounts: Account[]; requestId: string }) {
-    this.log(`${this.exchangeName.toUpperCase()} Exchange starting`);
-    this.log(`Initializing ${this.exchangeName.toUpperCase()} exchange data`);
+    this.log(`${this.name.toUpperCase()} Exchange starting`);
+    this.log(`Initializing ${this.name.toUpperCase()} exchange data`);
 
     this.addAccounts({ accounts });
   }
@@ -325,7 +317,7 @@ export class BaseWorker {
       type: "update",
       changes: changes.map(({ path, ...rest }) => ({
         ...rest,
-        path: `${this.exchangeName}.${path}`,
+        path: `${this.name}.${path}`,
       })),
     });
 

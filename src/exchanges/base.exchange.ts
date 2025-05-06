@@ -38,17 +38,10 @@ export class BaseExchange {
   }
 
   start = () => {
-    const requestId = genId();
-
-    return new Promise((resolve) => {
-      this.pendingRequests.set(requestId, resolve);
-      this.worker.postMessage({
-        type: "start",
-        accounts: this.parent.accounts,
-        requestId,
-      });
-
-      this.parent.emit("log", `Starting ${this.name} Exchange`);
+    this.parent.emit("log", `Starting ${this.name} Exchange`);
+    return this.dispatchWorker({
+      type: "start",
+      accounts: this.parent.accounts,
     });
   };
 
@@ -59,31 +52,16 @@ export class BaseExchange {
   };
 
   addAccounts = (accounts: Account[]) => {
-    const requestId = genId();
+    this.parent.emit(
+      "log",
+      `Adding ${accounts.length} accounts to ${this.name.toUpperCase()} Exchange`,
+    );
 
-    return new Promise((resolve) => {
-      this.pendingRequests.set(requestId, resolve);
-
-      this.worker.postMessage({
-        type: "addAccounts",
-        accounts,
-        requestId,
-      });
-
-      this.parent.emit(
-        "log",
-        `Adding ${accounts.length} accounts to Bybit Exchange`,
-      );
-    });
+    return this.dispatchWorker({ type: "addAccounts", accounts });
   };
 
-  fetchOHLCV(params: FetchOHLCVParams): Promise<Candle[]> {
-    const requestId = genId();
-
-    return new Promise((resolve) => {
-      this.pendingRequests.set(requestId, resolve);
-      this.worker.postMessage({ type: "fetchOHLCV", params, requestId });
-    });
+  fetchOHLCV(params: FetchOHLCVParams) {
+    return this.dispatchWorker<Candle[]>({ type: "fetchOHLCV", params });
   }
 
   placeOrders({
@@ -95,17 +73,11 @@ export class BaseExchange {
     accountId: string;
     priority?: boolean;
   }): Promise<string[]> {
-    const requestId = genId();
-
-    return new Promise((resolve) => {
-      this.pendingRequests.set(requestId, resolve);
-      this.worker.postMessage({
-        type: "placeOrders",
-        orders,
-        accountId,
-        requestId,
-        priority,
-      });
+    return this.dispatchWorker<string[]>({
+      type: "placeOrders",
+      orders,
+      accountId,
+      priority,
     });
   }
 
@@ -118,17 +90,11 @@ export class BaseExchange {
     accountId: string;
     priority?: boolean;
   }) {
-    const requestId = genId();
-
-    return new Promise((resolve) => {
-      this.pendingRequests.set(requestId, resolve);
-      this.worker.postMessage({
-        type: "updateOrders",
-        updates,
-        accountId,
-        requestId,
-        priority,
-      });
+    return this.dispatchWorker({
+      type: "updateOrders",
+      updates,
+      accountId,
+      priority,
     });
   }
 
@@ -140,18 +106,12 @@ export class BaseExchange {
     orderIds: string[];
     accountId: string;
     priority?: boolean;
-  }): Promise<void> {
-    const requestId = genId();
-
-    return new Promise((resolve) => {
-      this.pendingRequests.set(requestId, resolve);
-      this.worker.postMessage({
-        type: "cancelOrders",
-        orderIds,
-        accountId,
-        requestId,
-        priority,
-      });
+  }) {
+    return this.dispatchWorker({
+      type: "cancelOrders",
+      orderIds,
+      accountId,
+      priority,
     });
   }
 
@@ -165,16 +125,10 @@ export class BaseExchange {
     leverage: number;
     isHedged: boolean;
   }> {
-    const requestId = genId();
-
-    return new Promise((resolve) => {
-      this.pendingRequests.set(requestId, resolve);
-      this.worker.postMessage({
-        type: "fetchPositionMetadata",
-        requestId,
-        accountId,
-        symbol,
-      });
+    return this.dispatchWorker({
+      type: "fetchPositionMetadata",
+      accountId,
+      symbol,
     });
   }
 
@@ -186,18 +140,12 @@ export class BaseExchange {
     accountId: string;
     symbol: string;
     leverage: number;
-  }): Promise<boolean> {
-    const requestId = genId();
-
-    return new Promise((resolve) => {
-      this.pendingRequests.set(requestId, resolve);
-      this.worker.postMessage({
-        type: "setLeverage",
-        requestId,
-        accountId,
-        symbol,
-        leverage,
-      });
+  }) {
+    return this.dispatchWorker<boolean>({
+      type: "setLeverage",
+      accountId,
+      symbol,
+      leverage,
     });
   }
 
@@ -241,31 +189,14 @@ export class BaseExchange {
     this.worker.postMessage({ type: "unlistenOB", symbol });
   }
 
-  handleCandle = (candle: Candle) => {
-    const name = `${candle.symbol}:${candle.timeframe}`;
-    const listener = this.ohlcvListeners.get(name);
-    if (listener) listener(candle);
-  };
+  dispatchWorker<T>(message: Record<string, any>): Promise<T> {
+    const requestId = genId();
 
-  handleOrderBook = ({
-    symbol,
-    orderBook,
-  }: {
-    symbol: string;
-    orderBook: OrderBook;
-  }) => {
-    const listener = this.orderBookListeners.get(symbol);
-    if (listener) listener(orderBook);
-  };
-
-  handleResponse = ({ requestId, data }: { requestId: string; data: any }) => {
-    const resolver = this.pendingRequests.get(requestId);
-
-    if (resolver) {
-      resolver(data);
-      this.pendingRequests.delete(requestId);
-    }
-  };
+    return new Promise((resolve) => {
+      this.pendingRequests.set(requestId, resolve);
+      this.worker.postMessage({ ...message, requestId });
+    });
+  }
 
   onWorkerMessage = <P extends ObjectPaths<StoreMemory>>({
     data,
@@ -285,5 +216,31 @@ export class BaseExchange {
     if (data.type === "update") {
       return this.parent.store.applyChanges(data.changes);
     }
+  };
+
+  handleResponse = ({ requestId, data }: { requestId: string; data: any }) => {
+    const resolver = this.pendingRequests.get(requestId);
+
+    if (resolver) {
+      resolver(data);
+      this.pendingRequests.delete(requestId);
+    }
+  };
+
+  handleCandle = (candle: Candle) => {
+    const name = `${candle.symbol}:${candle.timeframe}`;
+    const listener = this.ohlcvListeners.get(name);
+    if (listener) listener(candle);
+  };
+
+  handleOrderBook = ({
+    symbol,
+    orderBook,
+  }: {
+    symbol: string;
+    orderBook: OrderBook;
+  }) => {
+    const listener = this.orderBookListeners.get(symbol);
+    if (listener) listener(orderBook);
   };
 }
