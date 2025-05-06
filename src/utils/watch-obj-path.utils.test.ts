@@ -130,4 +130,42 @@ describe("watchObjPath", () => {
     expect(store.notifications.length).toBe(3);
     expect(store.notifications).toEqual([{ id: 1 }, { id: 2 }, { id: 3 }]);
   });
+
+  test("should watch two properties of a same object", () => {
+    const store = {
+      tickers: { BTCUSDT: { last: 100 } },
+      notifications: [{ id: 1 }],
+    };
+
+    const callback1 = mock(() => {});
+    const callback2 = mock(() => {});
+
+    const dispose1 = watchObjPath(store, "tickers.BTCUSDT", callback1);
+    const dispose2 = watchObjPath(store, "notifications", callback2);
+
+    applyChanges({
+      obj: store,
+      changes: [
+        {
+          type: "update",
+          path: "tickers.BTCUSDT.last",
+          value: 200,
+        },
+        {
+          type: "update",
+          path: "notifications.1",
+          value: { id: 2 },
+        },
+      ],
+    });
+
+    expect(store.tickers.BTCUSDT.last).toBe(200);
+    expect(store.notifications[1]).toEqual({ id: 2 });
+
+    expect(callback1).toHaveBeenCalledTimes(1);
+    expect(callback2).toHaveBeenCalledTimes(1);
+
+    dispose1();
+    dispose2();
+  });
 });
