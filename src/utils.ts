@@ -23,3 +23,4 @@ export * from "~/utils/reconnecting-websocket.utils";
 export * from "~/utils/uniq-by.utils";
 export * from "~/utils/uniq.utils";
 export * from "~/utils/random.utils";
+export * from "~/utils/watch-obj-path.utils";
