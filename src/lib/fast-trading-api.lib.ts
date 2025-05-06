@@ -14,6 +14,7 @@ import {
   type Order,
   type OrderBook,
   type TWAPOpts,
+  type ChaseOpts,
 } from "~/types/lib.types";
 import { groupBy } from "~/utils/group-by.utils";
 
@@ -288,6 +289,20 @@ export class FastTradingApi {
     return this.getAccountExchange(accountId).stopTwap({
       accountId,
       twapId,
+    });
+  }
+
+  startChase({ accountId, chase }: { accountId: string; chase: ChaseOpts }) {
+    return this.getAccountExchange(accountId).startChase({
+      accountId,
+      chase,
+    });
+  }
+
+  stopChase({ accountId, chaseId }: { accountId: string; chaseId: string }) {
+    return this.getAccountExchange(accountId).stopChase({
+      accountId,
+      chaseId,
     });
   }
 

@@ -156,6 +156,7 @@ describe("MemoryStore", () => {
             orders: [],
             notifications: [],
             twaps: [],
+            chases: [],
             metadata: {
               leverage: {},
               hedgedPosition: {},
@@ -207,6 +208,7 @@ describe("MemoryStore", () => {
             orders: [],
             notifications: [],
             twaps: [],
+            chases: [],
             metadata: {
               leverage: {},
               hedgedPosition: {},
@@ -284,6 +286,7 @@ describe("MemoryStore", () => {
             orders: [],
             notifications: [],
             twaps: [],
+            chases: [],
             metadata: {
               leverage: {},
               hedgedPosition: {},
@@ -348,6 +351,7 @@ describe("MemoryStore", () => {
             orders: [],
             notifications: [],
             twaps: [],
+            chases: [],
             metadata: {
               leverage: {},
               hedgedPosition: {},
@@ -394,12 +398,14 @@ describe("MemoryStore", () => {
             balance: { used: 0, free: 0, total: 0, upnl: 0 },
             positions: [],
             orders: [],
+            chases: [],
             notifications: [
               {
                 id: "notification1",
                 accountId: "account1",
                 type: "order_fill",
                 data: {
+                  id: "order_1",
                   side: OrderSide.Buy,
                   amount: 1,
                   symbol: "BTCUSDT",
@@ -411,6 +417,7 @@ describe("MemoryStore", () => {
                 accountId: "account1",
                 type: "order_fill",
                 data: {
+                  id: "order_2",
                   side: OrderSide.Sell,
                   amount: 0.5,
                   symbol: "BTCUSDT",
@@ -422,6 +429,7 @@ describe("MemoryStore", () => {
                 accountId: "account1",
                 type: "order_fill",
                 data: {
+                  id: "order_3",
                   side: OrderSide.Buy,
                   amount: 2,
                   symbol: "ETHUSDT",
@@ -504,6 +512,7 @@ describe("MemoryStore", () => {
             orders: [],
             notifications: [],
             twaps: [],
+            chases: [],
             metadata: {
               leverage: {},
               hedgedPosition: {},
@@ -563,6 +572,7 @@ describe("MemoryStore", () => {
             accountId: "account1",
             type: "order_fill",
             data: {
+              id: "order_1",
               side: OrderSide.Buy,
               amount: 0.2,
               symbol: "BTCUSDT",

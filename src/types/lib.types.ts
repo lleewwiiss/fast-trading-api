@@ -34,6 +34,7 @@ export interface ExchangeAccountMemory {
   orders: Order[];
   notifications: Notification[];
   twaps: TWAPState[];
+  chases: ChaseState[];
   metadata: {
     leverage: Record<string, number>;
     hedgedPosition: Record<string, boolean>;
@@ -184,6 +185,7 @@ export type Notification = {
   accountId: Account["id"];
   type: "order_fill";
   data: {
+    id: string;
     side: OrderSide;
     amount: number;
     symbol: Order["symbol"];
@@ -245,7 +247,7 @@ export enum TWAPStatus {
   Paused = "paused",
 }
 
-export type TWAPState = {
+export interface TWAPState {
   id: string;
   accountId: string;
   symbol: string;
@@ -257,4 +259,28 @@ export type TWAPState = {
   lotsCount: number;
   lotsExecuted: number;
   nextOrderAt: number;
-};
+}
+
+export interface ChaseOpts {
+  symbol: string;
+  amount: number;
+  side: OrderSide;
+  min: number;
+  max: number;
+  distance: number;
+  reduceOnly: boolean;
+  stalk?: boolean;
+  infinite?: boolean;
+}
+
+export interface ChaseState {
+  id: string;
+  accountId: string;
+  side: OrderSide;
+  symbol: string;
+  max: number;
+  min: number;
+  amount: number;
+  price: number;
+  stalk?: boolean;
+}

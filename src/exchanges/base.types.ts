@@ -1,5 +1,6 @@
 import type {
   Account,
+  ChaseOpts,
   FetchOHLCVParams,
   Order,
   PlaceOrderOpts,
@@ -76,5 +77,17 @@ export type ExchangeWorkerMessage = MessageEvent<
       requestId: string;
       accountId: string;
       twapId: string;
+    }
+  | {
+      type: "startChase";
+      requestId: string;
+      accountId: string;
+      chase: ChaseOpts;
+    }
+  | {
+      type: "stopChase";
+      requestId: string;
+      accountId: string;
+      chaseId: string;
     }
 >;

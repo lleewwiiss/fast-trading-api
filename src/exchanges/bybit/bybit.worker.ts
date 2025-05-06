@@ -31,7 +31,7 @@ import { subtract } from "~/utils/safe-math.utils";
 import { omit } from "~/utils/omit.utils";
 import { toUSD } from "~/utils/to-usd.utils";
 import { sumBy } from "~/utils/sum-by.utils";
-import { genId } from "~/utils";
+import { genId } from "~/utils/gen-id.utils";
 
 export class BybitWorker extends BaseWorker {
   publicWs: BybitWsPublic | null = null;
@@ -237,6 +237,7 @@ export class BybitWorker extends BaseWorker {
               accountId,
               type: "order_fill",
               data: {
+                id: orders[0].id,
                 symbol: orders[0].symbol,
                 side: orders[0].side,
                 price: orders[0].price || "MARKET",
@@ -396,6 +397,8 @@ export class BybitWorker extends BaseWorker {
     }
 
     self.postMessage({ type: "response", requestId, data: orderIds });
+
+    return orderIds;
   }
 
   async updateOrders({

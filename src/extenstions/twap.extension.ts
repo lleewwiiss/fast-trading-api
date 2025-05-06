@@ -8,7 +8,9 @@ import {
   type TWAPOpts,
   type TWAPState,
 } from "~/types/lib.types";
-import { adjust, genId, random } from "~/utils";
+import { genId } from "~/utils/gen-id.utils";
+import { random } from "~/utils/random.utils";
+import { adjust } from "~/utils/safe-math.utils";
 
 class TWAPInstance {
   id: string;
@@ -165,6 +167,20 @@ class TWAPInstance {
       clearTimeout(this.timeoutId);
       this.timeoutId = null;
     }
+
+    const twapIdx = this.worker.memory.private[this.accountId].twaps.findIndex(
+      (twap) => twap.id === this.id,
+    );
+
+    if (twapIdx !== -1) {
+      this.worker.emitChanges([
+        {
+          type: "removeArrayElement",
+          path: `private.${this.accountId}.twaps` as const,
+          index: twapIdx,
+        },
+      ]);
+    }
   };
 
   setState(state: TWAPState) {
@@ -216,22 +232,8 @@ export class TWAPExtension {
     this.instances.get(twapId)?.resume();
   }
 
-  stop({ accountId, twapId }: { accountId: string; twapId: string }) {
+  stop({ twapId }: { accountId: string; twapId: string }) {
     this.instances.get(twapId)?.stop();
     this.instances.delete(twapId);
-
-    const idx = this.worker.memory.private[accountId].twaps.findIndex(
-      (twap) => twap.id === twapId,
-    );
-
-    if (idx !== -1) {
-      this.worker.emitChanges([
-        {
-          type: "removeArrayElement",
-          path: `private.${accountId}.twaps` as const,
-          index: idx,
-        },
-      ]);
-    }
   }
 }

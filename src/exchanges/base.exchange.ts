@@ -2,6 +2,7 @@ import type { FastTradingApi } from "~/lib/fast-trading-api.lib";
 import type {
   Account,
   Candle,
+  ChaseOpts,
   FetchOHLCVParams,
   Order,
   OrderBook,
@@ -11,7 +12,7 @@ import type {
   TWAPOpts,
 } from "~/types/lib.types";
 import type { ObjectChangeCommand, ObjectPaths } from "~/types/misc.types";
-import { genId } from "~/utils";
+import { genId } from "~/utils/gen-id.utils";
 
 export class BaseExchange {
   name: string;
@@ -204,6 +205,14 @@ export class BaseExchange {
 
   stopTwap({ accountId, twapId }: { accountId: string; twapId: string }) {
     return this.dispatchWorker({ type: "stopTwap", accountId, twapId });
+  }
+
+  startChase({ accountId, chase }: { accountId: string; chase: ChaseOpts }) {
+    return this.dispatchWorker({ type: "startChase", accountId, chase });
+  }
+
+  stopChase({ accountId, chaseId }: { accountId: string; chaseId: string }) {
+    return this.dispatchWorker({ type: "stopChase", accountId, chaseId });
   }
 
   dispatchWorker<T>(message: Record<string, any>): Promise<T> {

@@ -1,5 +1,6 @@
 import type { ExchangeWorkerMessage } from "./base.types";
 
+import { ChaseExtension } from "~/extenstions/chase.extension";
 import { TWAPExtension } from "~/extenstions/twap.extension";
 import {
   type Account,
@@ -37,6 +38,7 @@ export class BaseWorker {
   };
 
   twapExtension = new TWAPExtension({ worker: this });
+  chaseExtension = new ChaseExtension({ worker: this });
 
   constructor({ parent, name }: { parent: typeof self; name: ExchangeName }) {
     this.name = name;
@@ -67,6 +69,10 @@ export class BaseWorker {
     if (data.type === "resumeTwap") return this.twapExtension.resume(data);
     if (data.type === "stopTwap") return this.twapExtension.stop(data);
 
+    // CHASE Extension
+    if (data.type === "startChase") return this.chaseExtension.start(data);
+    if (data.type === "stopChase") return this.chaseExtension.stop(data);
+
     // TODO: move this into an error log
     this.error(`Unsupported command to ${this.name.toUpperCase()} worker`);
   };
@@ -94,6 +100,7 @@ export class BaseWorker {
           orders: [],
           notifications: [],
           twaps: [],
+          chases: [],
           metadata: {
             leverage: {},
             hedgedPosition: {},
@@ -281,8 +288,9 @@ export class BaseWorker {
     accountId: string;
     requestId: string;
     priority?: boolean;
-  }) {
+  }): Promise<string[]> {
     this.error(`placeOrders() method not implemented`);
+    return [];
   }
 
   async updateOrders(_params: {
