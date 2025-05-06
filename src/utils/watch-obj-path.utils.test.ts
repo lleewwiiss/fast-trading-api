@@ -85,4 +85,49 @@ describe("watchObjPath", () => {
 
     dispose();
   });
+
+  test("should notify multiple listeners", () => {
+    const store = { notifications: [{ id: 1 }] };
+
+    const callback1 = mock(() => {});
+    const callback2 = mock(() => {});
+
+    const dispose1 = watchObjPath(store, "notifications", callback1);
+    const dispose2 = watchObjPath(store, "notifications", callback2);
+
+    applyChanges({
+      obj: store,
+      changes: [
+        {
+          type: "update",
+          path: "notifications.1",
+          value: { id: 2 },
+        },
+      ],
+    });
+
+    expect(callback1).toHaveBeenCalledTimes(1);
+    expect(callback2).toHaveBeenCalledTimes(1);
+
+    dispose1();
+
+    applyChanges({
+      obj: store,
+      changes: [
+        {
+          type: "update",
+          path: "notifications.2",
+          value: { id: 3 },
+        },
+      ],
+    });
+
+    expect(callback1).toHaveBeenCalledTimes(1);
+    expect(callback2).toHaveBeenCalledTimes(2);
+
+    dispose2();
+
+    expect(store.notifications.length).toBe(3);
+    expect(store.notifications).toEqual([{ id: 1 }, { id: 2 }, { id: 3 }]);
+  });
 });
