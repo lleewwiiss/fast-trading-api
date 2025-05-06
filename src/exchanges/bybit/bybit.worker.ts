@@ -435,16 +435,17 @@ export class BybitWorker extends BaseWorker {
     requestId: string;
     priority?: boolean;
   }) {
-    await this.tradingWs[accountId].cancelOrders({
-      priority,
-      orders: orderIds.reduce((acc, id) => {
-        const order = this.memory.private[accountId].orders.find(
-          (o) => o.id === id,
-        );
+    const orders = orderIds.reduce<Order[]>((acc, id) => {
+      const order = this.memory.private[accountId].orders.find(
+        (o) => o.id === id,
+      );
 
-        return order ? [...acc, order] : acc;
-      }, [] as Order[]),
-    });
+      return order ? [...acc, order] : acc;
+    }, []);
+
+    if (orders.length > 0) {
+      await this.tradingWs[accountId].cancelOrders({ priority, orders });
+    }
 
     self.postMessage({ type: "response", requestId, data: [] });
   }
