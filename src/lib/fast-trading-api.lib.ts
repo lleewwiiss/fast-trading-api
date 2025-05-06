@@ -13,6 +13,7 @@ import {
   type Timeframe,
   type Order,
   type OrderBook,
+  type TWAPOpts,
 } from "~/types/lib.types";
 import { groupBy } from "~/utils/group-by.utils";
 
@@ -92,11 +93,7 @@ export class FastTradingApi {
     exchangeName: ExchangeName;
     params: FetchOHLCVParams;
   }): Promise<Candle[]> {
-    if (!this.exchanges[exchangeName]) {
-      throw new Error(`Exchange ${exchangeName} not started`);
-    }
-
-    return this.exchanges[exchangeName].fetchOHLCV(params);
+    return this.getExchange(exchangeName).fetchOHLCV(params);
   }
 
   listenOHLCV({
@@ -110,11 +107,7 @@ export class FastTradingApi {
     timeframe: Timeframe;
     callback: (candle: Candle) => void;
   }) {
-    if (!this.exchanges[exchangeName]) {
-      throw new Error(`Exchange ${exchangeName} not started`);
-    }
-
-    this.exchanges[exchangeName].listenOHLCV({ symbol, timeframe, callback });
+    this.getExchange(exchangeName).listenOHLCV({ symbol, timeframe, callback });
   }
 
   unlistenOHLCV({
@@ -126,11 +119,7 @@ export class FastTradingApi {
     symbol: string;
     timeframe: Timeframe;
   }) {
-    if (!this.exchanges[exchangeName]) {
-      throw new Error(`Exchange ${exchangeName} not started`);
-    }
-
-    this.exchanges[exchangeName].unlistenOHLCV({ symbol, timeframe });
+    this.getExchange(exchangeName).unlistenOHLCV({ symbol, timeframe });
   }
 
   listenOrderBook({
@@ -142,11 +131,7 @@ export class FastTradingApi {
     symbol: string;
     callback: (orderBook: OrderBook) => void;
   }) {
-    if (!this.exchanges[exchangeName]) {
-      throw new Error(`Exchange ${exchangeName} not started`);
-    }
-
-    this.exchanges[exchangeName].listenOrderBook({ symbol, callback });
+    this.getExchange(exchangeName).listenOrderBook({ symbol, callback });
   }
 
   unlistenOrderBook({
@@ -156,11 +141,7 @@ export class FastTradingApi {
     exchangeName: ExchangeName;
     symbol: string;
   }) {
-    if (!this.exchanges[exchangeName]) {
-      throw new Error(`Exchange ${exchangeName} not started`);
-    }
-
-    this.exchanges[exchangeName].unlistenOrderBook(symbol);
+    this.getExchange(exchangeName).unlistenOrderBook(symbol);
   }
 
   placeOrder({
@@ -184,14 +165,7 @@ export class FastTradingApi {
     accountId: string;
     priority?: boolean;
   }) {
-    const account = this.accounts.find((acc) => acc.id === accountId);
-    const exchange = account?.exchange;
-
-    if (!exchange || !this.exchanges[exchange]) {
-      throw new Error(`No accounts by id found for: ${accountId}`);
-    }
-
-    return this.exchanges[exchange].placeOrders({
+    return this.getAccountExchange(accountId).placeOrders({
       orders,
       accountId,
       priority,
@@ -225,14 +199,7 @@ export class FastTradingApi {
     accountId: string;
     priority?: boolean;
   }) {
-    const account = this.accounts.find((acc) => acc.id === accountId);
-    const exchange = account?.exchange;
-
-    if (!exchange || !this.exchanges[exchange]) {
-      throw new Error(`No accounts by id found for: ${accountId}`);
-    }
-
-    return this.exchanges[exchange].updateOrders({
+    return this.getAccountExchange(accountId).updateOrders({
       updates,
       accountId,
       priority,
@@ -260,14 +227,7 @@ export class FastTradingApi {
     accountId: string;
     priority?: boolean;
   }) {
-    const account = this.accounts.find((acc) => acc.id === accountId);
-    const exchange = account?.exchange;
-
-    if (!exchange || !this.exchanges[exchange]) {
-      throw new Error(`No accounts by id found for: ${accountId}`);
-    }
-
-    return this.exchanges[exchange].cancelOrders({
+    return this.getAccountExchange(accountId).cancelOrders({
       orderIds,
       accountId,
       priority,
@@ -281,14 +241,7 @@ export class FastTradingApi {
     accountId: string;
     symbol: string;
   }) {
-    const account = this.accounts.find((acc) => acc.id === accountId);
-    const exchange = account?.exchange;
-
-    if (!exchange || !this.exchanges[exchange]) {
-      throw new Error(`No accounts by id found for: ${accountId}`);
-    }
-
-    return this.exchanges[exchange].fetchPositionMetadata({
+    return this.getAccountExchange(accountId).fetchPositionMetadata({
       accountId,
       symbol,
     });
@@ -303,18 +256,57 @@ export class FastTradingApi {
     symbol: string;
     leverage: number;
   }) {
-    const account = this.accounts.find((acc) => acc.id === accountId);
-    const exchange = account?.exchange;
-
-    if (!exchange || !this.exchanges[exchange]) {
-      throw new Error(`No accounts by id found for: ${accountId}`);
-    }
-
-    return this.exchanges[exchange].setLeverage({
+    return this.getAccountExchange(accountId).setLeverage({
       accountId,
       symbol,
       leverage,
     });
+  }
+
+  startTwap({ accountId, twap }: { accountId: string; twap: TWAPOpts }) {
+    return this.getAccountExchange(accountId).startTwap({
+      accountId,
+      twap,
+    });
+  }
+
+  pauseTwap({ accountId, twapId }: { accountId: string; twapId: string }) {
+    return this.getAccountExchange(accountId).pauseTwap({
+      accountId,
+      twapId,
+    });
+  }
+
+  resumeTwap({ accountId, twapId }: { accountId: string; twapId: string }) {
+    return this.getAccountExchange(accountId).resumeTwap({
+      accountId,
+      twapId,
+    });
+  }
+
+  stopTwap({ accountId, twapId }: { accountId: string; twapId: string }) {
+    return this.getAccountExchange(accountId).stopTwap({
+      accountId,
+      twapId,
+    });
+  }
+
+  getExchange(exchangeName: ExchangeName) {
+    if (!this.exchanges[exchangeName]) {
+      throw new Error(`Exchange ${exchangeName} not started`);
+    }
+
+    return this.exchanges[exchangeName];
+  }
+
+  getAccountExchange(accountId: string) {
+    const account = this.accounts.find((acc) => acc.id === accountId);
+
+    if (!account) {
+      throw new Error(`No accounts by id found for: ${accountId}`);
+    }
+
+    return this.getExchange(account.exchange);
   }
 
   on(event: "log" | "error", listener: (message: string) => void) {

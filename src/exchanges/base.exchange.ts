@@ -8,6 +8,7 @@ import type {
   PlaceOrderOpts,
   StoreMemory,
   Timeframe,
+  TWAPOpts,
 } from "~/types/lib.types";
 import type { ObjectChangeCommand, ObjectPaths } from "~/types/misc.types";
 import { genId } from "~/utils";
@@ -187,6 +188,22 @@ export class BaseExchange {
   unlistenOrderBook(symbol: string) {
     this.orderBookListeners.delete(symbol);
     this.worker.postMessage({ type: "unlistenOB", symbol });
+  }
+
+  startTwap({ accountId, twap }: { accountId: string; twap: TWAPOpts }) {
+    return this.dispatchWorker({ type: "startTwap", accountId, twap });
+  }
+
+  pauseTwap({ accountId, twapId }: { accountId: string; twapId: string }) {
+    return this.dispatchWorker({ type: "pauseTwap", accountId, twapId });
+  }
+
+  resumeTwap({ accountId, twapId }: { accountId: string; twapId: string }) {
+    return this.dispatchWorker({ type: "resumeTwap", accountId, twapId });
+  }
+
+  stopTwap({ accountId, twapId }: { accountId: string; twapId: string }) {
+    return this.dispatchWorker({ type: "stopTwap", accountId, twapId });
   }
 
   dispatchWorker<T>(message: Record<string, any>): Promise<T> {

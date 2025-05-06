@@ -155,6 +155,7 @@ describe("MemoryStore", () => {
             positions: [],
             orders: [],
             notifications: [],
+            twaps: [],
             metadata: {
               leverage: {},
               hedgedPosition: {},
@@ -205,6 +206,7 @@ describe("MemoryStore", () => {
             positions: [position],
             orders: [],
             notifications: [],
+            twaps: [],
             metadata: {
               leverage: {},
               hedgedPosition: {},
@@ -281,6 +283,7 @@ describe("MemoryStore", () => {
             positions: [position1, position2],
             orders: [],
             notifications: [],
+            twaps: [],
             metadata: {
               leverage: {},
               hedgedPosition: {},
@@ -344,6 +347,7 @@ describe("MemoryStore", () => {
             positions: [position1, position2],
             orders: [],
             notifications: [],
+            twaps: [],
             metadata: {
               leverage: {},
               hedgedPosition: {},
@@ -425,6 +429,7 @@ describe("MemoryStore", () => {
                 },
               },
             ],
+            twaps: [],
             metadata: {
               leverage: {},
               hedgedPosition: {},
@@ -498,6 +503,7 @@ describe("MemoryStore", () => {
             positions: [position],
             orders: [],
             notifications: [],
+            twaps: [],
             metadata: {
               leverage: {},
               hedgedPosition: {},

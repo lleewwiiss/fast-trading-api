@@ -33,6 +33,7 @@ export interface ExchangeAccountMemory {
   positions: Position[];
   orders: Order[];
   notifications: Notification[];
+  twaps: TWAPState[];
   metadata: {
     leverage: Record<string, number>;
     hedgedPosition: Record<string, boolean>;
@@ -226,3 +227,34 @@ export interface PlaceOrderOpts {
   reduceOnly?: boolean;
   timeInForce?: OrderTimeInForce;
 }
+
+export interface TWAPOpts {
+  symbol: string;
+  amount: number;
+  side: OrderSide;
+  duration: number;
+  lotsCount: number;
+  randomness: number;
+  reduceOnly: boolean;
+  limitOrders?: boolean;
+  pauseInProfit?: boolean;
+}
+
+export enum TWAPStatus {
+  Running = "running",
+  Paused = "paused",
+}
+
+export type TWAPState = {
+  id: string;
+  accountId: string;
+  symbol: string;
+  amount: number;
+  amountExecuted: number;
+  lots: number[];
+  side: OrderSide;
+  status: TWAPStatus;
+  lotsCount: number;
+  lotsExecuted: number;
+  nextOrderAt: number;
+};

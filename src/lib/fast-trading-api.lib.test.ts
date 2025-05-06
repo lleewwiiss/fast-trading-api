@@ -486,7 +486,7 @@ describe("FastTradingApi", () => {
           },
           accountId: "bybit1",
         }),
-      ).toThrowError("No accounts by id found for: bybit1");
+      ).toThrowError("Exchange bybit not started");
     });
     test("should throw for listenOHLCV when not started", () => {
       const api = new FastTradingApi({
@@ -591,7 +591,7 @@ describe("FastTradingApi", () => {
       };
       expect(() =>
         api.updateOrder({ order, update: { amount: 10 }, accountId: "bybit1" }),
-      ).toThrowError("No accounts by id found for: bybit1");
+      ).toThrowError("Exchange bybit not started");
     });
     test("should throw for updateOrders when not started", () => {
       const api = new FastTradingApi({
@@ -621,7 +621,7 @@ describe("FastTradingApi", () => {
       const updates = [{ order, update: { price: 200 } }];
       expect(() =>
         api.updateOrders({ updates, accountId: "bybit1" }),
-      ).toThrowError("No accounts by id found for: bybit1");
+      ).toThrowError("Exchange bybit not started");
     });
     test("should throw for cancelOrder when not started", () => {
       const api = new FastTradingApi({
@@ -636,7 +636,7 @@ describe("FastTradingApi", () => {
       });
       expect(() =>
         api.cancelOrder({ orderId: "oid", accountId: "bybit1" }),
-      ).toThrowError("No accounts by id found for: bybit1");
+      ).toThrowError("Exchange bybit not started");
     });
     test("should throw for cancelOrders when not started", () => {
       const api = new FastTradingApi({
@@ -651,7 +651,7 @@ describe("FastTradingApi", () => {
       });
       expect(() =>
         api.cancelOrders({ orderIds: ["a"], accountId: "bybit1" }),
-      ).toThrowError("No accounts by id found for: bybit1");
+      ).toThrowError("Exchange bybit not started");
     });
   });
 

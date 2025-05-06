@@ -1,5 +1,6 @@
 import type { ExchangeWorkerMessage } from "./base.types";
 
+import { TWAPExtension } from "~/extenstions/twap.extension";
 import {
   type Account,
   type StoreMemory,
@@ -35,6 +36,8 @@ export class BaseWorker {
     private: {},
   };
 
+  twapExtension = new TWAPExtension({ worker: this });
+
   constructor({ parent, name }: { parent: typeof self; name: ExchangeName }) {
     this.name = name;
     this.parent = parent;
@@ -57,6 +60,12 @@ export class BaseWorker {
     if (data.type === "fetchPositionMetadata") {
       return this.fetchPositionMetadata(data);
     }
+
+    // TWAP Extension
+    if (data.type === "startTwap") return this.twapExtension.start(data);
+    if (data.type === "pauseTwap") return this.twapExtension.pause(data);
+    if (data.type === "resumeTwap") return this.twapExtension.resume(data);
+    if (data.type === "stopTwap") return this.twapExtension.stop(data);
 
     // TODO: move this into an error log
     this.error(`Unsupported command to ${this.name.toUpperCase()} worker`);
@@ -84,6 +93,7 @@ export class BaseWorker {
           positions: [],
           orders: [],
           notifications: [],
+          twaps: [],
           metadata: {
             leverage: {},
             hedgedPosition: {},
@@ -313,6 +323,10 @@ export class BaseWorker {
   emitChanges = <P extends ObjectPaths<StoreMemory[ExchangeName]>>(
     changes: ObjectChangeCommand<StoreMemory[ExchangeName], P>[],
   ) => {
+    // first update the memory object synchronously
+    applyChanges({ obj: this.memory, changes });
+
+    // then emit the changes to the parent main thread
     this.parent.postMessage({
       type: "update",
       changes: changes.map(({ path, ...rest }) => ({
@@ -320,8 +334,6 @@ export class BaseWorker {
         path: `${this.name}.${path}`,
       })),
     });
-
-    applyChanges({ obj: this.memory, changes });
   };
 
   log = (message: any) => {

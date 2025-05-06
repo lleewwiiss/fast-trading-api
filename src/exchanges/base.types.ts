@@ -4,6 +4,7 @@ import type {
   Order,
   PlaceOrderOpts,
   Timeframe,
+  TWAPOpts,
 } from "~/types/lib.types";
 
 export type ExchangeWorkerMessage = MessageEvent<
@@ -51,5 +52,29 @@ export type ExchangeWorkerMessage = MessageEvent<
       accountId: string;
       symbol: string;
       leverage: number;
+    }
+  | {
+      type: "startTwap";
+      requestId: string;
+      accountId: string;
+      twap: TWAPOpts;
+    }
+  | {
+      type: "pauseTwap";
+      requestId: string;
+      accountId: string;
+      twapId: string;
+    }
+  | {
+      type: "resumeTwap";
+      requestId: string;
+      accountId: string;
+      twapId: string;
+    }
+  | {
+      type: "stopTwap";
+      requestId: string;
+      accountId: string;
+      twapId: string;
     }
 >;
