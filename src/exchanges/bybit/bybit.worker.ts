@@ -115,19 +115,7 @@ export class BybitWorker extends BaseWorker {
 
     await Promise.all(
       accounts.map(async (account) => {
-        const balance = await fetchBybitBalance({
-          key: account.apiKey,
-          secret: account.apiSecret,
-        });
-
-        this.emitChanges([
-          {
-            type: "update",
-            path: `private.${account.id}.balance`,
-            value: balance,
-          },
-        ]);
-
+        await this.fetchAndPollBalance(account);
         this.log(`Loaded Bybit balance for account [${account.id}]`);
       }),
     );
@@ -195,6 +183,23 @@ export class BybitWorker extends BaseWorker {
     if (requestId) {
       self.postMessage({ type: "response", requestId });
     }
+  }
+
+  async fetchAndPollBalance(account: Account) {
+    const balance = await fetchBybitBalance({
+      key: account.apiKey,
+      secret: account.apiSecret,
+    });
+
+    this.emitChanges([
+      {
+        type: "update",
+        path: `private.${account.id}.balance`,
+        value: balance,
+      },
+    ]);
+
+    setTimeout(() => this.fetchAndPollBalance(account), 5000);
   }
 
   updateAccountOrders({
