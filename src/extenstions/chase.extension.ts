@@ -113,22 +113,11 @@ class ChaseInstance {
       );
 
       if (orderFill) {
-        if (orderFill.data.amount === this.state.amount) {
-          this.worker.log(
-            `Chase ${this.opts.side.toUpperCase()} ${this.opts.symbol} filled`,
-          );
+        this.worker.log(
+          `Chase ${this.opts.side.toUpperCase()} ${this.opts.symbol} filled`,
+        );
 
-          this.stop();
-        } else {
-          this.worker.log(
-            `Chase ${this.opts.side.toUpperCase()} ${this.opts.symbol} partially filled`,
-          );
-
-          this.setState({
-            ...this.state,
-            amount: this.state.amount - orderFill.data.amount,
-          });
-        }
+        this.stop({ keepOrders: true });
       }
     };
 
