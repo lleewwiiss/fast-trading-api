@@ -1,6 +1,6 @@
 # fast-trading-api
 
-![image](./banner.png)
+![banner](./banner.png)
 
 A high-performance multi-threaded JavaScript/TypeScript library for interacting with cryptocurrencies exchanges trading APIs.
 
@@ -61,32 +61,7 @@ The `fast-trading-api` library is designed with performance and flexibility in m
 
 ### Data Flow
 
-```
-  Application Layer         Exchange Layer            Worker Layer
-+------------------+      +-----------------+      +-----------------+
-|                  |      |                 |      |                 |
-|  FastTradingApi  |----->| Exchange Client |----->|   Web Worker    |
-|                  |      |                 |      |                 |
-+------------------+      +-----------------+      +-----------------+
-         |                         |                       |
-         |                         |                       v
-         v                         |               +-----------------+
-+------------------+               |               |                 |
-|                  |               |               |  WebSocket/REST |
-|   Memory Store   |<--------------+               |   API Clients   |
-|                  |                               |                 |
-+------------------+                               +-----------------+
-                                                           |
-                                                           v
-                                                   +-----------------+
-                                                   | Worker results  |
-                                                   | flow back to    |
-                                                   | Exchange Client |
-                                                   | which updates   |
-                                                   | Memory Store    |
-                                                   +-----------------+
-```
-
+![diagram](./diagram.png)
 
 This architecture allows for:
 - Real-time data processing without blocking the UI
