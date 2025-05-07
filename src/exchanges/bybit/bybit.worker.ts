@@ -108,7 +108,7 @@ export class BybitWorker extends BaseWorker {
   }) {
     super.addAccounts({ accounts, requestId });
 
-    for (const account of this.accounts) {
+    for (const account of accounts) {
       this.tradingWs[account.id] = new BybitWsTrading({
         parent: this,
         account,
@@ -159,14 +159,14 @@ export class BybitWorker extends BaseWorker {
       }),
     );
 
-    for (const account of this.accounts) {
+    for (const account of accounts) {
       this.privateWs[account.id] = new BybitWsPrivate({
         parent: this,
         account,
       });
     }
 
-    for (const account of this.accounts) {
+    for (const account of accounts) {
       const orders = await fetchBybitOrders(account);
 
       this.emitChanges([

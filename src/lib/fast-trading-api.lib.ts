@@ -61,7 +61,10 @@ export class FastTradingApi {
 
     if (newAccounts.length === 0) return;
 
-    this.emit("log", `Adding ${newAccounts} accounts to FastTradingApi SDK`);
+    this.emit(
+      "log",
+      `Adding ${newAccounts.length} accounts to FastTradingApi SDK`,
+    );
 
     this.accounts.push(...newAccounts);
     const groupedByExchange = groupBy(newAccounts, (acc) => acc.exchange);
