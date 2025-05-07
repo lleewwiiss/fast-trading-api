@@ -193,6 +193,7 @@ describe("MemoryStore", () => {
         notional: 10000,
         leverage: 10,
         upnl: 0,
+        rpnl: 0,
         contracts: 0.2,
         liquidationPrice: 45000,
       };
@@ -226,6 +227,7 @@ describe("MemoryStore", () => {
         notional: 6000,
         leverage: 10,
         upnl: 0,
+        rpnl: 0,
         contracts: 2,
         liquidationPrice: 3300,
       };
@@ -258,6 +260,7 @@ describe("MemoryStore", () => {
         notional: 10000,
         leverage: 10,
         upnl: 0,
+        rpnl: 0,
         contracts: 0.2,
         liquidationPrice: 45000,
       };
@@ -271,6 +274,7 @@ describe("MemoryStore", () => {
         notional: 6000,
         leverage: 10,
         upnl: 0,
+        rpnl: 0,
         contracts: 2,
         liquidationPrice: 3300,
       };
@@ -323,6 +327,7 @@ describe("MemoryStore", () => {
         notional: 10000,
         leverage: 10,
         upnl: 0,
+        rpnl: 0,
         contracts: 0.2,
         liquidationPrice: 45000,
       };
@@ -336,6 +341,7 @@ describe("MemoryStore", () => {
         notional: 6000,
         leverage: 10,
         upnl: 0,
+        rpnl: 0,
         contracts: 2,
         liquidationPrice: 3300,
       };
@@ -480,6 +486,7 @@ describe("MemoryStore", () => {
         notional: 10000,
         leverage: 10,
         upnl: 0,
+        rpnl: 0,
         contracts: 0.2,
         liquidationPrice: 45000,
       };

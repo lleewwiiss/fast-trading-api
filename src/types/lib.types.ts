@@ -122,6 +122,7 @@ export interface Position {
   notional: number;
   leverage: number;
   upnl: number;
+  rpnl: number;
   contracts: number;
   liquidationPrice: number;
   isHedged?: boolean;

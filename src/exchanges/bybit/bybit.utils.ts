@@ -84,6 +84,7 @@ export const mapBybitPosition = ({
     notional: toUSD(parseFloat(p.positionValue) + parseFloat(p.unrealisedPnl)),
     leverage: parseFloat(p.leverage),
     upnl: toUSD(parseFloat(p.unrealisedPnl)),
+    rpnl: toUSD(parseFloat(p.curRealisedPnl)),
     contracts: parseFloat(p.size || "0"),
     liquidationPrice: parseFloat(p.liqPrice || "0"),
     isHedged: p.positionIdx !== 0,
