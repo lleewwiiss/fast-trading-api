@@ -30,4 +30,10 @@ describe("sumBy utility function", () => {
     ];
     expect(sumBy(items, "y")).toBe(4);
   });
+
+  test("should work with a custom iteratee function", () => {
+    const data = [{ value: 1 }, { value: 2 }, { value: 3 }];
+    const iteratee = (item: { value: number }) => item.value * 2;
+    expect(sumBy(data, iteratee)).toBe(12);
+  });
 });

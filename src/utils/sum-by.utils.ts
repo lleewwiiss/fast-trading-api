@@ -1,9 +1,9 @@
-export const sumBy = <T>(arr: T[], key: keyof T): number => {
+export const sumBy = <T>(
+  arr: T[],
+  iteratee: keyof T | ((item: T) => number),
+): number => {
   return arr.reduce((acc, obj) => {
-    const value = obj[key];
-    if (typeof value === "number") {
-      return acc + value;
-    }
-    return acc;
+    const val = typeof iteratee === "function" ? iteratee(obj) : obj[iteratee];
+    return typeof val !== "number" || isNaN(val) ? acc : acc + val;
   }, 0);
 };
