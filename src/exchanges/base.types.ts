@@ -11,6 +11,7 @@ import type {
 export type ExchangeWorkerMessage = MessageEvent<
   | { type: "start"; accounts: Account[]; requestId: string }
   | { type: "addAccounts"; accounts: Account[]; requestId: string }
+  | { type: "removeAccount"; accountId: string; requestId: string }
   | { type: "stop" }
   | { type: "listenOB"; symbol: string }
   | { type: "unlistenOB"; symbol: string }

@@ -87,6 +87,24 @@ export class FastTradingApi {
     await Promise.all(promises);
   }
 
+  async removeAccount(accountId: string) {
+    const account = this.accounts.find((acc) => acc.id === accountId);
+
+    if (!account) {
+      this.emit("error", `Account ${accountId} not found`);
+      return;
+    }
+
+    this.accounts = this.accounts.filter((acc) => acc.id !== accountId);
+
+    if (this.accounts.some((acc) => acc.exchange === account.exchange)) {
+      await this.getExchange(account.exchange).removeAccount(accountId);
+    } else {
+      this.getExchange(account.exchange).stop();
+      delete this.exchanges[account.exchange];
+    }
+  }
+
   fetchOHLCV({
     exchangeName,
     params,

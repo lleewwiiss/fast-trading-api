@@ -38,6 +38,8 @@ export class BybitWorker extends BaseWorker {
   privateWs: Record<Account["id"], BybitWsPrivate> = {};
   tradingWs: Record<Account["id"], BybitWsTrading> = {};
 
+  pollBalanceTimeouts: Record<Account["id"], NodeJS.Timeout> = {};
+
   async start({
     accounts,
     requestId,
@@ -185,6 +187,31 @@ export class BybitWorker extends BaseWorker {
     }
   }
 
+  async removeAccount({
+    accountId,
+    requestId,
+  }: {
+    accountId: string;
+    requestId: string;
+  }) {
+    if (accountId in this.privateWs) {
+      this.privateWs[accountId].stop();
+      delete this.privateWs[accountId];
+    }
+
+    if (accountId in this.tradingWs) {
+      this.tradingWs[accountId].stop();
+      delete this.tradingWs[accountId];
+    }
+
+    if (accountId in this.pollBalanceTimeouts) {
+      clearTimeout(this.pollBalanceTimeouts[accountId]);
+      delete this.pollBalanceTimeouts[accountId];
+    }
+
+    await super.removeAccount({ accountId, requestId });
+  }
+
   async fetchAndPollBalance(account: Account) {
     const balance = await fetchBybitBalance({
       key: account.apiKey,
@@ -199,7 +226,10 @@ export class BybitWorker extends BaseWorker {
       },
     ]);
 
-    setTimeout(() => this.fetchAndPollBalance(account), 5000);
+    this.pollBalanceTimeouts[account.id] = setTimeout(
+      () => this.fetchAndPollBalance(account),
+      5000,
+    );
   }
 
   updateAccountOrders({

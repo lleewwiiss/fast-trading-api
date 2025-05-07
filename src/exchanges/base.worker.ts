@@ -58,6 +58,7 @@ export class BaseWorker {
     if (data.type === "listenOB") return this.listenOrderBook(data.symbol);
     if (data.type === "unlistenOB") return this.unlistenOrderBook(data.symbol);
     if (data.type === "addAccounts") return this.addAccounts(data);
+    if (data.type === "removeAccount") return this.removeAccount(data);
     if (data.type === "setLeverage") return this.setLeverage(data);
     if (data.type === "fetchPositionMetadata") {
       return this.fetchPositionMetadata(data);
@@ -108,6 +109,22 @@ export class BaseWorker {
         },
       })),
     );
+  }
+
+  async removeAccount({
+    accountId,
+    requestId,
+  }: {
+    accountId: string;
+    requestId: string;
+  }) {
+    this.accounts = this.accounts.filter((acc) => acc.id !== accountId);
+
+    this.emitChanges([
+      { type: "removeObjectKey", path: "private", key: accountId },
+    ]);
+
+    this.parent.postMessage({ type: "response", requestId });
   }
 
   async fetchOHLCV(_params: { requestId: string; params: FetchOHLCVParams }) {

@@ -62,6 +62,15 @@ export class BaseExchange {
     return this.dispatchWorker({ type: "addAccounts", accounts });
   };
 
+  removeAccount = (accountId: string) => {
+    this.parent.emit(
+      "log",
+      `Removing account ${accountId} from ${this.name.toUpperCase()} Exchange`,
+    );
+
+    return this.dispatchWorker({ type: "removeAccount", accountId });
+  };
+
   fetchOHLCV(params: FetchOHLCVParams) {
     return this.dispatchWorker<Candle[]>({ type: "fetchOHLCV", params });
   }
