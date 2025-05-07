@@ -2,7 +2,12 @@ import { describe, test, expect, mock, beforeEach, afterEach } from "bun:test";
 
 import { BaseExchange } from "./base.exchange";
 
-import { ExchangeName, type Account, OrderSide, OrderType } from "~/types";
+import {
+  ExchangeName,
+  type Account,
+  OrderSide,
+  OrderType,
+} from "~/types/lib.types";
 import { FastTradingApi } from "~/lib/fast-trading-api.lib";
 
 const moduleMocker = {

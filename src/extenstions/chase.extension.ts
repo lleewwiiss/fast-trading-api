@@ -9,7 +9,7 @@ import {
 } from "~/types/lib.types";
 import { adjust } from "~/utils/safe-math.utils";
 import { genId } from "~/utils/gen-id.utils";
-import { watchObjPath } from "~/utils";
+import { watchObjPath } from "~/utils/watch-obj-path.utils";
 
 class ChaseInstance {
   id: string;
