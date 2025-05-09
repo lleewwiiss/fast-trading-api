@@ -1,6 +1,7 @@
 import { bybitWebsocketAuth } from "./bybit.api";
 import { BROKER_ID, BYBIT_API, RECV_WINDOW } from "./bybit.config";
 import type {
+  BybitCancelOrderBatchResponse,
   BybitPlaceOrderBatchResponse,
   BybitPlaceOrderOpts,
 } from "./bybit.types";
@@ -262,18 +263,29 @@ export class BybitWsTrading {
   }) => {
     return new Promise((resolve) => {
       const batches = chunk(orders, 10);
-      const responses: any[] = [];
+      const responses: BybitCancelOrderBatchResponse[] = [];
 
       for (const batch of batches) {
         const reqId = genId();
 
-        this.pendingRequests.set(reqId, (data: any) => {
-          responses.push(data);
+        this.pendingRequests.set(
+          reqId,
+          (data: BybitCancelOrderBatchResponse) => {
+            data.retExtInfo.list.forEach((res) => {
+              if (res.code !== 0) {
+                this.parent.error(
+                  `[${this.account.id}] Bybit cancel order error: ${res.msg}`,
+                );
+              }
+            });
 
-          if (responses.length === batches.length) {
-            resolve(responses);
-          }
-        });
+            responses.push(data);
+
+            if (responses.length === batches.length) {
+              resolve(responses);
+            }
+          },
+        );
 
         this.enqueueSend({
           consume: batch.length,

@@ -210,19 +210,14 @@ export type BybitPlaceOrderOpts = {
   slOrderType?: "Market" | "Limit";
 };
 
-export type BybitPlaceOrderBatchResponse = {
+export type BybitBatchResponse<
+  T extends string,
+  D extends Record<string, any> = Record<string, any>,
+> = {
   reqId: string;
   retMsg: string;
-  op: "order.create-batch";
-  data: {
-    list: Array<{
-      category: string;
-      symbol: string;
-      orderId: string;
-      orderLinkId: string;
-      createdAt: string;
-    }>;
-  };
+  op: T;
+  data: D;
   retExtInfo: {
     list: Array<{
       code: number;
@@ -230,3 +225,19 @@ export type BybitPlaceOrderBatchResponse = {
     }>;
   };
 };
+
+export type BybitPlaceOrderBatchResponse = BybitBatchResponse<
+  "order.create-batch",
+  {
+    list: Array<{
+      category: string;
+      symbol: string;
+      orderId: string;
+      orderLinkId: string;
+      createdAt: string;
+    }>;
+  }
+>;
+
+export type BybitCancelOrderBatchResponse =
+  BybitBatchResponse<"order.cancel-batch">;
