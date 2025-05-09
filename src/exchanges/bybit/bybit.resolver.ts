@@ -324,7 +324,6 @@ export const setBybitLeverage = async ({
     },
     key: account.apiKey,
     secret: account.apiSecret,
-    retries: 3,
   });
 
   if (response.retCode !== 0) {
