@@ -171,6 +171,7 @@ describe("BaseExchange", () => {
           type: OrderType.Limit,
           amount: 0.1,
           price: 50000,
+          reduceOnly: false,
         },
       ],
       accountId: "main",

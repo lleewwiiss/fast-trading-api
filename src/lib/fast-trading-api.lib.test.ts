@@ -263,6 +263,7 @@ describe("FastTradingApi", () => {
         side: OrderSide.Buy,
         amount: 1,
         price: 5000,
+        reduceOnly: false,
       };
       api.placeOrder({ order, accountId: "bybit1" });
       expect(placeOrdersMock).toHaveBeenCalledWith({
@@ -289,6 +290,7 @@ describe("FastTradingApi", () => {
         type: OrderType.Limit,
         side: OrderSide.Buy,
         amount: 2,
+        reduceOnly: false,
       };
       api.placeOrder({ order, accountId: "bybit1", priority: true });
       expect(placeOrdersMock).toHaveBeenCalledWith({
@@ -313,8 +315,20 @@ describe("FastTradingApi", () => {
       });
       await api.start();
       const orders = [
-        { symbol: "A", type: OrderType.Limit, side: OrderSide.Sell, amount: 3 },
-        { symbol: "B", type: OrderType.Market, side: OrderSide.Buy, amount: 4 },
+        {
+          symbol: "A",
+          type: OrderType.Limit,
+          side: OrderSide.Sell,
+          amount: 3,
+          reduceOnly: false,
+        },
+        {
+          symbol: "B",
+          type: OrderType.Market,
+          side: OrderSide.Buy,
+          amount: 4,
+          reduceOnly: false,
+        },
       ];
       api.placeOrders({ orders, accountId: "bybit1", priority: true });
       expect(placeOrdersMock).toHaveBeenCalledWith({
@@ -483,6 +497,7 @@ describe("FastTradingApi", () => {
             type: OrderType.Limit,
             side: OrderSide.Buy,
             amount: 1,
+            reduceOnly: false,
           },
           accountId: "bybit1",
         }),

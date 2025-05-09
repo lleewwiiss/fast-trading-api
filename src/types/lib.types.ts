@@ -227,7 +227,7 @@ export interface PlaceOrderOpts {
   price?: number;
   stopLoss?: number;
   takeProfit?: number;
-  reduceOnly?: boolean;
+  reduceOnly: boolean;
   timeInForce?: OrderTimeInForce;
 }
 
