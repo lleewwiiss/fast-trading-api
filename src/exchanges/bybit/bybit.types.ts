@@ -241,3 +241,6 @@ export type BybitPlaceOrderBatchResponse = BybitBatchResponse<
 
 export type BybitCancelOrderBatchResponse =
   BybitBatchResponse<"order.cancel-batch">;
+
+export type BybitUpdateOrderBatchResponse =
+  BybitBatchResponse<"order.amend-batch">;

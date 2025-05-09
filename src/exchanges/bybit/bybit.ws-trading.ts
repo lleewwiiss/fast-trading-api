@@ -4,6 +4,7 @@ import type {
   BybitCancelOrderBatchResponse,
   BybitPlaceOrderBatchResponse,
   BybitPlaceOrderOpts,
+  BybitUpdateOrderBatchResponse,
 } from "./bybit.types";
 import type { BybitWorker } from "./bybit.worker";
 import { getHedgedOrderPositionIdx } from "./bybit.utils";
@@ -202,18 +203,29 @@ export class BybitWsTrading {
   }) => {
     return new Promise((resolve) => {
       const batches = chunk(updates, 10);
-      const responses: any[] = [];
+      const responses: BybitUpdateOrderBatchResponse[] = [];
 
       for (const batch of batches) {
         const reqId = genId();
 
-        this.pendingRequests.set(reqId, (data: any) => {
-          responses.push(data);
+        this.pendingRequests.set(
+          reqId,
+          (data: BybitUpdateOrderBatchResponse) => {
+            data.retExtInfo.list.forEach((res) => {
+              if (res.code !== 0) {
+                this.parent.error(
+                  `[${this.account.id}] Bybit cancel order error: ${res.msg}`,
+                );
+              }
+            });
 
-          if (responses.length === batches.length) {
-            resolve(responses);
-          }
-        });
+            responses.push(data);
+
+            if (responses.length === batches.length) {
+              resolve(responses);
+            }
+          },
+        );
 
         this.enqueueSend({
           consume: batch.length,
