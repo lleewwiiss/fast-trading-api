@@ -146,7 +146,6 @@ export class BybitWsTrading {
                 this.parent.error(
                   `[${this.account.id}] Bybit place order error: ${res.msg}`,
                 );
-                return;
               }
             });
 
