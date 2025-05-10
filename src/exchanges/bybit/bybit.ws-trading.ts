@@ -214,7 +214,7 @@ export class BybitWsTrading {
             data.retExtInfo.list.forEach((res) => {
               if (res.code !== 0) {
                 this.parent.error(
-                  `[${this.account.id}] Bybit cancel order error: ${res.msg}`,
+                  `[${this.account.id}] Bybit update order error: ${res.msg}`,
                 );
               }
             });
