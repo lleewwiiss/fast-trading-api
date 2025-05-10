@@ -49,7 +49,7 @@ export class BybitWorker extends BaseWorker {
   }) {
     await super.start({ accounts, requestId });
     await this.fetchPublic();
-    self.postMessage({ type: "response", requestId });
+    this.emitResponse({ requestId });
   }
 
   stop() {
@@ -183,7 +183,7 @@ export class BybitWorker extends BaseWorker {
     }
 
     if (requestId) {
-      self.postMessage({ type: "response", requestId });
+      this.emitResponse({ requestId });
     }
   }
 
@@ -363,7 +363,7 @@ export class BybitWorker extends BaseWorker {
     params: FetchOHLCVParams;
   }) {
     const candles = await fetchBybitOHLCV(params);
-    self.postMessage({ type: "response", requestId, data: candles });
+    this.emitResponse({ requestId, data: candles });
   }
 
   listenOHLCV({ symbol, timeframe }: { symbol: string; timeframe: Timeframe }) {
@@ -431,7 +431,7 @@ export class BybitWorker extends BaseWorker {
       }
     }
 
-    self.postMessage({ type: "response", requestId, data: orderIds });
+    this.emitResponse({ requestId, data: orderIds });
 
     return orderIds;
   }
@@ -456,7 +456,7 @@ export class BybitWorker extends BaseWorker {
       })),
     });
 
-    self.postMessage({ type: "response", requestId, data: [] });
+    this.emitResponse({ requestId, data: [] });
   }
 
   async cancelOrders({
@@ -482,7 +482,7 @@ export class BybitWorker extends BaseWorker {
       await this.tradingWs[accountId].cancelOrders({ priority, orders });
     }
 
-    self.postMessage({ type: "response", requestId, data: [] });
+    this.emitResponse({ requestId, data: [] });
   }
 
   async fetchPositionMetadata({
@@ -519,14 +519,7 @@ export class BybitWorker extends BaseWorker {
       },
     ]);
 
-    self.postMessage({
-      type: "response",
-      requestId,
-      data: {
-        leverage,
-        isHedged,
-      },
-    });
+    this.emitResponse({ requestId, data: { leverage, isHedged } });
   }
 
   async setLeverage({
@@ -559,11 +552,7 @@ export class BybitWorker extends BaseWorker {
       ]);
     }
 
-    self.postMessage({
-      type: "response",
-      requestId,
-      data: success,
-    });
+    this.emitResponse({ requestId, data: success });
   }
 }
 

@@ -382,4 +382,8 @@ export class BaseWorker {
   }) => {
     this.parent.postMessage({ type: "orderBook", symbol, orderBook });
   };
+
+  emitResponse = ({ requestId, data }: { requestId: string; data?: any }) => {
+    this.parent.postMessage({ type: "response", requestId, data });
+  };
 }
