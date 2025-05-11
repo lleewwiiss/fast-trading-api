@@ -40,3 +40,11 @@ export type ObjectChangeCommand<T, P extends ObjectPaths<T>> =
       path: P & (ValueAtPath<T, Split<P, ".">> extends any[] ? unknown : never);
       index: number;
     };
+
+export type DeepPartial<T> = {
+  [P in keyof T]?: T[P] extends Array<infer U>
+    ? Array<DeepPartial<U>>
+    : T[P] extends object
+      ? DeepPartial<T[P]>
+      : T[P];
+};

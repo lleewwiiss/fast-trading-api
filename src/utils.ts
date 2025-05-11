@@ -24,3 +24,4 @@ export * from "~/utils/uniq-by.utils";
 export * from "~/utils/uniq.utils";
 export * from "~/utils/random.utils";
 export * from "~/utils/watch-obj-path.utils";
+export * from "~/utils/deep-merge.utils";
