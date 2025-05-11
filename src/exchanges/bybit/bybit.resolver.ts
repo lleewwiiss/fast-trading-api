@@ -1,5 +1,5 @@
 import { bybit } from "./bybit.api";
-import { BYBIT_API, INTERVAL } from "./bybit.config";
+import { BYBIT_ENDPOINTS, INTERVAL } from "./bybit.config";
 import type {
   BybitBalance,
   BybitInstrument,
@@ -27,16 +27,17 @@ import {
   type Ticker,
   type FetchOHLCVParams,
   ExchangeName,
+  type ExchangeConfig,
 } from "~/types/lib.types";
 import { omitUndefined } from "~/utils/omit-undefined.utils";
 import { orderBy } from "~/utils/order-by.utils";
 import { adjust } from "~/utils/safe-math.utils";
 import { stringify } from "~/utils/query-string.utils";
 
-export const fetchBybitMarkets = async () => {
+export const fetchBybitMarkets = async (config: ExchangeConfig) => {
   const response = await retry(() =>
     fetch(
-      `${BYBIT_API.BASE_URL}${BYBIT_API.ENDPOINTS.MARKETS}?category=linear&limit=1000`,
+      `${config.API_URL}${BYBIT_ENDPOINTS.MARKETS}?category=linear&limit=1000`,
     ),
   );
 
@@ -81,10 +82,16 @@ export const fetchBybitMarkets = async () => {
   return markets;
 };
 
-export const fetchBybitTickers = async (markets?: Record<string, Market>) => {
+export const fetchBybitTickers = async ({
+  config,
+  markets,
+}: {
+  config: ExchangeConfig;
+  markets?: Record<string, Market>;
+}) => {
   const response = await retry(() =>
     fetch(
-      `${BYBIT_API.BASE_URL}${BYBIT_API.ENDPOINTS.TICKERS}?category=linear&limit=1000`,
+      `${config.API_URL}${BYBIT_ENDPOINTS.TICKERS}?category=linear&limit=1000`,
     ),
   );
 
@@ -108,16 +115,16 @@ export const fetchBybitTickers = async (markets?: Record<string, Market>) => {
 };
 
 export const fetchBybitBalance = async ({
-  key,
-  secret,
+  config,
+  account,
 }: {
-  key: string;
-  secret: string;
+  config: ExchangeConfig;
+  account: Account;
 }) => {
   const json = await bybit<{ result: { list: BybitBalance[] } }>({
-    key,
-    secret,
-    url: `${BYBIT_API.BASE_URL}${BYBIT_API.ENDPOINTS.BALANCE}`,
+    key: account.apiKey,
+    secret: account.apiSecret,
+    url: `${config.API_URL}${BYBIT_ENDPOINTS.BALANCE}`,
     params: { accountType: "UNIFIED" },
     retries: 3,
   });
@@ -126,11 +133,17 @@ export const fetchBybitBalance = async ({
   return mapBybitBalance(firstAccount);
 };
 
-export const fetchBybitPositions = async (account: Account) => {
+export const fetchBybitPositions = async ({
+  account,
+  config,
+}: {
+  config: ExchangeConfig;
+  account: Account;
+}) => {
   const json = await bybit<{ result: { list: BybitPosition[] } }>({
     key: account.apiKey,
     secret: account.apiSecret,
-    url: `${BYBIT_API.BASE_URL}${BYBIT_API.ENDPOINTS.POSITIONS}`,
+    url: `${config.API_URL}${BYBIT_ENDPOINTS.POSITIONS}`,
     params: { category: "linear", settleCoin: "USDT", limit: 200 },
     retries: 3,
   });
@@ -143,16 +156,18 @@ export const fetchBybitPositions = async (account: Account) => {
 };
 
 export const fetchBybitSymbolPositions = async ({
+  config,
   account,
   symbol,
 }: {
+  config: ExchangeConfig;
   account: Account;
   symbol: string;
 }) => {
   const json = await bybit<{ result: { list: BybitPosition[] } }>({
     key: account.apiKey,
     secret: account.apiSecret,
-    url: `${BYBIT_API.BASE_URL}${BYBIT_API.ENDPOINTS.POSITIONS}`,
+    url: `${config.API_URL}${BYBIT_ENDPOINTS.POSITIONS}`,
     params: { category: "linear", symbol },
     retries: 3,
   });
@@ -164,7 +179,13 @@ export const fetchBybitSymbolPositions = async ({
   return positions;
 };
 
-export const fetchBybitOrders = async (account: Account) => {
+export const fetchBybitOrders = async ({
+  account,
+  config,
+}: {
+  config: ExchangeConfig;
+  account: Account;
+}) => {
   const recursiveFetch = async (
     cursor: string = "",
     orders: BybitOrder[] = [],
@@ -174,7 +195,7 @@ export const fetchBybitOrders = async (account: Account) => {
     }>({
       key: account.apiKey,
       secret: account.apiSecret,
-      url: `${BYBIT_API.BASE_URL}${BYBIT_API.ENDPOINTS.ORDERS}`,
+      url: `${config.API_URL}${BYBIT_ENDPOINTS.ORDERS}`,
       params: {
         category: "linear",
         settleCoin: "USDT",
@@ -209,23 +230,27 @@ export const fetchBybitOrders = async (account: Account) => {
   return orders;
 };
 
-export const fetchBybitOHLCV = async (opts: FetchOHLCVParams) => {
-  const limit = Math.min(opts.limit || 500, 1000);
-  const interval = INTERVAL[opts.timeframe];
+export const fetchBybitOHLCV = async ({
+  config,
+  params,
+}: {
+  config: ExchangeConfig;
+  params: FetchOHLCVParams;
+}) => {
+  const limit = Math.min(params.limit || 500, 1000);
+  const interval = INTERVAL[params.timeframe];
 
-  const params = omitUndefined({
+  const urlParams = omitUndefined({
     category: "linear",
-    symbol: opts.symbol,
-    start: opts.from,
-    end: opts.to,
+    symbol: params.symbol,
+    start: params.from,
+    end: params.to,
     interval,
     limit,
   });
 
   const response = await retry(() =>
-    fetch(
-      `${BYBIT_API.BASE_URL}${BYBIT_API.ENDPOINTS.KLINE}?${stringify(params)}`,
-    ),
+    fetch(`${config.API_URL}${BYBIT_ENDPOINTS.KLINE}?${stringify(urlParams)}`),
   );
 
   const {
@@ -234,8 +259,8 @@ export const fetchBybitOHLCV = async (opts: FetchOHLCVParams) => {
 
   const candles: Candle[] = list.map(
     ([time, open, high, low, close, , volume]) => ({
-      symbol: opts.symbol,
-      timeframe: opts.timeframe,
+      symbol: params.symbol,
+      timeframe: params.timeframe,
       timestamp: parseFloat(time) / 1000,
       open: parseFloat(open),
       high: parseFloat(high),
@@ -253,12 +278,14 @@ export const createBybitTradingStop = async ({
   market,
   ticker,
   account,
+  config,
   isHedged,
 }: {
   order: PlaceOrderOpts;
   market: Market;
   ticker: Ticker;
   account: Account;
+  config: ExchangeConfig;
   isHedged?: boolean;
 }) => {
   const price = adjust(order.price ?? 0, market.precision.price);
@@ -291,7 +318,7 @@ export const createBybitTradingStop = async ({
   }
 
   const response = await bybit<{ retCode: number; retMsg: string }>({
-    url: `${BYBIT_API.BASE_URL}${BYBIT_API.ENDPOINTS.TRADING_STOP}`,
+    url: `${config.API_URL}${BYBIT_ENDPOINTS.TRADING_STOP}`,
     method: "POST",
     body,
     key: account.apiKey,
@@ -306,15 +333,17 @@ export const createBybitTradingStop = async ({
 
 export const setBybitLeverage = async ({
   account,
+  config,
   symbol,
   leverage,
 }: {
   account: Account;
+  config: ExchangeConfig;
   symbol: string;
   leverage: number;
 }) => {
   const response = await bybit<{ retCode: number; retMsg: string }>({
-    url: `${BYBIT_API.BASE_URL}${BYBIT_API.ENDPOINTS.SET_LEVERAGE}`,
+    url: `${config.API_URL}${BYBIT_ENDPOINTS.SET_LEVERAGE}`,
     method: "POST",
     body: {
       category: "linear",

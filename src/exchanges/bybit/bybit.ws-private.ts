@@ -1,5 +1,4 @@
 import { bybitWebsocketAuth } from "./bybit.api";
-import { BYBIT_API } from "./bybit.config";
 import type {
   BybitBalance,
   BybitOrder,
@@ -30,7 +29,7 @@ export class BybitWsPrivate {
   }
 
   listenWebsocket = () => {
-    this.ws = new ReconnectingWebSocket(BYBIT_API.BASE_WS_PRIVATE_URL);
+    this.ws = new ReconnectingWebSocket(this.parent.config.WS_PRIVATE_URL);
     this.ws.addEventListener("open", this.onOpen);
     this.ws.addEventListener("message", this.onMessage);
     this.ws.addEventListener("close", this.onClose);

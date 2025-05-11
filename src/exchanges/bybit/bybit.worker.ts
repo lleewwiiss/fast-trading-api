@@ -25,6 +25,7 @@ import {
   type Timeframe,
   type FetchOHLCVParams,
   type Order,
+  type ExchangeConfig,
 } from "~/types/lib.types";
 import { partition } from "~/utils/partition.utils";
 import { subtract } from "~/utils/safe-math.utils";
@@ -32,6 +33,7 @@ import { omit } from "~/utils/omit.utils";
 import { toUSD } from "~/utils/to-usd.utils";
 import { sumBy } from "~/utils/sum-by.utils";
 import { genId } from "~/utils/gen-id.utils";
+import { DEFAULT_CONFIG } from "~/config";
 
 export class BybitWorker extends BaseWorker {
   publicWs: BybitWsPublic | null = null;
@@ -42,12 +44,14 @@ export class BybitWorker extends BaseWorker {
 
   async start({
     accounts,
+    config,
     requestId,
   }: {
     accounts: Account[];
+    config: ExchangeConfig;
     requestId: string;
   }) {
-    await super.start({ accounts, requestId });
+    await super.start({ accounts, requestId, config });
     await this.fetchPublic();
     this.emitResponse({ requestId });
   }
@@ -72,8 +76,8 @@ export class BybitWorker extends BaseWorker {
   async fetchPublic() {
     // 1. Fetch markets and tickers
     const [markets, tickers] = await Promise.all([
-      fetchBybitMarkets(),
-      fetchBybitTickers(),
+      fetchBybitMarkets(this.config),
+      fetchBybitTickers({ config: this.config }),
     ]);
 
     this.emitChanges([
@@ -124,7 +128,10 @@ export class BybitWorker extends BaseWorker {
 
     await Promise.all(
       accounts.map(async (account) => {
-        const positions = await fetchBybitPositions(account);
+        const positions = await fetchBybitPositions({
+          config: this.config,
+          account,
+        });
 
         this.emitChanges([
           {
@@ -167,7 +174,7 @@ export class BybitWorker extends BaseWorker {
     }
 
     for (const account of accounts) {
-      const orders = await fetchBybitOrders(account);
+      const orders = await fetchBybitOrders({ config: this.config, account });
 
       this.emitChanges([
         {
@@ -214,8 +221,8 @@ export class BybitWorker extends BaseWorker {
 
   async fetchAndPollBalance(account: Account) {
     const balance = await fetchBybitBalance({
-      key: account.apiKey,
-      secret: account.apiSecret,
+      config: this.config,
+      account,
     });
 
     this.emitChanges([
@@ -362,7 +369,7 @@ export class BybitWorker extends BaseWorker {
     requestId: string;
     params: FetchOHLCVParams;
   }) {
-    const candles = await fetchBybitOHLCV(params);
+    const candles = await fetchBybitOHLCV({ config: this.config, params });
     this.emitResponse({ requestId, data: candles });
   }
 
@@ -419,6 +426,7 @@ export class BybitWorker extends BaseWorker {
 
       for (const order of orders) {
         await createBybitTradingStop({
+          config: this.config,
           order,
           account,
           market: this.memory.public.markets[order.symbol],
@@ -501,7 +509,11 @@ export class BybitWorker extends BaseWorker {
       return;
     }
 
-    const positions = await fetchBybitSymbolPositions({ account, symbol });
+    const positions = await fetchBybitSymbolPositions({
+      config: this.config,
+      account,
+      symbol,
+    });
 
     const leverage = positions[0]?.leverage ?? 1;
     const isHedged = positions.some((p) => p.isHedged);
@@ -540,7 +552,12 @@ export class BybitWorker extends BaseWorker {
       return;
     }
 
-    const success = await setBybitLeverage({ account, symbol, leverage });
+    const success = await setBybitLeverage({
+      config: this.config,
+      account,
+      symbol,
+      leverage,
+    });
 
     if (success) {
       this.emitChanges([
@@ -556,4 +573,8 @@ export class BybitWorker extends BaseWorker {
   }
 }
 
-new BybitWorker({ name: ExchangeName.BYBIT, parent: self });
+new BybitWorker({
+  name: ExchangeName.BYBIT,
+  config: DEFAULT_CONFIG[ExchangeName.BYBIT],
+  parent: self,
+});

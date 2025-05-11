@@ -1,5 +1,6 @@
 import { MemoryStore } from "./store.lib";
 
+import { DEFAULT_CONFIG } from "~/config";
 import type { BaseExchange } from "~/exchanges/base.exchange";
 import { createBybitExchange } from "~/exchanges/bybit/bybit.exchange";
 import {
@@ -15,19 +16,23 @@ import {
   type OrderBook,
   type TWAPOpts,
   type ChaseOpts,
+  type ExchangeConfig,
 } from "~/types/lib.types";
+import { deepMerge } from "~/utils/deep-merge.utils";
 import { groupBy } from "~/utils/group-by.utils";
 
 export class FastTradingApi {
   store: Store;
   accounts: Account[];
+  config: Record<ExchangeName, ExchangeConfig>;
 
   exchanges: Partial<Record<ExchangeName, BaseExchange>> = {};
   listeners: { [key: string]: ((...args: any[]) => void)[] } = {};
 
-  constructor({ accounts, store = new MemoryStore() }: FastTradingApiOptions) {
+  constructor({ accounts, config, store }: FastTradingApiOptions) {
     this.accounts = accounts;
-    this.store = store;
+    this.config = deepMerge(DEFAULT_CONFIG, config);
+    this.store = store ?? new MemoryStore();
   }
 
   async start() {

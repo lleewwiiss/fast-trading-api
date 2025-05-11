@@ -2,7 +2,15 @@ import type { ObjectChangeCommand, ObjectPaths } from "./misc.types";
 
 export interface FastTradingApiOptions {
   accounts: Account[];
+  config?: Partial<Record<ExchangeName, Partial<ExchangeConfig>>>;
   store?: Store;
+}
+
+export interface ExchangeConfig {
+  API_URL: string;
+  WS_PUBLIC_URL: string;
+  WS_PRIVATE_URL: string;
+  WS_TRADE_URL: string;
 }
 
 export interface Store {

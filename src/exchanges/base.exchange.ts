@@ -3,6 +3,7 @@ import type {
   Account,
   Candle,
   ChaseOpts,
+  ExchangeConfig,
   FetchOHLCVParams,
   Order,
   OrderBook,
@@ -16,6 +17,7 @@ import { genId } from "~/utils/gen-id.utils";
 
 export class BaseExchange {
   name: string;
+  config: ExchangeConfig;
 
   parent: FastTradingApi;
   worker: Worker;
@@ -26,14 +28,17 @@ export class BaseExchange {
 
   constructor({
     name,
+    config,
     parent,
     createWorker,
   }: {
     name: string;
+    config: ExchangeConfig;
     parent: FastTradingApi;
     createWorker: () => Worker;
   }) {
     this.name = name;
+    this.config = config;
     this.parent = parent;
     this.worker = createWorker();
     this.worker.addEventListener("message", this.onWorkerMessage);
@@ -44,6 +49,7 @@ export class BaseExchange {
     return this.dispatchWorker({
       type: "start",
       accounts: this.parent.accounts,
+      config: this.config,
     });
   };
 

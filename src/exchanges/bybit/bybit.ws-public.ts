@@ -1,4 +1,4 @@
-import { BYBIT_API, INTERVAL } from "./bybit.config";
+import { INTERVAL } from "./bybit.config";
 import type { BybitTicker } from "./bybit.types";
 import { mapBybitTicker } from "./bybit.utils";
 import type { BybitWorker } from "./bybit.worker";
@@ -40,7 +40,7 @@ export class BybitWsPublic {
   }
 
   listenWebsocket = () => {
-    this.ws = new ReconnectingWebSocket(BYBIT_API.BASE_WS_PUBLIC_URL);
+    this.ws = new ReconnectingWebSocket(this.parent.config.WS_PUBLIC_URL);
     this.ws.addEventListener("open", this.onOpen);
     this.ws.addEventListener("message", this.onMessage);
     this.ws.addEventListener("close", this.onClose);

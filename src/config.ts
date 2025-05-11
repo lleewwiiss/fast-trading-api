@@ -1,0 +1,10 @@
+import { ExchangeName, type ExchangeConfig } from "./types";
+
+export const DEFAULT_CONFIG: Record<ExchangeName, ExchangeConfig> = {
+  [ExchangeName.BYBIT]: {
+    API_URL: "https://api.bybit.com",
+    WS_PUBLIC_URL: "wss://stream.bybit.com/v5/public/linear",
+    WS_PRIVATE_URL: "wss://stream.bybit.com/v5/private",
+    WS_TRADE_URL: "wss://stream.bybit.com/v5/trade",
+  },
+};

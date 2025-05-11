@@ -1,5 +1,5 @@
 import { bybitWebsocketAuth } from "./bybit.api";
-import { BROKER_ID, BYBIT_API, RECV_WINDOW } from "./bybit.config";
+import { BROKER_ID, RECV_WINDOW } from "./bybit.config";
 import type {
   BybitCancelOrderBatchResponse,
   BybitPlaceOrderBatchResponse,
@@ -46,7 +46,7 @@ export class BybitWsTrading {
   }
 
   listenWebsocket = () => {
-    this.ws = new ReconnectingWebSocket(BYBIT_API.BASE_WS_TRADE_URL);
+    this.ws = new ReconnectingWebSocket(this.parent.config.WS_TRADE_URL);
     this.ws.addEventListener("open", this.onOpen);
     this.ws.addEventListener("message", this.onMessage);
     this.ws.addEventListener("close", this.onClose);

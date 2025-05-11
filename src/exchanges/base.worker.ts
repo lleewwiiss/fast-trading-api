@@ -16,6 +16,7 @@ import {
   type Order,
   type Candle,
   type OrderBook,
+  type ExchangeConfig,
 } from "~/types/lib.types";
 import type {
   Entries,
@@ -29,6 +30,7 @@ import { applyChanges } from "~/utils/update-obj-path.utils";
 export class BaseWorker {
   parent: typeof self;
   name: ExchangeName;
+  config: ExchangeConfig;
 
   accounts: Account[] = [];
   memory: StoreMemory[ExchangeName] = {
@@ -40,8 +42,17 @@ export class BaseWorker {
   twapExtension = new TWAPExtension({ worker: this });
   chaseExtension = new ChaseExtension({ worker: this });
 
-  constructor({ parent, name }: { parent: typeof self; name: ExchangeName }) {
+  constructor({
+    parent,
+    config,
+    name,
+  }: {
+    parent: typeof self;
+    config: ExchangeConfig;
+    name: ExchangeName;
+  }) {
     this.name = name;
+    this.config = config;
     this.parent = parent;
     this.parent.addEventListener("message", this.onMessage);
   }
@@ -82,10 +93,18 @@ export class BaseWorker {
     this.error(`stop() method not implemented`);
   }
 
-  async start({ accounts }: { accounts: Account[]; requestId: string }) {
+  async start({
+    accounts,
+    config,
+  }: {
+    accounts: Account[];
+    requestId: string;
+    config: ExchangeConfig;
+  }) {
     this.log(`${this.name.toUpperCase()} Exchange starting`);
     this.log(`Initializing ${this.name.toUpperCase()} exchange data`);
 
+    this.config = config;
     this.addAccounts({ accounts });
   }
 

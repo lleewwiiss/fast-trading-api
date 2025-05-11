@@ -1,6 +1,7 @@
 import type {
   Account,
   ChaseOpts,
+  ExchangeConfig,
   FetchOHLCVParams,
   Order,
   PlaceOrderOpts,
@@ -9,7 +10,12 @@ import type {
 } from "~/types/lib.types";
 
 export type ExchangeWorkerMessage = MessageEvent<
-  | { type: "start"; accounts: Account[]; requestId: string }
+  | {
+      type: "start";
+      accounts: Account[];
+      requestId: string;
+      config: ExchangeConfig;
+    }
   | { type: "addAccounts"; accounts: Account[]; requestId: string }
   | { type: "removeAccount"; accountId: string; requestId: string }
   | { type: "stop" }
