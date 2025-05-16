@@ -28,10 +28,6 @@ npm version $VERSION_TYPE --no-git-tag-version
 NEW_VERSION=$(node -p "require('./package.json').version")
 echo "New version: $NEW_VERSION"
 
-# Generate changelog
-echo "Generating changelog..."
-bunx conventional-changelog-cli -p angular -i CHANGELOG.md -s
-
 # Build the library
 echo "Building the library..."
 bun run build
