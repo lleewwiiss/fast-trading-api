@@ -455,14 +455,52 @@ export class BybitWorker extends BaseWorker {
     requestId: string;
     priority?: boolean;
   }) {
-    await this.tradingWs[accountId].updateOrders({
-      priority,
-      updates: updates.map((update) => ({
-        order: update.order,
-        update: update.update,
-        market: this.memory.public.markets[update.order.symbol],
-      })),
-    });
+    const [normalUpdates, conditionalUpdates] = partition(
+      updates,
+      (update) =>
+        update.order.type === OrderType.Market ||
+        update.order.type === OrderType.Limit,
+    );
+
+    if (normalUpdates.length > 0) {
+      await this.tradingWs[accountId].updateOrders({
+        priority,
+        updates: normalUpdates.map((update) => ({
+          order: update.order,
+          update: update.update,
+          market: this.memory.public.markets[update.order.symbol],
+        })),
+      });
+    }
+
+    if (conditionalUpdates.length > 0) {
+      const account = this.accounts.find((a) => a.id === accountId)!;
+
+      for (const { order, update } of conditionalUpdates) {
+        const nextOrder: PlaceOrderOpts = {
+          symbol: order.symbol,
+          type: order.type,
+          side: order.side,
+          amount: order.amount,
+          reduceOnly: order.reduceOnly,
+        };
+
+        if ("price" in update) nextOrder.price = update.price;
+        if ("amount" in update) nextOrder.amount = update.amount;
+
+        await createBybitTradingStop({
+          config: this.config,
+          account,
+          order: nextOrder,
+          market: this.memory.public.markets[order.symbol],
+          ticker: this.memory.public.tickers[order.symbol],
+          isHedged:
+            this.memory.private[accountId].metadata.hedgedPosition[
+              order.symbol
+            ],
+        });
+      }
+    }
 
     this.emitResponse({ requestId, data: [] });
   }
