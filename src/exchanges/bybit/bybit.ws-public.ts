@@ -15,7 +15,6 @@ import { ReconnectingWebSocket } from "~/utils/reconnecting-websocket.utils";
 export class BybitWsPublic {
   parent: BybitWorker;
   isStopped = false;
-  pingAt = 0;
 
   ws: ReconnectingWebSocket | null = null;
   interval: NodeJS.Timeout | null = null;
@@ -32,10 +31,7 @@ export class BybitWsPublic {
   constructor({ parent, markets }: { parent: BybitWorker; markets: string[] }) {
     this.parent = parent;
     this.markets = markets;
-
     this.messageHandlers.tickers = this.handleTickers;
-    this.messageHandlers.pong = this.onPong;
-
     this.listenWebsocket();
   }
 
@@ -72,21 +68,9 @@ export class BybitWsPublic {
   };
 
   ping = () => {
-    this.pingAt = performance.now();
-    this.send({ op: "ping" });
-  };
-
-  onPong = (event: MessageEvent) => {
-    if (event.data.includes("pong")) {
-      const latency = (performance.now() - this.pingAt) / 2;
-      this.parent.emitChanges([
-        { type: "update", path: "public.latency", value: latency },
-      ]);
-
-      this.interval = setTimeout(() => {
-        this.ping();
-      }, 10_000);
-    }
+    this.interval = setInterval(() => {
+      this.send({ op: "ping" });
+    }, 10_000);
   };
 
   onMessage = (event: MessageEvent) => {

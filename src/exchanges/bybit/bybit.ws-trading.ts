@@ -26,6 +26,7 @@ type Data = {
 export class BybitWsTrading {
   account: Account;
   parent: BybitWorker;
+  pingAt = 0;
 
   isStopped = false;
 
@@ -71,12 +72,28 @@ export class BybitWsTrading {
   };
 
   ping = () => {
-    this.interval = setInterval(() => {
-      this.send({ op: "ping" });
+    this.pingAt = performance.now();
+    this.send({ op: "ping" });
+  };
+
+  onPong = () => {
+    const latency = (performance.now() - this.pingAt) / 2;
+
+    this.parent.emitChanges([
+      { type: "update", path: "public.latency", value: latency },
+    ]);
+
+    this.interval = setTimeout(() => {
+      this.ping();
     }, 10_000);
   };
 
   onMessage = (event: MessageEvent) => {
+    if (event.data.includes("pong")) {
+      this.onPong();
+      return;
+    }
+
     if (event.data.includes("reqId")) {
       const data = JSON.parse(event.data);
       const callback = this.pendingRequests.get(data.reqId);
