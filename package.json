@@ -8,6 +8,9 @@
     "./utils": "./dist/utils.js",
     "./types": "./dist/types.js"
   },
+  "files": [
+    "dist"
+  ],
   "private": false,
   "scripts": {
     "start": "bun run dist/index.js",
