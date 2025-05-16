@@ -275,7 +275,9 @@ export class BybitWsTrading {
   }) => {
     return new Promise((resolve) => {
       const batches = chunk(orders, 10);
+
       const responses: BybitCancelOrderBatchResponse[] = [];
+      const toRemove: Order[] = [];
 
       for (const batch of batches) {
         const reqId = genId();
@@ -283,7 +285,15 @@ export class BybitWsTrading {
         this.pendingRequests.set(
           reqId,
           (data: BybitCancelOrderBatchResponse) => {
-            data.retExtInfo.list.forEach((res) => {
+            data.retExtInfo.list.forEach((res, idx) => {
+              if (
+                res.code === 110001 &&
+                res.msg === "order not exists or too late to cancel"
+              ) {
+                toRemove.push(batch[idx]);
+                return;
+              }
+
               if (res.code !== 0) {
                 this.parent.error(
                   `[${this.account.id}] Bybit cancel order error: ${res.msg}`,
@@ -294,6 +304,17 @@ export class BybitWsTrading {
             responses.push(data);
 
             if (responses.length === batches.length) {
+              const accountOrders =
+                this.parent.memory.private[this.account.id].orders;
+
+              this.parent.emitChanges(
+                toRemove.map(({ id }) => ({
+                  type: "removeArrayElement",
+                  path: `private.${this.account.id}.orders` as const,
+                  index: accountOrders.findIndex((o) => o.id === id),
+                })),
+              );
+
               resolve(responses);
             }
           },

@@ -239,8 +239,17 @@ export type BybitPlaceOrderBatchResponse = BybitBatchResponse<
   }
 >;
 
-export type BybitCancelOrderBatchResponse =
-  BybitBatchResponse<"order.cancel-batch">;
+export type BybitCancelOrderBatchResponse = BybitBatchResponse<
+  "order.cancel-batch",
+  {
+    list: Array<{
+      category: string;
+      orderId: string;
+      orderLinkId: string;
+      symbol: string;
+    }>;
+  }
+>;
 
 export type BybitUpdateOrderBatchResponse =
   BybitBatchResponse<"order.amend-batch">;
