@@ -37,7 +37,7 @@ import { stringify } from "~/utils/query-string.utils";
 export const fetchBybitMarkets = async (config: ExchangeConfig) => {
   const response = await retry(() =>
     fetch(
-      `${config.API_URL}${BYBIT_ENDPOINTS.MARKETS}?category=linear&limit=1000`,
+      `${config.PUBLIC_API_URL}${BYBIT_ENDPOINTS.PUBLIC.MARKETS}?category=linear&limit=1000`,
     ),
   );
 
@@ -91,7 +91,7 @@ export const fetchBybitTickers = async ({
 }) => {
   const response = await retry(() =>
     fetch(
-      `${config.API_URL}${BYBIT_ENDPOINTS.TICKERS}?category=linear&limit=1000`,
+      `${config.PUBLIC_API_URL}${BYBIT_ENDPOINTS.PUBLIC.TICKERS}?category=linear&limit=1000`,
     ),
   );
 
@@ -124,7 +124,7 @@ export const fetchBybitBalance = async ({
   const json = await bybit<{ result: { list: BybitBalance[] } }>({
     key: account.apiKey,
     secret: account.apiSecret,
-    url: `${config.API_URL}${BYBIT_ENDPOINTS.BALANCE}`,
+    url: `${config.PRIVATE_API_URL}${BYBIT_ENDPOINTS.PRIVATE.BALANCE}`,
     params: { accountType: "UNIFIED" },
     retries: 3,
   });
@@ -143,7 +143,7 @@ export const fetchBybitPositions = async ({
   const json = await bybit<{ result: { list: BybitPosition[] } }>({
     key: account.apiKey,
     secret: account.apiSecret,
-    url: `${config.API_URL}${BYBIT_ENDPOINTS.POSITIONS}`,
+    url: `${config.PRIVATE_API_URL}${BYBIT_ENDPOINTS.PRIVATE.POSITIONS}`,
     params: { category: "linear", settleCoin: "USDT", limit: 200 },
     retries: 3,
   });
@@ -167,7 +167,7 @@ export const fetchBybitSymbolPositions = async ({
   const json = await bybit<{ result: { list: BybitPosition[] } }>({
     key: account.apiKey,
     secret: account.apiSecret,
-    url: `${config.API_URL}${BYBIT_ENDPOINTS.POSITIONS}`,
+    url: `${config.PRIVATE_API_URL}${BYBIT_ENDPOINTS.PRIVATE.POSITIONS}`,
     params: { category: "linear", symbol },
     retries: 3,
   });
@@ -195,7 +195,7 @@ export const fetchBybitOrders = async ({
     }>({
       key: account.apiKey,
       secret: account.apiSecret,
-      url: `${config.API_URL}${BYBIT_ENDPOINTS.ORDERS}`,
+      url: `${config.PRIVATE_API_URL}${BYBIT_ENDPOINTS.PRIVATE.ORDERS}`,
       params: {
         category: "linear",
         settleCoin: "USDT",
@@ -250,7 +250,9 @@ export const fetchBybitOHLCV = async ({
   });
 
   const response = await retry(() =>
-    fetch(`${config.API_URL}${BYBIT_ENDPOINTS.KLINE}?${stringify(urlParams)}`),
+    fetch(
+      `${config.PUBLIC_API_URL}${BYBIT_ENDPOINTS.PUBLIC.KLINE}?${stringify(urlParams)}`,
+    ),
   );
 
   const {
@@ -318,7 +320,7 @@ export const createBybitTradingStop = async ({
   }
 
   const response = await bybit<{ retCode: number; retMsg: string }>({
-    url: `${config.API_URL}${BYBIT_ENDPOINTS.TRADING_STOP}`,
+    url: `${config.PRIVATE_API_URL}${BYBIT_ENDPOINTS.PRIVATE.TRADING_STOP}`,
     method: "POST",
     body,
     key: account.apiKey,
@@ -343,7 +345,7 @@ export const setBybitLeverage = async ({
   leverage: number;
 }) => {
   const response = await bybit<{ retCode: number; retMsg: string }>({
-    url: `${config.API_URL}${BYBIT_ENDPOINTS.SET_LEVERAGE}`,
+    url: `${config.PRIVATE_API_URL}${BYBIT_ENDPOINTS.PRIVATE.SET_LEVERAGE}`,
     method: "POST",
     body: {
       category: "linear",

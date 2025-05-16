@@ -11,14 +11,18 @@ export const RECV_WINDOW = 5000;
 export const BROKER_ID = "Gi000266";
 
 export const BYBIT_ENDPOINTS = {
-  MARKETS: "/v5/market/instruments-info",
-  TICKERS: "/v5/market/tickers",
-  POSITIONS: "/v5/position/list",
-  BALANCE: "/v5/account/wallet-balance",
-  ORDERS: "/v5/order/realtime",
-  KLINE: "/v5/market/kline",
-  TRADING_STOP: "/v5/position/trading-stop",
-  SET_LEVERAGE: "/v5/position/set-leverage",
+  PUBLIC: {
+    MARKETS: "/v5/market/instruments-info",
+    TICKERS: "/v5/market/tickers",
+    KLINE: "/v5/market/kline",
+  },
+  PRIVATE: {
+    POSITIONS: "/v5/position/list",
+    BALANCE: "/v5/account/wallet-balance",
+    ORDERS: "/v5/order/realtime",
+    TRADING_STOP: "/v5/position/trading-stop",
+    SET_LEVERAGE: "/v5/position/set-leverage",
+  },
 };
 
 export const INTERVAL: Record<Timeframe, string> = {

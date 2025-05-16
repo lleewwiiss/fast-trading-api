@@ -7,7 +7,8 @@ export interface FastTradingApiOptions {
 }
 
 export interface ExchangeConfig {
-  API_URL: string;
+  PUBLIC_API_URL: string;
+  PRIVATE_API_URL: string;
   WS_PUBLIC_URL: string;
   WS_PRIVATE_URL: string;
   WS_TRADE_URL: string;
