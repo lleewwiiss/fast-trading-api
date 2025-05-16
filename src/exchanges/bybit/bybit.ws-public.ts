@@ -85,7 +85,7 @@ export class BybitWsPublic {
 
       this.interval = setTimeout(() => {
         this.ping();
-      }, 1000);
+      }, 10_000);
     }
   };
 
