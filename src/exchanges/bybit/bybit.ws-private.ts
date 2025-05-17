@@ -15,6 +15,7 @@ import { ReconnectingWebSocket } from "~/utils/reconnecting-websocket.utils";
 export class BybitWsPrivate {
   parent: BybitWorker;
   isStopped = false;
+  isListening = false;
 
   ws: ReconnectingWebSocket | null = null;
   interval: NodeJS.Timeout | null = null;
@@ -33,6 +34,13 @@ export class BybitWsPrivate {
     this.ws.addEventListener("open", this.onOpen);
     this.ws.addEventListener("message", this.onMessage);
     this.ws.addEventListener("close", this.onClose);
+  };
+
+  startListening = () => {
+    // We simply toggle handle message from websocket
+    // because we don't want to handle messages before fetching initial data
+    // but we still want to initiate the connection
+    this.isListening = true;
   };
 
   onOpen = async () => {
@@ -63,6 +71,9 @@ export class BybitWsPrivate {
   };
 
   onMessage = (event: MessageEvent) => {
+    // We don't want to handle messages before fetching initial data
+    if (!this.isListening) return;
+
     if (event.data.includes('"topic":"position.linear"')) {
       const { data }: { data: BybitWebsocketPosition[] } = JSON.parse(
         event.data,

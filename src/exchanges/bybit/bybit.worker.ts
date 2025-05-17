@@ -117,6 +117,11 @@ export class BybitWorker extends BaseWorker {
         parent: this,
         account,
       });
+
+      this.privateWs[account.id] = new BybitWsPrivate({
+        parent: this,
+        account,
+      });
     }
 
     await Promise.all(
@@ -167,15 +172,13 @@ export class BybitWorker extends BaseWorker {
     );
 
     for (const account of accounts) {
-      this.privateWs[account.id] = new BybitWsPrivate({
-        parent: this,
-        account,
-      });
-    }
+      // Start listening on private data updates
+      // as we have fetched the initial data from HTTP API
+      this.privateWs[account.id].startListening();
 
-    for (const account of accounts) {
+      // We delay fetch orders, as its no mandatory to start trading
+      // TODO: replay orders update received after initial orders data?
       const orders = await fetchBybitOrders({ config: this.config, account });
-
       this.emitChanges([
         {
           type: "update",
