@@ -366,7 +366,7 @@ describe("FastTradingApi", () => {
         remaining: 5,
         reduceOnly: false,
       };
-      api.updateOrder({ order, update: { amount: 10 }, accountId: "bybit1" });
+      api.updateOrder({ order, update: { amount: 10 } });
       expect(updateOrdersMock).toHaveBeenCalledWith({
         updates: [{ order, update: { amount: 10 } }],
         accountId: "bybit1",
@@ -405,7 +405,7 @@ describe("FastTradingApi", () => {
         { order: orderA, update: { price: 200 } },
         { order: orderB, update: { amount: 6 } },
       ];
-      api.updateOrders({ updates, accountId: "bybit1", priority: true });
+      api.updateOrders({ updates, priority: true });
       expect(updateOrdersMock).toHaveBeenCalledWith({
         updates,
         accountId: "bybit1",
@@ -605,7 +605,7 @@ describe("FastTradingApi", () => {
         reduceOnly: false,
       };
       expect(() =>
-        api.updateOrder({ order, update: { amount: 10 }, accountId: "bybit1" }),
+        api.updateOrder({ order, update: { amount: 10 } }),
       ).toThrowError("Exchange bybit not started");
     });
     test("should throw for updateOrders when not started", () => {
@@ -634,9 +634,9 @@ describe("FastTradingApi", () => {
         reduceOnly: false,
       };
       const updates = [{ order, update: { price: 200 } }];
-      expect(() =>
-        api.updateOrders({ updates, accountId: "bybit1" }),
-      ).toThrowError("Exchange bybit not started");
+      expect(() => api.updateOrders({ updates })).toThrowError(
+        "Exchange bybit not started",
+      );
     });
     test("should throw for cancelOrder when not started", () => {
       const api = new FastTradingApi({

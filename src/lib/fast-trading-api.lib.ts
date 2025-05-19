@@ -202,35 +202,37 @@ export class FastTradingApi {
   updateOrder({
     order,
     update,
-    accountId,
     priority = false,
   }: {
     order: Order;
     update: { amount: number } | { price: number };
-    accountId: string;
     priority?: boolean;
   }) {
     return this.updateOrders({
       updates: [{ order, update }],
-      accountId,
       priority,
     });
   }
 
   updateOrders({
     updates,
-    accountId,
     priority = false,
   }: {
     updates: { order: Order; update: { amount: number } | { price: number } }[];
-    accountId: string;
     priority?: boolean;
   }) {
-    return this.getAccountExchange(accountId).updateOrders({
-      updates,
-      accountId,
-      priority,
-    });
+    const groupedByAccount = groupBy(updates, ({ order }) => order.accountId);
+    const promises = Object.entries(groupedByAccount).map(
+      async ([accountId, updates]) => {
+        return this.getAccountExchange(accountId).updateOrders({
+          updates,
+          accountId,
+          priority,
+        });
+      },
+    );
+
+    return Promise.all(promises);
   }
 
   cancelOrder({
