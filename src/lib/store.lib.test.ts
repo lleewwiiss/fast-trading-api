@@ -8,20 +8,7 @@ import { MemoryStore, defaultStoreState } from "./store.lib";
 describe("MemoryStore", () => {
   test("should initialize with default state", () => {
     const store = new MemoryStore();
-    expect(store.memory).toEqual({
-      [ExchangeName.BYBIT]: {
-        loaded: {
-          markets: false,
-          tickers: false,
-        },
-        public: {
-          latency: 0,
-          tickers: {},
-          markets: {},
-        },
-        private: {},
-      },
-    });
+    expect(store.memory).toEqual(defaultStoreState);
   });
 
   test("reset restores default state after modifications", () => {

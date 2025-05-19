@@ -3,6 +3,7 @@ import { MemoryStore } from "./store.lib";
 import { DEFAULT_CONFIG } from "~/config";
 import type { BaseExchange } from "~/exchanges/base.exchange";
 import { createBybitExchange } from "~/exchanges/bybit/bybit.exchange";
+import { createHyperliquidExchange } from "~/exchanges/hyperliquid/hl.exchange";
 import {
   type FastTradingApiOptions,
   type FetchOHLCVParams,
@@ -42,9 +43,16 @@ export class FastTradingApi {
       `Starting FastTradingApi SDK with ${this.accounts.length} accounts`,
     );
 
-    this.exchanges = {
-      [ExchangeName.BYBIT]: createBybitExchange({ api: this }),
-    };
+    const exchangesList = new Set<ExchangeName>();
+    this.accounts.forEach(({ exchange }) => exchangesList.add(exchange));
+
+    if (exchangesList.has(ExchangeName.BYBIT)) {
+      this.exchanges[ExchangeName.BYBIT] = createBybitExchange(this);
+    }
+
+    if (exchangesList.has(ExchangeName.HL)) {
+      this.exchanges[ExchangeName.HL] = createHyperliquidExchange(this);
+    }
 
     await Promise.all(
       mapObj(this.exchanges, (_name, exchange) => exchange!.start()),
@@ -83,13 +91,17 @@ export class FastTradingApi {
       async (exchangeName, exchangeAccs) => {
         if (exchangeName === ExchangeName.BYBIT) {
           if (!this.exchanges[ExchangeName.BYBIT]) {
-            this.exchanges[ExchangeName.BYBIT] = createBybitExchange({
-              api: this,
-            });
-
+            this.exchanges[ExchangeName.BYBIT] = createBybitExchange(this);
             await this.exchanges[ExchangeName.BYBIT].start();
           } else {
             await this.exchanges[ExchangeName.BYBIT].addAccounts(exchangeAccs);
+          }
+
+          if (!this.exchanges[ExchangeName.HL]) {
+            this.exchanges[ExchangeName.HL] = createHyperliquidExchange(this);
+            await this.exchanges[ExchangeName.HL].start();
+          } else {
+            await this.exchanges[ExchangeName.HL].addAccounts(exchangeAccs);
           }
         }
       },
