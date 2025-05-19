@@ -13,6 +13,8 @@ import * as retryUtils from "./retry.utils";
 
 describe("request utility", () => {
   const originalFetch = global.fetch;
+  const originalRetry = retryUtils.retry;
+
   const mockJsonResponse = { data: "test response" };
 
   beforeEach(() => {
@@ -32,6 +34,7 @@ describe("request utility", () => {
 
   afterEach(() => {
     global.fetch = originalFetch;
+    spyOn(retryUtils, "retry").mockImplementation(originalRetry);
   });
 
   test("makes a basic GET request", async () => {
