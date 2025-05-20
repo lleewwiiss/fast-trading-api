@@ -1,6 +1,5 @@
 export * from "./utils/after-decimals.utils";
 export * from "./utils/chunk.utils";
-export * from "./utils/capitalize.utils";
 export * from "./utils/deep-merge.utils";
 export * from "./utils/gen-id.utils";
 export * from "./utils/group-by.utils";
@@ -19,7 +18,6 @@ export * from "./utils/regex.utils";
 export * from "./utils/retry.utils";
 export * from "./utils/safe-math.utils";
 export * from "./utils/sleep.utils";
-export * from "./utils/split-commands.utils";
 export * from "./utils/sum-by.utils";
 export * from "./utils/sum.utils";
 export * from "./utils/times.utils";
