@@ -18,11 +18,8 @@ import {
   type OrderBook,
   type ExchangeConfig,
 } from "~/types/lib.types";
-import type {
-  Entries,
-  ObjectChangeCommand,
-  ObjectPaths,
-} from "~/types/misc.types";
+import type { ObjectChangeCommand, ObjectPaths } from "~/types/misc.types";
+import { mapObj } from "~/utils/map-obj.utils";
 import { partition } from "~/utils/partition.utils";
 import { toUSD } from "~/utils/to-usd.utils";
 import { applyChanges } from "~/utils/update-obj-path.utils";
@@ -278,13 +275,11 @@ export class BaseWorker {
   }
 
   updateTickerDelta(ticker: Partial<Ticker> & { symbol: string }) {
-    const tickerChanges = (Object.entries(ticker) as Entries<Ticker>).map(
-      ([key, value]) => ({
-        type: "update" as const,
-        path: `public.tickers.${ticker.symbol}.${key}` as const,
-        value,
-      }),
-    );
+    const tickerChanges = mapObj(ticker, (key, value) => ({
+      type: "update" as const,
+      path: `public.tickers.${ticker.symbol}.${key}` as const,
+      value,
+    }));
 
     if (!ticker.last) {
       this.emitChanges(tickerChanges);

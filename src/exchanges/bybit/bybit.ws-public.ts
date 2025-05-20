@@ -74,7 +74,9 @@ export class BybitWsPublic {
   };
 
   onMessage = (event: MessageEvent) => {
-    Object.values(this.messageHandlers).forEach((handler) => handler(event));
+    for (const key in this.messageHandlers) {
+      this.messageHandlers[key](event);
+    }
   };
 
   handleTickers = (event: MessageEvent) => {
@@ -197,50 +199,54 @@ export class BybitWsPublic {
           orderBook.bids = [];
           orderBook.asks = [];
 
-          Object.entries(data.data as Record<string, string[][]>).forEach(
-            ([side, orders]) => {
-              if (side !== "a" && side !== "b") return;
+          for (const key in data.data as Record<string, string[][]>) {
+            const side = data.data[key][0];
+            const orders = data.data[key][1];
 
-              const key = side === "a" ? "asks" : "bids";
-              orders.forEach((order: string[]) => {
-                orderBook[key].push({
-                  price: parseFloat(order[0]),
-                  amount: parseFloat(order[1]),
-                  total: 0,
-                });
+            if (side !== "a" && side !== "b") continue;
+
+            const sideKey = side === "a" ? "asks" : "bids";
+            orders.forEach((order: string[]) => {
+              orderBook[sideKey].push({
+                price: parseFloat(order[0]),
+                amount: parseFloat(order[1]),
+                total: 0,
               });
-            },
-          );
+            });
+          }
         }
 
         if (data.type === "delta") {
-          Object.entries(data.data as Record<string, string[][]>).forEach(
-            ([side, orders]) => {
-              if (side !== "a" && side !== "b") return;
+          for (const key in data.data as Record<string, string[][]>) {
+            const side = data.data[key][0];
+            const orders = data.data[key][1];
 
-              const key = side === "a" ? "asks" : "bids";
-              orders.forEach((order) => {
-                const price = parseFloat(order[0]);
-                const amount = parseFloat(order[1]);
+            if (side !== "a" && side !== "b") continue;
 
-                const index = orderBook[key].findIndex(
-                  (o) => o.price === price,
-                );
+            const orderKey = side === "a" ? "asks" : "bids";
+            orders.forEach((order: string[]) => {
+              const price = parseFloat(order[0]);
+              const amount = parseFloat(order[1]);
 
-                if (index === -1 && amount > 0) {
-                  orderBook[key].push({ price, amount, total: 0 });
-                  return;
-                }
+              const index = orderBook[orderKey].findIndex(
+                (o) => o.price === price,
+              );
 
-                if (amount === 0) {
-                  orderBook[key].splice(index, 1);
-                  return;
-                }
+              if (index === -1 && amount > 0) {
+                orderBook[orderKey].push({ price, amount, total: 0 });
+                return;
+              }
 
-                orderBook[key][index].amount = amount;
-              });
-            },
-          );
+              if (index !== -1 && amount === 0) {
+                orderBook[orderKey].splice(index, 1);
+                return;
+              }
+
+              if (index !== -1 && amount > 0) {
+                orderBook[orderKey][index].amount = amount;
+              }
+            });
+          }
         }
 
         sortOrderBook(orderBook);

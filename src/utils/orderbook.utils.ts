@@ -8,12 +8,13 @@ export const sortOrderBook = (orderBook: OrderBook) => {
 };
 
 export const calcOrderBookTotal = (orderBook: OrderBook) => {
-  Object.values(orderBook).forEach((orders: OrderBookOrder[]) => {
+  for (const key in orderBook) {
+    const orders = orderBook[key as keyof OrderBook];
     orders.forEach((order, idx) => {
       order.total =
         idx === 0 ? order.amount : add(order.amount, orders[idx - 1].total);
     });
-  });
+  }
 };
 
 export const precisionGroup = (precision: number, orders: OrderBookOrder[]) => {

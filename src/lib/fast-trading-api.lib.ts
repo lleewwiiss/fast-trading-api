@@ -20,6 +20,7 @@ import {
 } from "~/types/lib.types";
 import { deepMerge } from "~/utils/deep-merge.utils";
 import { groupBy } from "~/utils/group-by.utils";
+import { mapObj } from "~/utils/map-obj.utils";
 
 export class FastTradingApi {
   store: Store;
@@ -46,15 +47,18 @@ export class FastTradingApi {
     };
 
     await Promise.all(
-      Object.values(this.exchanges).map((exchange) => exchange.start()),
+      mapObj(this.exchanges, (_name, exchange) => exchange!.start()),
     );
   }
 
   async stop() {
     this.emit("log", "Stopping FastTradingApi SDK");
 
-    Object.values(this.exchanges).forEach((exchange) => exchange.stop());
-    this.exchanges = {};
+    for (const key in this.exchanges) {
+      this.exchanges[key as ExchangeName]!.stop();
+      delete this.exchanges[key as ExchangeName];
+    }
+
     this.listeners = {};
     this.store.reset();
   }
@@ -74,8 +78,9 @@ export class FastTradingApi {
     this.accounts.push(...newAccounts);
     const groupedByExchange = groupBy(newAccounts, (acc) => acc.exchange);
 
-    const promises = Object.entries(groupedByExchange).map(
-      async ([exchangeName, exchangeAccounts]) => {
+    const promises = mapObj(
+      groupedByExchange,
+      async (exchangeName, exchangeAccs) => {
         if (exchangeName === ExchangeName.BYBIT) {
           if (!this.exchanges[ExchangeName.BYBIT]) {
             this.exchanges[ExchangeName.BYBIT] = createBybitExchange({
@@ -84,9 +89,7 @@ export class FastTradingApi {
 
             await this.exchanges[ExchangeName.BYBIT].start();
           } else {
-            await this.exchanges[ExchangeName.BYBIT].addAccounts(
-              exchangeAccounts,
-            );
+            await this.exchanges[ExchangeName.BYBIT].addAccounts(exchangeAccs);
           }
         }
       },
@@ -222,15 +225,13 @@ export class FastTradingApi {
     priority?: boolean;
   }) {
     const groupedByAccount = groupBy(updates, ({ order }) => order.accountId);
-    const promises = Object.entries(groupedByAccount).map(
-      async ([accountId, updates]) => {
-        return this.getAccountExchange(accountId).updateOrders({
-          updates,
-          accountId,
-          priority,
-        });
-      },
-    );
+    const promises = mapObj(groupedByAccount, async (accountId, updates) => {
+      return this.getAccountExchange(accountId).updateOrders({
+        updates,
+        accountId,
+        priority,
+      });
+    });
 
     return Promise.all(promises);
   }

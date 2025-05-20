@@ -34,6 +34,7 @@ import { toUSD } from "~/utils/to-usd.utils";
 import { sumBy } from "~/utils/sum-by.utils";
 import { genId } from "~/utils/gen-id.utils";
 import { DEFAULT_CONFIG } from "~/config";
+import { mapObj } from "~/utils/map-obj.utils";
 
 export class BybitWorker extends BaseWorker {
   publicWs: BybitWsPublic | null = null;
@@ -57,19 +58,17 @@ export class BybitWorker extends BaseWorker {
   }
 
   stop() {
-    if (this.publicWs) {
-      this.publicWs.stop();
-      this.publicWs = null;
+    this.publicWs?.stop();
+    this.publicWs = null;
+
+    for (const key in this.privateWs) {
+      this.privateWs[key].stop();
+      delete this.privateWs[key];
     }
 
-    if (Object.keys(this.privateWs).length > 0) {
-      Object.values(this.privateWs).forEach((ws) => ws.stop());
-      this.privateWs = {};
-    }
-
-    if (Object.keys(this.tradingWs).length > 0) {
-      Object.values(this.tradingWs).forEach((ws) => ws.stop());
-      this.tradingWs = {};
+    for (const key in this.tradingWs) {
+      this.tradingWs[key].stop();
+      delete this.tradingWs[key];
     }
   }
 
@@ -99,7 +98,7 @@ export class BybitWorker extends BaseWorker {
     // 2. Start public websocket
     this.publicWs = new BybitWsPublic({
       parent: this,
-      markets: Object.values(markets).map((m) => m.symbol),
+      markets: mapObj(markets, (symbol) => symbol),
     });
   }
 

@@ -1,34 +1,42 @@
 export const stringify = (obj: Record<string, any>): string => {
   if (!obj) return "";
 
-  return Object.entries(obj)
-    .map(([key, value]) => {
-      if (value === null || value === undefined) return key;
+  const parts: string[] = [];
 
-      // Handle arrays
-      if (Array.isArray(value)) {
-        return value
-          .map(
-            (item) =>
-              `${encodeURIComponent(key)}=${encodeURIComponent(String(item))}`,
-          )
-          .join("&");
+  for (const key in obj) {
+    const value = obj[key];
+
+    if (value === null || value === undefined) {
+      parts.push(key);
+      continue;
+    }
+
+    // Handle arrays
+    if (Array.isArray(value)) {
+      for (const item of value) {
+        parts.push(
+          `${encodeURIComponent(key)}=${encodeURIComponent(String(item))}`,
+        );
       }
+      continue;
+    }
 
-      // Handle objects (simple nesting with brackets)
-      if (typeof value === "object") {
-        return Object.entries(value)
-          .map(
-            ([subKey, subValue]) =>
-              `${encodeURIComponent(key)}[${encodeURIComponent(subKey)}]=${encodeURIComponent(String(subValue))}`,
-          )
-          .join("&");
+    // Handle objects (simple nesting with brackets)
+    if (typeof value === "object") {
+      for (const subKey in value) {
+        parts.push(
+          `${encodeURIComponent(key)}[${encodeURIComponent(subKey)}]=${encodeURIComponent(String(value[subKey]))}`,
+        );
       }
+      continue;
+    }
 
-      return `${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`;
-    })
-    .filter(Boolean)
-    .join("&");
+    parts.push(
+      `${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`,
+    );
+  }
+
+  return parts.join("&");
 };
 
 export const parse = (str: string): Record<string, any> => {

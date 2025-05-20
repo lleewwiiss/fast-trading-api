@@ -25,3 +25,4 @@ export * from "~/utils/uniq.utils";
 export * from "~/utils/random.utils";
 export * from "~/utils/watch-obj-path.utils";
 export * from "~/utils/deep-merge.utils";
+export * from "~/utils/map-obj.utils";
