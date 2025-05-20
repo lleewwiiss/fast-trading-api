@@ -39,9 +39,22 @@ export const closePositionCommand = ({
     return;
   }
 
+  const ticker = Object.values(
+    api.store.memory[account.exchange].public.tickers,
+  ).find(
+    (t) =>
+      t.symbol === symbol.toUpperCase() ||
+      t.cleanSymbol === symbol.toUpperCase(),
+  );
+
+  if (!ticker) {
+    onMessage(`Ticker not found: ${symbol}`, CLIMessageSeverity.Error);
+    return;
+  }
+
   const position = api.store.memory[account.exchange].private[
     account.id
-  ].positions.find((p) => p.symbol === symbol);
+  ].positions.find((p) => p.symbol === ticker.symbol);
 
   if (!position) {
     onMessage(`Position not found: ${symbol}`, CLIMessageSeverity.Error);
