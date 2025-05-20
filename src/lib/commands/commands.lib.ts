@@ -4,7 +4,13 @@ import {
   printMarketOrderHelp,
   shortCommand,
 } from "./market.command";
-import { closePositionCommand, closePositionHelp } from "./position.command";
+import {
+  closePositionCommand,
+  closePositionHelp,
+  increasePositionCommand,
+  printManagePositionHelp,
+  reducePositionCommand,
+} from "./position.command";
 
 export const DEFAULT_CLI_COMMANDS: CLICommandEntry[] = [
   {
@@ -26,5 +32,17 @@ export const DEFAULT_CLI_COMMANDS: CLICommandEntry[] = [
     description: "Close a position",
     help: closePositionHelp,
     command: closePositionCommand,
+  },
+  {
+    method: CLICommands.Increase,
+    description: "Increase a position",
+    help: printManagePositionHelp("increase"),
+    command: increasePositionCommand,
+  },
+  {
+    method: CLICommands.Reduce,
+    description: "Reduce a position",
+    help: printManagePositionHelp("reduce"),
+    command: reducePositionCommand,
   },
 ];

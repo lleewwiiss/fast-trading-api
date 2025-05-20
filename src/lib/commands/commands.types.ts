@@ -35,4 +35,6 @@ export enum CLICommands {
   Short = "short",
   ShortAlias = "s",
   Close = "close",
+  Increase = "increase",
+  Reduce = "reduce",
 }
