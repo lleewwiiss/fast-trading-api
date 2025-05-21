@@ -200,12 +200,11 @@ export class BybitWsPublic {
           orderBook.asks = [];
 
           for (const key in data.data as Record<string, string[][]>) {
-            const side = data.data[key][0];
-            const orders = data.data[key][1];
+            if (key !== "a" && key !== "b") continue;
 
-            if (side !== "a" && side !== "b") continue;
+            const sideKey = key === "a" ? "asks" : "bids";
+            const orders = data.data[key];
 
-            const sideKey = side === "a" ? "asks" : "bids";
             orders.forEach((order: string[]) => {
               orderBook[sideKey].push({
                 price: parseFloat(order[0]),
@@ -218,12 +217,11 @@ export class BybitWsPublic {
 
         if (data.type === "delta") {
           for (const key in data.data as Record<string, string[][]>) {
-            const side = data.data[key][0];
-            const orders = data.data[key][1];
+            if (key !== "a" && key !== "b") continue;
 
-            if (side !== "a" && side !== "b") continue;
+            const orderKey = key === "a" ? "asks" : "bids";
+            const orders = data.data[key];
 
-            const orderKey = side === "a" ? "asks" : "bids";
             orders.forEach((order: string[]) => {
               const price = parseFloat(order[0]);
               const amount = parseFloat(order[1]);
