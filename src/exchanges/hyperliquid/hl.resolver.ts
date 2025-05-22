@@ -5,6 +5,7 @@ import type {
   HLUserAccount,
   HLUserOrder,
 } from "./hl.types";
+import { mapHlOrder } from "./hl.utils";
 
 import { TICKER_REGEX } from "~/utils/regex.utils";
 import {
@@ -17,9 +18,6 @@ import {
   type Market,
   type Ticker,
   type Order,
-  OrderStatus,
-  OrderType,
-  OrderSide,
   type FetchOHLCVParams,
   type Candle,
 } from "~/types/lib.types";
@@ -155,19 +153,6 @@ export const fetchHLUserAccount = async ({
   };
 };
 
-const mapOrderType = (type: string) => {
-  switch (type) {
-    case "Limit":
-      return OrderType.Limit;
-    case "Take Profit Market":
-      return OrderType.TakeProfit;
-    case "Stop Market":
-      return OrderType.StopLoss;
-    default:
-      return OrderType.Limit;
-  }
-};
-
 export const fetchHLUserOrders = async ({
   config,
   account,
@@ -184,26 +169,9 @@ export const fetchHLUserOrders = async ({
     },
   });
 
-  const orders: Order[] = response.map((o) => {
-    const amount = parseFloat(o.origSz);
-    const remaining = parseFloat(o.sz);
-    const filled = subtract(amount, remaining);
-
-    return {
-      id: o.oid,
-      exchange: ExchangeName.HL,
-      accountId: account.id,
-      status: OrderStatus.Open,
-      symbol: o.coin,
-      type: mapOrderType(o.orderType),
-      side: o.side === "A" ? OrderSide.Sell : OrderSide.Buy,
-      price: parseFloat(o.limitPx),
-      amount,
-      filled,
-      remaining,
-      reduceOnly: o.reduceOnly || o.isPositionTpsl,
-    };
-  });
+  const orders: Order[] = response.map((o) =>
+    mapHlOrder({ order: o, accountId: account.id }),
+  );
 
   return orders;
 };

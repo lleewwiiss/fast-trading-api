@@ -6,7 +6,10 @@ import {
   fetchHLUserAccount,
   fetchHLUserOrders,
 } from "./hl.resolver";
-import { HyperLiquidWs } from "./hl.ws";
+import type { HLOrderUpdateWs } from "./hl.types";
+import { HyperLiquidWsPublic } from "./hl.ws-public";
+import { mapHlOrder } from "./hl.utils";
+import { HyperLiquidWsPrivate } from "./hl.ws-private";
 
 import { DEFAULT_CONFIG } from "~/config";
 import {
@@ -18,7 +21,8 @@ import {
 } from "~/types/lib.types";
 
 export class HyperLiquidWorker extends BaseWorker {
-  ws: HyperLiquidWs | null = null;
+  publicWs: HyperLiquidWsPublic | null = null;
+  privateWs: Record<Account["id"], HyperLiquidWsPrivate> = {};
 
   async start({
     accounts,
@@ -48,7 +52,7 @@ export class HyperLiquidWorker extends BaseWorker {
     this.log(`Loaded ${Object.keys(markets).length} HyperLiquid markets`);
 
     // 2. start websocket connection
-    this.ws = new HyperLiquidWs({ parent: this });
+    this.publicWs = new HyperLiquidWsPublic({ parent: this });
   }
 
   async addAccounts({
@@ -59,6 +63,13 @@ export class HyperLiquidWorker extends BaseWorker {
     requestId?: string;
   }) {
     super.addAccounts({ accounts, requestId });
+
+    for (const account of accounts) {
+      this.privateWs[account.id] = new HyperLiquidWsPrivate({
+        parent: this,
+        account,
+      });
+    }
 
     await Promise.all(
       accounts.map(async (account) => {
@@ -101,6 +112,10 @@ export class HyperLiquidWorker extends BaseWorker {
     );
 
     for (const account of accounts) {
+      // Start listening on private data updates
+      // as we have fetched the initial data from HTTP API
+      this.privateWs[account.id].startListening();
+
       // Fetch user orders
       const orders = await fetchHLUserOrders({ config: this.config, account });
       this.emitChanges([
@@ -121,6 +136,54 @@ export class HyperLiquidWorker extends BaseWorker {
     }
   }
 
+  updateAccountOrders({
+    accountId,
+    hlOrders,
+  }: {
+    accountId: string;
+    hlOrders: HLOrderUpdateWs[];
+  }) {
+    const changes: any[] = [];
+
+    for (const hlOrder of hlOrders) {
+      if (hlOrder.status === "open") {
+        const length = this.memory.private[accountId].orders.length;
+        const exists = this.memory.private[accountId].orders.some(
+          (o) => o.id === hlOrder.order.oid,
+        );
+
+        if (!exists) {
+          changes.push({
+            type: "update",
+            path: `private.${accountId}.orders.${length}`,
+            value: mapHlOrder({
+              order: hlOrder.order,
+              accountId,
+            }),
+          });
+        }
+      }
+
+      if (hlOrder.status === "canceled") {
+        const idx = this.memory.private[accountId].orders.findIndex(
+          (o) => o.id === hlOrder.order.oid,
+        );
+
+        if (idx !== -1) {
+          changes.push({
+            type: "removeArrayElement",
+            path: `private.${accountId}.orders`,
+            index: idx,
+          });
+        }
+      }
+    }
+
+    if (changes.length > 0) {
+      this.emitChanges(changes);
+    }
+  }
+
   async fetchOHLCV({
     requestId,
     params,
@@ -133,19 +196,19 @@ export class HyperLiquidWorker extends BaseWorker {
   }
 
   listenOHLCV(opts: { symbol: string; timeframe: Timeframe }) {
-    this.ws?.listenOHLCV(opts);
+    this.publicWs?.listenOHLCV(opts);
   }
 
   unlistenOHLCV(opts: { symbol: string; timeframe: Timeframe }) {
-    this.ws?.unlistenOHLCV(opts);
+    this.publicWs?.unlistenOHLCV(opts);
   }
 
   listenOrderBook(symbol: string) {
-    this.ws?.listenOrderBook(symbol);
+    this.publicWs?.listenOrderBook(symbol);
   }
 
   unlistenOrderBook(symbol: string) {
-    this.ws?.unlistenOrderBook(symbol);
+    this.publicWs?.unlistenOrderBook(symbol);
   }
 
   async fetchPositionMetadata({

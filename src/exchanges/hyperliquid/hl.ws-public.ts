@@ -1,17 +1,11 @@
 import type { HyperLiquidWorker } from "./hl.worker";
 import type { HLActiveAssetCtxWs } from "./hl.types";
 
-import type {
-  Account,
-  Candle,
-  OrderBook,
-  Ticker,
-  Timeframe,
-} from "~/types/lib.types";
+import type { Candle, OrderBook, Ticker, Timeframe } from "~/types/lib.types";
 import { ReconnectingWebSocket } from "~/utils/reconnecting-websocket.utils";
 import { calcOrderBookTotal, sortOrderBook } from "~/utils/orderbook.utils";
 
-export class HyperLiquidWs {
+export class HyperLiquidWsPublic {
   parent: HyperLiquidWorker;
 
   pingAt = 0;
@@ -32,7 +26,6 @@ export class HyperLiquidWs {
   constructor({ parent }: { parent: HyperLiquidWorker }) {
     this.parent = parent;
     this.messageHandlers.pong = this.handlePong;
-    this.messageHandlers.post = this.handlePostResponse;
     this.messageHandlers.activeAssetCtx = this.handleactiveAssetCtx;
     this.listenWebSocket();
   }
@@ -42,14 +35,6 @@ export class HyperLiquidWs {
     this.ws.addEventListener("open", this.onOpen);
     this.ws.addEventListener("message", this.onMessage);
     this.ws.addEventListener("close", this.onClose);
-  };
-
-  listenAccount = (account: Account) => {
-    this.subscribe({ type: "notifications", user: account.apiKey });
-    this.subscribe({ type: "web2Data", user: account.apiKey });
-    this.subscribe({ type: "orderUpdates", user: account.apiKey });
-    this.subscribe({ type: "userEvents", user: account.apiKey });
-    this.subscribe({ type: "userFills", user: account.apiKey });
   };
 
   listenOHLCV = ({
@@ -198,15 +183,11 @@ export class HyperLiquidWs {
   }
 
   onOpen = () => {
-    this.parent.log(`HyperLiquid WebSocket opened`);
+    this.parent.log(`HyperLiquid Public WebSocket opened`);
     this.ping();
 
     for (const ticker in this.parent.memory.public.tickers) {
       this.subscribe({ type: "activeAssetCtx", coin: ticker });
-    }
-
-    for (const account of this.parent.accounts) {
-      this.listenAccount(account);
     }
   };
 
@@ -238,17 +219,6 @@ export class HyperLiquidWs {
       this.pingTimeout = setTimeout(() => {
         this.ping();
       }, 10_000);
-    }
-  };
-
-  handlePostResponse = (json: Record<string, any>) => {
-    if (json.channel === "post" && json.data.id) {
-      const callback = this.pendingRequests.get(json.data.id);
-
-      if (callback) {
-        callback(json);
-        this.pendingRequests.delete(json.data.id);
-      }
     }
   };
 

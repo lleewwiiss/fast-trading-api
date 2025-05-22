@@ -12,7 +12,7 @@ export const DEFAULT_CONFIG: Record<ExchangeName, ExchangeConfig> = {
     PUBLIC_API_URL: "https://api.hyperliquid.xyz",
     PRIVATE_API_URL: "",
     WS_PUBLIC_URL: "wss://api.hyperliquid.xyz/ws",
-    WS_PRIVATE_URL: "",
+    WS_PRIVATE_URL: "wss://api.hyperliquid.xyz/ws",
     WS_TRADE_URL: "",
   },
 };

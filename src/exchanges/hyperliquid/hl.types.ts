@@ -110,3 +110,8 @@ export type HLCandle = {
   t: number;
   v: string;
 };
+
+export type HLOrderUpdateWs = {
+  order: HLUserOrder;
+  status: "canceled" | "open";
+};
