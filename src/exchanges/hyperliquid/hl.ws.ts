@@ -1,8 +1,15 @@
 import type { HyperLiquidWorker } from "./hl.worker";
 import type { HLActiveAssetCtxWs } from "./hl.types";
 
-import type { Account, Candle, Ticker, Timeframe } from "~/types/lib.types";
+import type {
+  Account,
+  Candle,
+  OrderBook,
+  Ticker,
+  Timeframe,
+} from "~/types/lib.types";
 import { ReconnectingWebSocket } from "~/utils/reconnecting-websocket.utils";
+import { calcOrderBookTotal, sortOrderBook } from "~/utils/orderbook.utils";
 
 export class HyperLiquidWs {
   parent: HyperLiquidWorker;
@@ -18,6 +25,9 @@ export class HyperLiquidWs {
 
   ohlcvTopics = new Set<string>();
   ohlcvTimeouts = new Map<string, NodeJS.Timeout>();
+
+  orderBookTopics = new Set<string>();
+  orderBookTimeouts = new Map<string, NodeJS.Timeout>();
 
   constructor({ parent }: { parent: HyperLiquidWorker }) {
     this.parent = parent;
@@ -49,7 +59,7 @@ export class HyperLiquidWs {
     symbol: string;
     timeframe: Timeframe;
   }) => {
-    const ohlcvTopic = `${symbol}.${timeframe}`;
+    const ohlcvTopic = `ohlcv.${symbol}.${timeframe}`;
 
     if (this.ohlcvTopics.has(ohlcvTopic)) return;
     this.ohlcvTopics.add(ohlcvTopic);
@@ -102,7 +112,7 @@ export class HyperLiquidWs {
     symbol: string;
     timeframe: Timeframe;
   }) {
-    const ohlcvTopic = `${symbol}.${timeframe}`;
+    const ohlcvTopic = `ohlcv.${symbol}.${timeframe}`;
     const timeout = this.ohlcvTimeouts.get(ohlcvTopic);
 
     if (timeout) {
@@ -116,6 +126,75 @@ export class HyperLiquidWs {
 
     delete this.messageHandlers[ohlcvTopic];
     this.ohlcvTopics.delete(ohlcvTopic);
+  }
+
+  listenOrderBook(symbol: string) {
+    const orderBook: OrderBook = { bids: [], asks: [] };
+    const orderBookTopic = `orderbook.${symbol}`;
+
+    if (this.orderBookTopics.has(orderBookTopic)) return;
+    this.orderBookTopics.add(orderBookTopic);
+
+    this.messageHandlers[orderBookTopic] = (json: Record<string, any>) => {
+      if (json.channel === "l2Book" && json.data.coin === symbol) {
+        const [buySide, sellSide] = json.data.levels as Array<
+          { px: string; sz: string }[]
+        >;
+
+        buySide.forEach((order) => {
+          const price = parseFloat(order.px);
+          const amount = parseFloat(order.sz);
+          orderBook.bids.push({ price, amount, total: 0 });
+        });
+
+        sellSide.forEach((order) => {
+          const price = parseFloat(order.px);
+          const amount = parseFloat(order.sz);
+          orderBook.asks.push({ price, amount, total: 0 });
+        });
+
+        sortOrderBook(orderBook);
+        calcOrderBookTotal(orderBook);
+
+        this.parent.emitOrderBook({ symbol, orderBook });
+      }
+    };
+
+    const waitConnectAndSubscribe = () => {
+      if (this.orderBookTimeouts.has(orderBookTopic)) {
+        clearTimeout(this.orderBookTimeouts.get(orderBookTopic));
+        this.orderBookTimeouts.delete(orderBookTopic);
+      }
+
+      if (this.ws?.readyState !== WebSocket.OPEN) {
+        this.orderBookTimeouts.set(
+          orderBookTopic,
+          setTimeout(() => waitConnectAndSubscribe(), 100),
+        );
+        return;
+      }
+
+      this.subscribe({ type: "l2Book", coin: symbol });
+    };
+
+    waitConnectAndSubscribe();
+  }
+
+  unlistenOrderBook(symbol: string) {
+    const orderBookTopic = `orderbook.500.${symbol}`;
+    const timeout = this.orderBookTimeouts.get(orderBookTopic);
+
+    if (timeout) {
+      clearTimeout(timeout);
+      this.orderBookTimeouts.delete(orderBookTopic);
+    }
+
+    if (this.ws?.readyState === WebSocket.OPEN) {
+      this.unsubscribe({ type: "l2Book", coin: symbol });
+    }
+
+    delete this.messageHandlers[orderBookTopic];
+    this.orderBookTopics.delete(orderBookTopic);
   }
 
   onOpen = () => {

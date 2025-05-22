@@ -132,8 +132,20 @@ export class HyperLiquidWorker extends BaseWorker {
     this.emitResponse({ requestId, data: candles });
   }
 
-  listenOHLCV({ symbol, timeframe }: { symbol: string; timeframe: Timeframe }) {
-    this.ws?.listenOHLCV({ symbol, timeframe });
+  listenOHLCV(opts: { symbol: string; timeframe: Timeframe }) {
+    this.ws?.listenOHLCV(opts);
+  }
+
+  unlistenOHLCV(opts: { symbol: string; timeframe: Timeframe }) {
+    this.ws?.unlistenOHLCV(opts);
+  }
+
+  listenOrderBook(symbol: string) {
+    this.ws?.listenOrderBook(symbol);
+  }
+
+  unlistenOrderBook(symbol: string) {
+    this.ws?.unlistenOrderBook(symbol);
   }
 }
 
