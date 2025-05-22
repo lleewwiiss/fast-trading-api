@@ -14,6 +14,7 @@ import {
   type Account,
   type ExchangeConfig,
   type FetchOHLCVParams,
+  type Timeframe,
 } from "~/types/lib.types";
 
 export class HyperLiquidWorker extends BaseWorker {
@@ -100,9 +101,6 @@ export class HyperLiquidWorker extends BaseWorker {
     );
 
     for (const account of accounts) {
-      // Start listening on user data
-      this.ws?.listenAccount(account);
-
       // Fetch user orders
       const orders = await fetchHLUserOrders({ config: this.config, account });
       this.emitChanges([
@@ -132,6 +130,10 @@ export class HyperLiquidWorker extends BaseWorker {
   }) {
     const candles = await fetchHLOHLCV({ config: this.config, params });
     this.emitResponse({ requestId, data: candles });
+  }
+
+  listenOHLCV({ symbol, timeframe }: { symbol: string; timeframe: Timeframe }) {
+    this.ws?.listenOHLCV({ symbol, timeframe });
   }
 }
 

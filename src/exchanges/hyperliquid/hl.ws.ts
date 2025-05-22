@@ -1,7 +1,7 @@
 import type { HyperLiquidWorker } from "./hl.worker";
 import type { HLActiveAssetCtxWs } from "./hl.types";
 
-import type { Account, Ticker } from "~/types";
+import type { Account, Candle, Ticker, Timeframe } from "~/types/lib.types";
 import { ReconnectingWebSocket } from "~/utils/reconnecting-websocket.utils";
 
 export class HyperLiquidWs {
@@ -16,7 +16,8 @@ export class HyperLiquidWs {
   pendingRequests = new Map<string, (data: any) => void>();
   messageHandlers: Record<string, (data: Record<string, any>) => void> = {};
 
-  subscribedAccounts: Set<Account> = new Set();
+  ohlcvTopics = new Set<string>();
+  ohlcvTimeouts = new Map<string, NodeJS.Timeout>();
 
   constructor({ parent }: { parent: HyperLiquidWorker }) {
     this.parent = parent;
@@ -34,21 +35,99 @@ export class HyperLiquidWs {
   };
 
   listenAccount = (account: Account) => {
-    if (!this.subscribedAccounts.has(account)) {
-      this.subscribedAccounts.add(account);
-      this.subscribe({ type: "notifications", user: account.apiKey });
-      this.subscribe({ type: "web2Data", user: account.apiKey });
-      this.subscribe({ type: "orderUpdates", user: account.apiKey });
-      this.subscribe({ type: "userEvents", user: account.apiKey });
-      this.subscribe({ type: "userFills", user: account.apiKey });
-    }
+    this.subscribe({ type: "notifications", user: account.apiKey });
+    this.subscribe({ type: "web2Data", user: account.apiKey });
+    this.subscribe({ type: "orderUpdates", user: account.apiKey });
+    this.subscribe({ type: "userEvents", user: account.apiKey });
+    this.subscribe({ type: "userFills", user: account.apiKey });
   };
+
+  listenOHLCV = ({
+    symbol,
+    timeframe,
+  }: {
+    symbol: string;
+    timeframe: Timeframe;
+  }) => {
+    const ohlcvTopic = `${symbol}.${timeframe}`;
+
+    if (this.ohlcvTopics.has(ohlcvTopic)) return;
+    this.ohlcvTopics.add(ohlcvTopic);
+
+    this.messageHandlers[ohlcvTopic] = (json: Record<string, any>) => {
+      if (
+        json.channel === "candle" &&
+        json.data.s === symbol &&
+        json.data.i === timeframe
+      ) {
+        const candle: Candle = {
+          symbol,
+          timeframe,
+          timestamp: Math.round(json.data.T / 1000),
+          open: parseFloat(json.data.o),
+          high: parseFloat(json.data.h),
+          low: parseFloat(json.data.l),
+          close: parseFloat(json.data.c),
+          volume: parseFloat(json.data.v),
+        };
+
+        this.parent.emitCandle(candle);
+      }
+    };
+
+    const waitConnectAndSubscribe = () => {
+      if (this.ohlcvTimeouts.has(ohlcvTopic)) {
+        clearTimeout(this.ohlcvTimeouts.get(ohlcvTopic));
+        this.ohlcvTimeouts.delete(ohlcvTopic);
+      }
+
+      if (this.ws?.readyState !== WebSocket.OPEN) {
+        this.ohlcvTimeouts.set(
+          ohlcvTopic,
+          setTimeout(() => waitConnectAndSubscribe(), 100),
+        );
+        return;
+      }
+
+      this.subscribe({ type: "candle", coin: symbol, interval: timeframe });
+    };
+
+    waitConnectAndSubscribe();
+  };
+
+  unlistenOHLCV({
+    symbol,
+    timeframe,
+  }: {
+    symbol: string;
+    timeframe: Timeframe;
+  }) {
+    const ohlcvTopic = `${symbol}.${timeframe}`;
+    const timeout = this.ohlcvTimeouts.get(ohlcvTopic);
+
+    if (timeout) {
+      clearTimeout(timeout);
+      this.ohlcvTimeouts.delete(ohlcvTopic);
+    }
+
+    if (this.ws?.readyState === WebSocket.OPEN) {
+      this.unsubscribe({ type: "candle", coin: symbol, interval: timeframe });
+    }
+
+    delete this.messageHandlers[ohlcvTopic];
+    this.ohlcvTopics.delete(ohlcvTopic);
+  }
 
   onOpen = () => {
     this.parent.log(`HyperLiquid WebSocket opened`);
     this.ping();
+
     for (const ticker in this.parent.memory.public.tickers) {
       this.subscribe({ type: "activeAssetCtx", coin: ticker });
+    }
+
+    for (const account of this.parent.accounts) {
+      this.listenAccount(account);
     }
   };
 
@@ -146,6 +225,10 @@ export class HyperLiquidWs {
 
   subscribe = (subscription: Record<string, string> & { type: string }) => {
     this.send({ method: "subscribe", subscription });
+  };
+
+  unsubscribe = (subscription: Record<string, string> & { type: string }) => {
+    this.send({ method: "unsubscribe", subscription });
   };
 
   stop = () => {
