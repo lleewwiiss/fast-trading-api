@@ -17,7 +17,7 @@ class ChaseInstance {
   worker: BaseWorker;
   opts: ChaseOpts;
 
-  orderIds: string[] = [];
+  orderIds: Array<string | number> = [];
   isPlacingOrder = false;
   isStopped = false;
 

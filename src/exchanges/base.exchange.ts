@@ -120,7 +120,7 @@ export class BaseExchange {
     accountId,
     priority = false,
   }: {
-    orderIds: string[];
+    orderIds: Array<string | number>;
     accountId: string;
     priority?: boolean;
   }) {

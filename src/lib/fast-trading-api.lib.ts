@@ -253,7 +253,7 @@ export class FastTradingApi {
     accountId,
     priority = false,
   }: {
-    orderId: string;
+    orderId: string | number;
     accountId: string;
     priority?: boolean;
   }) {
@@ -265,7 +265,7 @@ export class FastTradingApi {
     accountId,
     priority = false,
   }: {
-    orderIds: string[];
+    orderIds: Array<string | number>;
     accountId: string;
     priority?: boolean;
   }) {

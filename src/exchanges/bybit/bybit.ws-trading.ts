@@ -254,7 +254,7 @@ export class BybitWsTrading {
               {
                 category: "linear",
                 request: batch.map(({ order, market, update }) => {
-                  const amendedOrder: Record<string, string> = {
+                  const amendedOrder: Record<string, string | number> = {
                     symbol: order.symbol,
                     orderId: order.id,
                   };

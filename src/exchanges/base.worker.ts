@@ -334,7 +334,7 @@ export class BaseWorker {
   }
 
   async cancelOrders(_params: {
-    orderIds: string[];
+    orderIds: Array<string | number>;
     accountId: string;
     requestId: string;
     priority?: boolean;

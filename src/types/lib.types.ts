@@ -165,7 +165,7 @@ export enum OrderTimeInForce {
 }
 
 export interface Order {
-  id: string;
+  id: string | number;
   exchange: ExchangeName;
   accountId: string;
   parentId?: string;
@@ -196,7 +196,7 @@ export type Notification = {
   accountId: Account["id"];
   type: "order_fill";
   data: {
-    id: string;
+    id: string | number;
     side: OrderSide;
     amount: number;
     symbol: Order["symbol"];
