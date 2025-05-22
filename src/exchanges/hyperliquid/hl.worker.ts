@@ -147,6 +147,52 @@ export class HyperLiquidWorker extends BaseWorker {
   unlistenOrderBook(symbol: string) {
     this.ws?.unlistenOrderBook(symbol);
   }
+
+  async fetchPositionMetadata({
+    requestId,
+    accountId,
+    symbol,
+  }: {
+    requestId: string;
+    accountId: string;
+    symbol: string;
+  }) {
+    const account = this.accounts.find((a) => a.id === accountId);
+
+    if (!account) {
+      this.error(`No account found for id: ${accountId}`);
+      return;
+    }
+
+    const position = this.memory.private[accountId].positions.find(
+      (p) => p.symbol === symbol,
+    );
+
+    if (position) {
+      const { leverage, isHedged } = position;
+      this.emitResponse({ requestId, data: { leverage, isHedged } });
+    }
+
+    // Hyperliquid defaults are max 20x leverage
+    // Otherwise max leverage per symbol
+    const market = this.memory.public.markets[symbol];
+    const leverage = Math.min(market.limits.leverage.max, 20);
+
+    this.emitChanges([
+      {
+        type: `update`,
+        path: `private.${accountId}.metadata.leverage.${symbol}`,
+        value: leverage,
+      },
+      {
+        type: `update`,
+        path: `private.${accountId}.metadata.hedgedPosition.${symbol}`,
+        value: false,
+      },
+    ]);
+
+    this.emitResponse({ requestId, data: { leverage, isHedged: false } });
+  }
 }
 
 new HyperLiquidWorker({
