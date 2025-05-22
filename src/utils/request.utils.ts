@@ -19,7 +19,10 @@ export const request = async <T>(req: Request) => {
     const response = await fetch(url, {
       method: req.method ?? "GET",
       body: req.body ? JSON.stringify(req.body) : undefined,
-      headers: req.headers,
+      headers: {
+        "content-type": "application/json",
+        ...(req.headers || {}),
+      },
     });
 
     return response.json() as Promise<T>;

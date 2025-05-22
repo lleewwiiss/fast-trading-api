@@ -46,7 +46,7 @@ describe("request utility", () => {
     expect(global.fetch).toHaveBeenCalledWith("https://api.example.com/data", {
       method: "GET",
       body: undefined,
-      headers: undefined,
+      headers: { "content-type": "application/json" },
     });
   });
 
@@ -61,7 +61,7 @@ describe("request utility", () => {
       {
         method: "GET",
         body: undefined,
-        headers: undefined,
+        headers: { "content-type": "application/json" },
       },
     );
   });
@@ -76,7 +76,7 @@ describe("request utility", () => {
     expect(global.fetch).toHaveBeenCalledWith("https://api.example.com/data", {
       method: "POST",
       body: JSON.stringify({ name: "test", values: [1, 2, 3] }),
-      headers: undefined,
+      headers: { "content-type": "application/json" },
     });
   });
 
@@ -85,7 +85,7 @@ describe("request utility", () => {
       url: "https://api.example.com/data",
       headers: {
         Authorization: "Bearer token123",
-        "Content-Type": "application/json",
+        "content-type": "application/json",
       },
     });
 
@@ -94,7 +94,7 @@ describe("request utility", () => {
       body: undefined,
       headers: {
         Authorization: "Bearer token123",
-        "Content-Type": "application/json",
+        "content-type": "application/json",
       },
     });
   });
