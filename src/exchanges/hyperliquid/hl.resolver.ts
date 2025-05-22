@@ -1,14 +1,27 @@
 import { HL_ENDPOINTS } from "./hl.config";
-import type { HLMetaAndAssetCtxs } from "./hl.types";
+import type {
+  HLMetaAndAssetCtxs,
+  HLUserAccount,
+  HLUserOrder,
+} from "./hl.types";
 
 import { TICKER_REGEX } from "~/utils/regex.utils";
 import {
   ExchangeName,
+  PositionSide,
+  type Position,
+  type Account,
+  type Balance,
   type ExchangeConfig,
   type Market,
   type Ticker,
+  type Order,
+  OrderStatus,
+  OrderType,
+  OrderSide,
 } from "~/types/lib.types";
 import { request } from "~/utils/request.utils";
+import { subtract, sumBy } from "~/utils";
 
 export const fetchHLMarketsAndTickers = async (config: ExchangeConfig) => {
   const [{ universe }, assets] = await request<HLMetaAndAssetCtxs>({
@@ -73,8 +86,8 @@ export const fetchHLMarketsAndTickers = async (config: ExchangeConfig) => {
         percentage,
         openInterest: parseFloat(t.openInterest),
         fundingRate: parseFloat(t.funding),
-        volume: 0,
-        quoteVolume: 0,
+        volume: parseFloat(t.dayBaseVlm),
+        quoteVolume: parseFloat(t.dayNtlVlm),
       };
 
       return acc;
@@ -86,4 +99,92 @@ export const fetchHLMarketsAndTickers = async (config: ExchangeConfig) => {
     markets,
     tickers,
   };
+};
+
+export const fetchHLUserAccount = async ({
+  config,
+  account,
+}: {
+  config: ExchangeConfig;
+  account: Account;
+}) => {
+  const response = await request<HLUserAccount>({
+    url: `${config.PUBLIC_API_URL}${HL_ENDPOINTS.PUBLIC.INFO}`,
+    method: "POST",
+    body: {
+      type: "clearinghouseState",
+      user: account.apiKey,
+    },
+  });
+
+  const positions: Position[] = response.assetPositions.map((p) => {
+    const contracts = parseFloat(p.position.szi);
+
+    return {
+      accountId: account.id,
+      exchange: ExchangeName.HL,
+      symbol: p.position.coin,
+      side: contracts > 0 ? PositionSide.Long : PositionSide.Short,
+      entryPrice: parseFloat(p.position.entryPx),
+      notional: parseFloat(p.position.positionValue),
+      leverage: p.position.leverage.value,
+      upnl: parseFloat(p.position.unrealizedPnl),
+      rpnl: 0,
+      contracts: Math.abs(contracts),
+      liquidationPrice: parseFloat(p.position.liquidationPx),
+      isHedged: p.type !== "oneWay",
+    };
+  });
+
+  const used = parseFloat(response.crossMarginSummary.totalMarginUsed);
+  const total = parseFloat(response.crossMarginSummary.accountValue);
+  const free = subtract(total, used);
+  const upnl = sumBy(positions, (p) => p.upnl);
+
+  const balance: Balance = { used, free, total, upnl };
+
+  return {
+    balance,
+    positions,
+  };
+};
+
+export const fetchHLUserOrders = async ({
+  config,
+  account,
+}: {
+  config: ExchangeConfig;
+  account: Account;
+}) => {
+  const response = await request<HLUserOrder[]>({
+    url: `${config.PUBLIC_API_URL}${HL_ENDPOINTS.PUBLIC.INFO}`,
+    method: "POST",
+    body: {
+      type: "frontendOpenOrders",
+      user: account.apiKey,
+    },
+  });
+
+  const orders: Order[] = response.map((o) => {
+    const amount = parseFloat(o.origSz);
+    const remaining = parseFloat(o.sz);
+    const filled = subtract(amount, remaining);
+
+    return {
+      id: o.oid,
+      exchange: ExchangeName.HL,
+      accountId: account.id,
+      status: OrderStatus.Open,
+      symbol: o.coin,
+      type: OrderType.Limit,
+      side: o.side === "A" ? OrderSide.Buy : OrderSide.Sell,
+      price: parseFloat(o.limitPx),
+      amount,
+      filled,
+      remaining,
+      reduceOnly: o.reduceOnly,
+    };
+  });
+
+  return orders;
 };
