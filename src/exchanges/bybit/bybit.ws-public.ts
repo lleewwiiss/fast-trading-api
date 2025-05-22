@@ -122,10 +122,7 @@ export class BybitWsPublic {
           data: [c],
         } = JSON.parse(event.data);
 
-        const candle: Candle & {
-          symbol: string;
-          timeframe: Timeframe;
-        } = {
+        const candle: Candle = {
           symbol,
           timeframe,
           timestamp: c.start / 1000,
