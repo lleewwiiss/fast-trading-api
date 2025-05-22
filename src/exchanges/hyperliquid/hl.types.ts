@@ -97,3 +97,16 @@ export type HLActiveAssetCtxWs = {
     };
   };
 };
+
+export type HLCandle = {
+  T: number;
+  c: string;
+  h: string;
+  i: string;
+  l: string;
+  n: number;
+  o: string;
+  s: string;
+  t: number;
+  v: string;
+};

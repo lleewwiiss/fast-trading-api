@@ -2,6 +2,7 @@ import { BaseWorker } from "../base.worker";
 
 import {
   fetchHLMarketsAndTickers,
+  fetchHLOHLCV,
   fetchHLUserAccount,
   fetchHLUserOrders,
 } from "./hl.resolver";
@@ -12,6 +13,7 @@ import {
   ExchangeName,
   type Account,
   type ExchangeConfig,
+  type FetchOHLCVParams,
 } from "~/types/lib.types";
 
 export class HyperLiquidWorker extends BaseWorker {
@@ -119,6 +121,17 @@ export class HyperLiquidWorker extends BaseWorker {
     if (requestId) {
       this.emitResponse({ requestId });
     }
+  }
+
+  async fetchOHLCV({
+    requestId,
+    params,
+  }: {
+    requestId: string;
+    params: FetchOHLCVParams;
+  }) {
+    const candles = await fetchHLOHLCV({ config: this.config, params });
+    this.emitResponse({ requestId, data: candles });
   }
 }
 

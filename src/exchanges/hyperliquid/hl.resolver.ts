@@ -1,5 +1,6 @@
 import { HL_ENDPOINTS } from "./hl.config";
 import type {
+  HLCandle,
   HLMetaAndAssetCtxs,
   HLUserAccount,
   HLUserOrder,
@@ -19,9 +20,14 @@ import {
   OrderStatus,
   OrderType,
   OrderSide,
+  type FetchOHLCVParams,
+  type Candle,
 } from "~/types/lib.types";
 import { request } from "~/utils/request.utils";
-import { subtract, sumBy } from "~/utils";
+import { subtract } from "~/utils/safe-math.utils";
+import { sumBy } from "~/utils/sum-by.utils";
+import { omitUndefined } from "~/utils/omit-undefined.utils";
+import { orderBy } from "~/utils/order-by.utils";
 
 export const fetchHLMarketsAndTickers = async (config: ExchangeConfig) => {
   const [{ universe }, assets] = await request<HLMetaAndAssetCtxs>({
@@ -187,4 +193,43 @@ export const fetchHLUserOrders = async ({
   });
 
   return orders;
+};
+
+export const fetchHLOHLCV = async ({
+  config,
+  params,
+}: {
+  config: ExchangeConfig;
+  params: FetchOHLCVParams;
+}) => {
+  const limit = Math.min(params.limit || 500, 1000);
+  const body = omitUndefined({
+    type: "candleSnapshot",
+    req: {
+      coin: params.symbol,
+      interval: params.timeframe,
+      endTime: params.to,
+      startTime: params.from,
+      limit,
+    },
+  });
+
+  const response = await request<HLCandle[]>({
+    url: `${config.PUBLIC_API_URL}${HL_ENDPOINTS.PUBLIC.INFO}`,
+    method: "POST",
+    body,
+  });
+
+  const candles: Candle[] = response.map((c) => ({
+    symbol: params.symbol,
+    timeframe: params.timeframe,
+    timestamp: Math.round(c.T / 1000),
+    open: parseFloat(c.o),
+    high: parseFloat(c.h),
+    low: parseFloat(c.l),
+    close: parseFloat(c.c),
+    volume: parseFloat(c.v),
+  }));
+
+  return orderBy(candles, ["timestamp"], ["asc"]);
 };
