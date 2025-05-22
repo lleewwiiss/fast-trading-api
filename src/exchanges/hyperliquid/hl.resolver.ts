@@ -155,6 +155,19 @@ export const fetchHLUserAccount = async ({
   };
 };
 
+const mapOrderType = (type: string) => {
+  switch (type) {
+    case "Limit":
+      return OrderType.Limit;
+    case "Take Profit Market":
+      return OrderType.TakeProfit;
+    case "Stop Market":
+      return OrderType.StopLoss;
+    default:
+      return OrderType.Limit;
+  }
+};
+
 export const fetchHLUserOrders = async ({
   config,
   account,
@@ -182,13 +195,13 @@ export const fetchHLUserOrders = async ({
       accountId: account.id,
       status: OrderStatus.Open,
       symbol: o.coin,
-      type: OrderType.Limit,
-      side: o.side === "A" ? OrderSide.Buy : OrderSide.Sell,
+      type: mapOrderType(o.orderType),
+      side: o.side === "A" ? OrderSide.Sell : OrderSide.Buy,
       price: parseFloat(o.limitPx),
       amount,
       filled,
       remaining,
-      reduceOnly: o.reduceOnly,
+      reduceOnly: o.reduceOnly || o.isPositionTpsl,
     };
   });
 

@@ -69,7 +69,7 @@ export type HLUserOrder = {
   isTrigger: boolean;
   limitPx: string;
   oid: number;
-  orderType: "Limit";
+  orderType: "Limit" | "Take Profit Market" | "Stop Market";
   origSz: string;
   reduceOnly: boolean;
   side: "A" | "B";
