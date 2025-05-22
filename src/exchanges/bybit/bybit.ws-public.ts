@@ -11,6 +11,7 @@ import {
   type Timeframe,
 } from "~/types/lib.types";
 import { ReconnectingWebSocket } from "~/utils/reconnecting-websocket.utils";
+import { mapObj } from "~/utils/map-obj.utils";
 
 export class BybitWsPublic {
   parent: BybitWorker;
@@ -19,7 +20,6 @@ export class BybitWsPublic {
   ws: ReconnectingWebSocket | null = null;
   interval: NodeJS.Timeout | null = null;
 
-  markets: string[] = [];
   messageHandlers: Record<string, (event: MessageEvent) => void> = {};
 
   orderBookTopics = new Set<string>();
@@ -28,9 +28,8 @@ export class BybitWsPublic {
   ohlcvTopics = new Set<string>();
   ohlcvTimeouts = new Map<string, NodeJS.Timeout>();
 
-  constructor({ parent, markets }: { parent: BybitWorker; markets: string[] }) {
+  constructor({ parent }: { parent: BybitWorker }) {
     this.parent = parent;
-    this.markets = markets;
     this.messageHandlers.tickers = this.handleTickers;
     this.listenWebsocket();
   }
@@ -49,7 +48,7 @@ export class BybitWsPublic {
 
     this.send({
       op: "subscribe",
-      args: this.markets.map((m) => `tickers.${m}`),
+      args: mapObj(this.parent.memory.public.markets, (m) => `tickers.${m}`),
     });
 
     if (this.orderBookTopics.size > 0) {

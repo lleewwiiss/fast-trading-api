@@ -34,7 +34,6 @@ import { toUSD } from "~/utils/to-usd.utils";
 import { sumBy } from "~/utils/sum-by.utils";
 import { genId } from "~/utils/gen-id.utils";
 import { DEFAULT_CONFIG } from "~/config";
-import { mapObj } from "~/utils/map-obj.utils";
 
 export class BybitWorker extends BaseWorker {
   publicWs: BybitWsPublic | null = null;
@@ -96,10 +95,7 @@ export class BybitWorker extends BaseWorker {
     this.log(`Loaded ${Object.keys(markets).length} Bybit markets`);
 
     // 2. Start public websocket
-    this.publicWs = new BybitWsPublic({
-      parent: this,
-      markets: mapObj(markets, (symbol) => symbol),
-    });
+    this.publicWs = new BybitWsPublic({ parent: this });
   }
 
   async addAccounts({
