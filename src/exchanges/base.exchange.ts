@@ -48,7 +48,7 @@ export class BaseExchange {
     this.parent.emit("log", `Starting ${this.name} Exchange`);
     return this.dispatchWorker({
       type: "start",
-      accounts: this.parent.accounts,
+      accounts: this.parent.accounts.filter((a) => a.exchange === this.name),
       config: this.config,
     });
   };
