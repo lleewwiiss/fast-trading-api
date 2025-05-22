@@ -172,11 +172,11 @@ export const fetchBybitSymbolPositions = async ({
     retries: 3,
   });
 
-  const positions: Position[] = json.result.list.map((p) =>
+  const positions: Position[] = json.result.list?.map((p) =>
     mapBybitPosition({ position: p, accountId: account.id }),
   );
 
-  return positions;
+  return positions ?? [];
 };
 
 export const fetchBybitOrders = async ({
