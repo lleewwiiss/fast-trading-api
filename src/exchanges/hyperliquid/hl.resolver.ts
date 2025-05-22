@@ -135,7 +135,7 @@ export const fetchHLUserAccount = async ({
       upnl: parseFloat(p.position.unrealizedPnl),
       rpnl: 0,
       contracts: Math.abs(contracts),
-      liquidationPrice: parseFloat(p.position.liquidationPx),
+      liquidationPrice: parseFloat(p.position.liquidationPx) || 0,
       isHedged: p.type !== "oneWay",
     };
   });
