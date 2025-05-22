@@ -8,7 +8,12 @@ export type Request = {
   params?: Record<string, string | number | string[] | number[]>;
   body?: Record<
     string,
-    string | number | string[] | number[] | Array<Record<string, any>>
+    | string
+    | number
+    | string[]
+    | number[]
+    | Array<Record<string, any>>
+    | Record<string, any>
   >;
   retries?: number;
 };
