@@ -41,7 +41,9 @@ export const mapHlOrder = ({
     symbol: order.coin,
     type: mapOrderType(order.orderType),
     side: order.side === "A" ? OrderSide.Sell : OrderSide.Buy,
-    price: parseFloat(order.limitPx),
+    price: order.isPositionTpsl
+      ? parseFloat(order.triggerPx)
+      : parseFloat(order.limitPx),
     amount,
     filled,
     remaining,
