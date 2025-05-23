@@ -1,6 +1,7 @@
 export * from "./utils/after-decimals.utils";
 export * from "./utils/chunk.utils";
 export * from "./utils/deep-merge.utils";
+export * from "./utils/eip712.utils";
 export * from "./utils/gen-id.utils";
 export * from "./utils/group-by.utils";
 export * from "./utils/inverse-obj.utils";
