@@ -5,7 +5,7 @@ import {
   stringToUint8Array,
   uint8ArrayToHex,
   compareUint8Arrays,
-} from "./hex.utils";
+} from "./uint8.utils";
 
 describe("hex.utils", () => {
   describe("hexToUint8Array", () => {
