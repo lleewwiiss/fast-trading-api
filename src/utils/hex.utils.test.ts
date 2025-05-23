@@ -4,6 +4,7 @@ import {
   hexToUint8Array,
   stringToUint8Array,
   uint8ArrayToHex,
+  compareUint8Arrays,
 } from "./hex.utils";
 
 describe("hex.utils", () => {
@@ -195,6 +196,143 @@ describe("hex.utils", () => {
       expect(ourUint8Array).toEqual(new Uint8Array(bufferUint8Array));
       expect(ourHex).toBe(bufferHex);
       expect(ourFinalArray).toEqual(new Uint8Array(bufferFinalArray));
+    });
+  });
+
+  describe("compareUint8Arrays", () => {
+    test("should return true for identical arrays", () => {
+      const array1 = new Uint8Array([1, 2, 3, 4, 5]);
+      const array2 = new Uint8Array([1, 2, 3, 4, 5]);
+      const result = compareUint8Arrays(array1, array2);
+      const expected = Buffer.from(array1).equals(Buffer.from(array2));
+
+      expect(result).toBe(true);
+      expect(result).toBe(expected);
+    });
+
+    test("should return true for empty arrays", () => {
+      const array1 = new Uint8Array([]);
+      const array2 = new Uint8Array([]);
+      const result = compareUint8Arrays(array1, array2);
+      const expected = Buffer.from(array1).equals(Buffer.from(array2));
+
+      expect(result).toBe(true);
+      expect(result).toBe(expected);
+    });
+
+    test("should return false for arrays with different lengths", () => {
+      const array1 = new Uint8Array([1, 2, 3]);
+      const array2 = new Uint8Array([1, 2, 3, 4]);
+      const result = compareUint8Arrays(array1, array2);
+      const expected = Buffer.from(array1).equals(Buffer.from(array2));
+
+      expect(result).toBe(false);
+      expect(result).toBe(expected);
+    });
+
+    test("should return false for arrays with same length but different content", () => {
+      const array1 = new Uint8Array([1, 2, 3, 4]);
+      const array2 = new Uint8Array([1, 2, 4, 4]);
+      const result = compareUint8Arrays(array1, array2);
+      const expected = Buffer.from(array1).equals(Buffer.from(array2));
+
+      expect(result).toBe(false);
+      expect(result).toBe(expected);
+    });
+
+    test("should return true for single element arrays with same value", () => {
+      const array1 = new Uint8Array([42]);
+      const array2 = new Uint8Array([42]);
+      const result = compareUint8Arrays(array1, array2);
+      const expected = Buffer.from(array1).equals(Buffer.from(array2));
+
+      expect(result).toBe(true);
+      expect(result).toBe(expected);
+    });
+
+    test("should return false for single element arrays with different values", () => {
+      const array1 = new Uint8Array([42]);
+      const array2 = new Uint8Array([43]);
+      const result = compareUint8Arrays(array1, array2);
+      const expected = Buffer.from(array1).equals(Buffer.from(array2));
+
+      expect(result).toBe(false);
+      expect(result).toBe(expected);
+    });
+
+    test("should handle arrays with all possible byte values", () => {
+      const array1 = new Uint8Array([0, 127, 128, 255]);
+      const array2 = new Uint8Array([0, 127, 128, 255]);
+      const result = compareUint8Arrays(array1, array2);
+      const expected = Buffer.from(array1).equals(Buffer.from(array2));
+
+      expect(result).toBe(true);
+      expect(result).toBe(expected);
+    });
+
+    test("should handle large arrays", () => {
+      const size = 1000;
+      const array1 = new Uint8Array(size);
+      const array2 = new Uint8Array(size);
+
+      // Fill with same pattern
+      for (let i = 0; i < size; i++) {
+        array1[i] = i % 256;
+        array2[i] = i % 256;
+      }
+
+      const result = compareUint8Arrays(array1, array2);
+      const expected = Buffer.from(array1).equals(Buffer.from(array2));
+
+      expect(result).toBe(true);
+      expect(result).toBe(expected);
+    });
+
+    test("should handle large arrays with difference at the end", () => {
+      const size = 1000;
+      const array1 = new Uint8Array(size);
+      const array2 = new Uint8Array(size);
+
+      // Fill with same pattern
+      for (let i = 0; i < size; i++) {
+        array1[i] = i % 256;
+        array2[i] = i % 256;
+      }
+
+      // Make them different at the last element
+      array2[size - 1] = (array2[size - 1] + 1) % 256;
+
+      const result = compareUint8Arrays(array1, array2);
+      const expected = Buffer.from(array1).equals(Buffer.from(array2));
+
+      expect(result).toBe(false);
+      expect(result).toBe(expected);
+    });
+
+    test("should handle arrays from hex conversion", () => {
+      const hex1 = "48656c6c6f20776f726c64";
+      const hex2 = "48656c6c6f20776f726c64";
+      const array1 = hexToUint8Array(hex1);
+      const array2 = hexToUint8Array(hex2);
+
+      const result = compareUint8Arrays(array1, array2);
+      const expected = Buffer.from(array1).equals(Buffer.from(array2));
+
+      expect(result).toBe(true);
+      expect(result).toBe(expected);
+    });
+
+    test("should handle arrays from string conversion", () => {
+      const str1 = "Hello World!";
+      const str2 = "Hello World!";
+      const array1 = stringToUint8Array(str1);
+      const array2 = stringToUint8Array(str2);
+
+      const result = compareUint8Arrays(array1, array2);
+      const expected = Buffer.from(array1).equals(Buffer.from(array2));
+
+      expect(result).toBe(true);
+      expect(result).toBe(expected);
     });
   });
 });
