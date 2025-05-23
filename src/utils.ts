@@ -3,6 +3,7 @@ export * from "./utils/chunk.utils";
 export * from "./utils/deep-merge.utils";
 export * from "./utils/gen-id.utils";
 export * from "./utils/group-by.utils";
+export * from "./utils/hex.utils";
 export * from "./utils/inverse-obj.utils";
 export * from "./utils/map-obj.utils";
 export * from "./utils/omit-undefined.utils";
