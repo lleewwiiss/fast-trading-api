@@ -5,13 +5,12 @@ import type {
   HLUserAccount,
   HLUserOrder,
 } from "./hl.types";
-import { mapHlOrder, mapHLPositions } from "./hl.utils";
+import { mapHlOrder, mapHLUserAccount } from "./hl.utils";
 
 import { TICKER_REGEX } from "~/utils/regex.utils";
 import {
   ExchangeName,
   type Account,
-  type Balance,
   type ExchangeConfig,
   type Market,
   type Ticker,
@@ -20,8 +19,6 @@ import {
   type Candle,
 } from "~/types/lib.types";
 import { request } from "~/utils/request.utils";
-import { subtract } from "~/utils/safe-math.utils";
-import { sumBy } from "~/utils/sum-by.utils";
 import { omitUndefined } from "~/utils/omit-undefined.utils";
 import { orderBy } from "~/utils/order-by.utils";
 
@@ -116,22 +113,10 @@ export const fetchHLUserAccount = async ({
     },
   });
 
-  const positions = mapHLPositions({
+  return mapHLUserAccount({
     accountId: account.id,
-    positions: response.assetPositions,
+    data: response,
   });
-
-  const used = parseFloat(response.crossMarginSummary.totalMarginUsed);
-  const total = parseFloat(response.crossMarginSummary.accountValue);
-  const free = subtract(total, used);
-  const upnl = sumBy(positions, (p) => p.upnl);
-
-  const balance: Balance = { used, free, total, upnl };
-
-  return {
-    balance,
-    positions,
-  };
 };
 
 export const fetchHLUserOrders = async ({

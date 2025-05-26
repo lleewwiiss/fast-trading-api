@@ -1,10 +1,11 @@
 import type { HyperLiquidWorker } from "./hl.worker";
 import { signL1Action } from "./hl.signer";
-import { formatHlOrder, mapHLPositions } from "./hl.utils";
+import { formatHlOrder, mapHLUserAccount } from "./hl.utils";
 import type {
   HLAction,
   HLPostCancelOrdersResponse,
   HLPostPlaceOrdersResponse,
+  HLUserAccount,
   HLUserFillEvent,
 } from "./hl.types";
 
@@ -17,8 +18,6 @@ import {
 import { chunk } from "~/utils/chunk.utils";
 import { genId, genIntId } from "~/utils/gen-id.utils";
 import { ReconnectingWebSocket } from "~/utils/reconnecting-websocket.utils";
-import { subtract } from "~/utils/safe-math.utils";
-import { sumBy } from "~/utils/sum-by.utils";
 
 export class HyperLiquidWsPrivate {
   parent: HyperLiquidWorker;
@@ -97,42 +96,7 @@ export class HyperLiquidWsPrivate {
       }
 
       if (json.channel === "webData2") {
-        const { assetPositions, crossMarginSummary } =
-          json.data.clearinghouseState;
-
-        const positions = mapHLPositions({
-          accountId: this.account.id,
-          positions: assetPositions,
-        });
-
-        const used = parseFloat(crossMarginSummary.totalMarginUsed);
-        const total = parseFloat(crossMarginSummary.accountValue);
-        const free = subtract(total, used);
-        const upnl = sumBy(positions, (p) => p.upnl);
-
-        this.parent.updateAccountBalance({
-          accountId: this.account.id,
-          balance: { used, free, total, upnl },
-        });
-
-        const toRemove = this.parent.memory.private[
-          this.account.id
-        ].positions.filter(
-          (p) =>
-            !positions.some(
-              (p2) => p2.side === p.side && p2.symbol === p.symbol,
-            ),
-        );
-
-        this.parent.removeAccountPositions({
-          accountId: this.account.id,
-          positions: toRemove,
-        });
-
-        this.parent.updateAccountPositions({
-          accountId: this.account.id,
-          positions,
-        });
+        this.onWebData2(json.data.clearinghouseState);
       }
 
       if (json.channel === "post" && json.data.id) {
@@ -171,6 +135,33 @@ export class HyperLiquidWsPrivate {
     );
 
     this.parent.emitChanges(changes);
+  };
+
+  onWebData2 = (data: HLUserAccount) => {
+    const { positions, balance } = mapHLUserAccount({
+      accountId: this.account.id,
+      data,
+    });
+
+    this.parent.updateAccountBalance({
+      accountId: this.account.id,
+      balance,
+    });
+
+    const removedPositions = this.memory.positions.filter(
+      (p) =>
+        !positions.some((p2) => p2.side === p.side && p2.symbol === p.symbol),
+    );
+
+    this.parent.removeAccountPositions({
+      accountId: this.account.id,
+      positions: removedPositions,
+    });
+
+    this.parent.updateAccountPositions({
+      accountId: this.account.id,
+      positions,
+    });
   };
 
   ping = () => {

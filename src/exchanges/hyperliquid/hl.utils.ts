@@ -8,23 +8,24 @@ import {
   OrderStatus,
   OrderType,
   PositionSide,
-  type Position,
   type Account,
+  type Balance,
   type Market,
   type Order,
   type PlaceOrderOpts,
   type Ticker,
 } from "~/types/lib.types";
 import { countFigures } from "~/utils/count-figures.utils";
+import { sumBy } from "~/utils/sum-by.utils";
 
-export const mapHLPositions = ({
+export const mapHLUserAccount = ({
   accountId,
-  positions,
+  data: { assetPositions, crossMarginSummary },
 }: {
   accountId: Account["id"];
-  positions: HLUserAccount["assetPositions"];
-}): Position[] => {
-  return positions.map((p) => {
+  data: HLUserAccount;
+}) => {
+  const positions = assetPositions.map((p) => {
     const contracts = parseFloat(p.position.szi);
 
     return {
@@ -42,6 +43,18 @@ export const mapHLPositions = ({
       isHedged: p.type !== "oneWay",
     };
   });
+
+  const used = parseFloat(crossMarginSummary.totalMarginUsed);
+  const total = parseFloat(crossMarginSummary.accountValue);
+  const free = subtract(total, used);
+  const upnl = sumBy(positions, (p) => p.upnl);
+
+  const balance: Balance = { used, free, total, upnl };
+
+  return {
+    balance,
+    positions,
+  };
 };
 
 const mapOrderType = (type: string) => {
