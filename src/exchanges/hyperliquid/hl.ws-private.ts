@@ -1,6 +1,10 @@
 import type { HyperLiquidWorker } from "./hl.worker";
 import { signL1Action } from "./hl.signer";
-import { formatHlOrder, mapHLUserAccount } from "./hl.utils";
+import {
+  formatHLOrder,
+  formatHLOrderUpdate,
+  mapHLUserAccount,
+} from "./hl.utils";
 import type {
   HLAction,
   HLPostCancelOrdersResponse,
@@ -14,6 +18,7 @@ import {
   type Account,
   type Order,
   type PlaceOrderOpts,
+  type UpdateOrderOpts,
 } from "~/types/lib.types";
 import { chunk } from "~/utils/chunk.utils";
 import { genId, genIntId } from "~/utils/gen-id.utils";
@@ -209,7 +214,7 @@ export class HyperLiquidWsPrivate {
       const action = {
         type: "order" as const,
         orders: orders.map((o) =>
-          formatHlOrder({
+          formatHLOrder({
             order: o,
             tickers: this.parent.memory.public.tickers,
             markets: this.parent.memory.public.markets,
@@ -275,6 +280,68 @@ export class HyperLiquidWsPrivate {
             o: o.id as number,
           })),
         };
+
+        const nonce = Date.now();
+        const signature = await signL1Action({
+          privateKey: this.account.apiSecret,
+          action,
+          nonce,
+        });
+
+        this.send({
+          method: "post",
+          id: reqId,
+          request: {
+            type: "action",
+            payload: {
+              action,
+              nonce,
+              signature,
+            },
+          },
+        });
+      }
+    });
+  };
+
+  updateOrders = async ({
+    updates,
+  }: {
+    updates: UpdateOrderOpts[];
+    priority?: boolean;
+  }) => {
+    return new Promise(async (resolve) => {
+      const batches = chunk(updates, 20);
+      const responses: any[] = [];
+
+      for (const batch of batches) {
+        const reqId = genIntId();
+
+        this.pendingRequests.set(reqId, (json: any) => {
+          if (json?.data?.response?.payload?.status === "err") {
+            this.parent.error(
+              `[${this.account.id}] HyperLiquid update order error`,
+            );
+            this.parent.error(json.data.response.payload.response);
+          }
+
+          responses.push(json);
+
+          if (responses.length === batches.length) {
+            resolve(json);
+          }
+        });
+
+        const action = {
+          type: "batchModify" as const,
+          modifies: batch.map((u) =>
+            formatHLOrderUpdate({
+              update: u,
+              tickers: this.parent.memory.public.tickers,
+              markets: this.parent.memory.public.markets,
+            }),
+          ),
+        } as HLAction;
 
         const nonce = Date.now();
         const signature = await signL1Action({

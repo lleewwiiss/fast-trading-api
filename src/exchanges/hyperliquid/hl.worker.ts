@@ -8,7 +8,7 @@ import {
 } from "./hl.resolver";
 import type { HLOrderUpdateWs } from "./hl.types";
 import { HyperLiquidWsPublic } from "./hl.ws-public";
-import { mapHlOrder } from "./hl.utils";
+import { mapHLOrder } from "./hl.utils";
 import { HyperLiquidWsPrivate } from "./hl.ws-private";
 
 import { DEFAULT_CONFIG } from "~/config";
@@ -17,8 +17,10 @@ import {
   type Account,
   type ExchangeConfig,
   type FetchOHLCVParams,
+  type Order,
   type PlaceOrderOpts,
   type Timeframe,
+  type UpdateOrderOpts,
 } from "~/types/lib.types";
 
 export class HyperLiquidWorker extends BaseWorker {
@@ -171,7 +173,7 @@ export class HyperLiquidWorker extends BaseWorker {
             {
               type: "update",
               path: `private.${accountId}.orders.${length}`,
-              value: mapHlOrder({ order: hlOrder.order, accountId }),
+              value: mapHLOrder({ order: hlOrder.order, accountId }),
             },
           ]);
         } else {
@@ -179,7 +181,7 @@ export class HyperLiquidWorker extends BaseWorker {
             {
               type: "update",
               path: `private.${accountId}.orders.${idx}`,
-              value: mapHlOrder({ order: hlOrder.order, accountId }),
+              value: mapHLOrder({ order: hlOrder.order, accountId }),
             },
           ]);
         }
@@ -303,7 +305,7 @@ export class HyperLiquidWorker extends BaseWorker {
     requestId,
     priority = false,
   }: {
-    orderIds: string[];
+    orderIds: Order["id"][];
     accountId: string;
     requestId: string;
     priority?: boolean;
@@ -314,6 +316,21 @@ export class HyperLiquidWorker extends BaseWorker {
       await this.privateWs[accountId].cancelOrders({ priority, orders });
     }
 
+    this.emitResponse({ requestId, data: [] });
+  }
+
+  async updateOrders({
+    updates,
+    accountId,
+    requestId,
+    priority = false,
+  }: {
+    updates: UpdateOrderOpts[];
+    accountId: string;
+    requestId: string;
+    priority?: boolean;
+  }) {
+    await this.privateWs[accountId].updateOrders({ updates, priority });
     this.emitResponse({ requestId, data: [] });
   }
 }

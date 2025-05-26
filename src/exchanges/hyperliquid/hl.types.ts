@@ -144,6 +144,28 @@ export type HLAction =
         a: number;
         o: number;
       }>;
+    }
+  | {
+      type: "batchModify";
+      modifies: Array<{
+        oid: number;
+        order: {
+          a: number;
+          b: boolean;
+          p: string;
+          s: string;
+          r: boolean;
+          t:
+            | { limit: { tif: "Alo" | "Ioc" | "Gtc" } }
+            | {
+                trigger: {
+                  isMarket: boolean;
+                  triggerPx: string;
+                  tpsl: "tp" | "sl";
+                };
+              };
+        };
+      }>;
     };
 
 export interface HLPostResponseSuccess<T> {

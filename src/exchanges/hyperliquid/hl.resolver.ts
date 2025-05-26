@@ -5,7 +5,7 @@ import type {
   HLUserAccount,
   HLUserOrder,
 } from "./hl.types";
-import { mapHlOrder, mapHLUserAccount } from "./hl.utils";
+import { mapHLOrder, mapHLUserAccount } from "./hl.utils";
 
 import { TICKER_REGEX } from "~/utils/regex.utils";
 import {
@@ -136,7 +136,7 @@ export const fetchHLUserOrders = async ({
   });
 
   const orders: Order[] = response.map((o) =>
-    mapHlOrder({ order: o, accountId: account.id }),
+    mapHLOrder({ order: o, accountId: account.id }),
   );
 
   return orders;

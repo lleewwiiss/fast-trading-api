@@ -14,6 +14,7 @@ import {
   type Order,
   type PlaceOrderOpts,
   type Ticker,
+  type UpdateOrderOpts,
 } from "~/types/lib.types";
 import { countFigures } from "~/utils/count-figures.utils";
 import { sumBy } from "~/utils/sum-by.utils";
@@ -70,7 +71,7 @@ const mapOrderType = (type: string) => {
   }
 };
 
-export const mapHlOrder = ({
+export const mapHLOrder = ({
   order,
   accountId,
 }: {
@@ -99,7 +100,7 @@ export const mapHlOrder = ({
   };
 };
 
-export const formatHlOrder = ({
+export const formatHLOrderPrice = ({
   order,
   tickers,
   markets,
@@ -112,15 +113,7 @@ export const formatHlOrder = ({
   const market = markets[order.symbol];
 
   const pPrice = market.precision.price;
-  const pAmount = market.precision.amount;
-
   const isBuy = order.side === OrderSide.Buy;
-  const isStop =
-    order.type === OrderType.StopLoss ||
-    order.type === OrderType.TakeProfit ||
-    order.type === OrderType.TrailingStopLoss;
-
-  const amount = adjust(order.amount, pAmount);
 
   let price = order.price;
 
@@ -147,6 +140,30 @@ export const formatHlOrder = ({
     price = adjust(price, newPrecision);
   }
 
+  return price;
+};
+
+export const formatHLOrder = ({
+  order,
+  tickers,
+  markets,
+}: {
+  order: PlaceOrderOpts;
+  tickers: Record<string, Ticker>;
+  markets: Record<string, Market>;
+}) => {
+  const market = markets[order.symbol];
+  const pAmount = market.precision.amount;
+
+  const isBuy = order.side === OrderSide.Buy;
+  const isStop =
+    order.type === OrderType.StopLoss ||
+    order.type === OrderType.TakeProfit ||
+    order.type === OrderType.TrailingStopLoss;
+
+  const amount = adjust(order.amount, pAmount);
+  const price = formatHLOrderPrice({ order, tickers, markets });
+
   return {
     a: tickers[order.symbol].id as number,
     b: isBuy,
@@ -166,5 +183,59 @@ export const formatHlOrder = ({
             tif: order.type === OrderType.Market ? "Ioc" : "Gtc",
           },
         },
+  };
+};
+
+export const formatHLOrderUpdate = ({
+  update: { order, update },
+  tickers,
+  markets,
+}: {
+  update: UpdateOrderOpts;
+  tickers: Record<string, Ticker>;
+  markets: Record<string, Market>;
+}) => {
+  const price =
+    "price" in update
+      ? formatHLOrderPrice({
+          order: { ...order, price: update.price },
+          tickers,
+          markets,
+        })
+      : order.price;
+
+  const isBuy = order.side === OrderSide.Buy;
+  const isStop =
+    order.type === OrderType.StopLoss ||
+    order.type === OrderType.TakeProfit ||
+    order.type === OrderType.TrailingStopLoss;
+
+  const amount =
+    "amount" in update
+      ? adjust(update.amount, markets[order.symbol].precision.amount)
+      : order.amount;
+
+  return {
+    oid: order.id as number,
+    order: {
+      a: markets[order.symbol].id as number,
+      b: isBuy,
+      p: price.toString(),
+      s: amount.toString(),
+      r: order.reduceOnly,
+      t: isStop
+        ? {
+            trigger: {
+              isMarket: true,
+              triggerPx: price.toString(),
+              tpsl: order.type === OrderType.StopLoss ? "sl" : "tp",
+            },
+          }
+        : {
+            limit: {
+              tif: order.type === OrderType.Market ? "Ioc" : "Gtc",
+            },
+          },
+    },
   };
 };
