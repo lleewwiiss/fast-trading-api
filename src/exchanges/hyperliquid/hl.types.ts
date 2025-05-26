@@ -166,6 +166,12 @@ export type HLAction =
               };
         };
       }>;
+    }
+  | {
+      type: "updateLeverage";
+      asset: number;
+      isCross: boolean;
+      leverage: number;
     };
 
 export interface HLPostResponseSuccess<T> {

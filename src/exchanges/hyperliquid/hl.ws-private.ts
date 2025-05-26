@@ -175,7 +175,7 @@ export class HyperLiquidWsPrivate {
     }, 10_000);
   };
 
-  placeOrders = async ({
+  placeOrders = ({
     orders,
   }: {
     orders: PlaceOrderOpts[];
@@ -245,12 +245,7 @@ export class HyperLiquidWsPrivate {
     });
   };
 
-  cancelOrders = async ({
-    orders,
-  }: {
-    orders: Order[];
-    priority?: boolean;
-  }) => {
+  cancelOrders = ({ orders }: { orders: Order[]; priority?: boolean }) => {
     return new Promise(async (resolve) => {
       const batches = chunk(orders, 20);
       const responses: any[] = [];
@@ -304,7 +299,7 @@ export class HyperLiquidWsPrivate {
     });
   };
 
-  updateOrders = async ({
+  updateOrders = ({
     updates,
   }: {
     updates: UpdateOrderOpts[];
@@ -363,6 +358,49 @@ export class HyperLiquidWsPrivate {
           },
         });
       }
+    });
+  };
+
+  setLeverage = async ({
+    symbol,
+    leverage,
+  }: {
+    symbol: string;
+    leverage: number;
+  }) => {
+    return new Promise(async (resolve) => {
+      const reqId = genIntId();
+
+      this.pendingRequests.set(reqId, (json: any) => {
+        resolve(json);
+      });
+
+      const action = {
+        type: "updateLeverage" as const,
+        asset: this.parent.memory.public.markets[symbol].id as number,
+        isCross: true,
+        leverage,
+      } as HLAction;
+
+      const nonce = Date.now();
+      const signature = await signL1Action({
+        privateKey: this.account.apiSecret,
+        action,
+        nonce,
+      });
+
+      this.send({
+        method: "post",
+        id: reqId,
+        request: {
+          type: "action",
+          payload: {
+            action,
+            nonce,
+            signature,
+          },
+        },
+      });
     });
   };
 

@@ -333,6 +333,48 @@ export class HyperLiquidWorker extends BaseWorker {
     await this.privateWs[accountId].updateOrders({ updates, priority });
     this.emitResponse({ requestId, data: [] });
   }
+
+  async setLeverage({
+    requestId,
+    accountId,
+    symbol,
+    leverage,
+  }: {
+    requestId: string;
+    accountId: string;
+    symbol: string;
+    leverage: number;
+  }) {
+    const account = this.accounts.find((a) => a.id === accountId);
+
+    if (!account) {
+      this.error(`No account found for id: ${accountId}`);
+      return;
+    }
+
+    const market = this.memory.public.markets[symbol];
+    const leverageWithinBounds = Math.min(
+      Math.max(Math.round(leverage), market.limits.leverage.min),
+      market.limits.leverage.max,
+    );
+
+    const success = await this.privateWs[accountId].setLeverage({
+      symbol,
+      leverage: leverageWithinBounds,
+    });
+
+    if (success) {
+      this.emitChanges([
+        {
+          type: `update`,
+          path: `private.${accountId}.metadata.leverage.${symbol}`,
+          value: leverage,
+        },
+      ]);
+    }
+
+    this.emitResponse({ requestId, data: success });
+  }
 }
 
 new HyperLiquidWorker({
