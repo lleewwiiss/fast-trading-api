@@ -78,7 +78,7 @@ export interface Balance {
 }
 
 export interface Ticker {
-  id: string;
+  id: string | number;
   exchange: ExchangeName;
   symbol: string;
   cleanSymbol: string;
@@ -95,7 +95,7 @@ export interface Ticker {
 }
 
 export interface Market {
-  id: string;
+  id: string | number;
   exchange: ExchangeName;
   symbol: string;
   base: string;
