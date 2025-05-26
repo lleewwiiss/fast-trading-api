@@ -188,6 +188,7 @@ export class HyperLiquidWsPrivate {
 
   placeOrders = ({
     orders,
+    priority = false,
   }: {
     orders: PlaceOrderOpts[];
     priority?: boolean;
@@ -245,12 +246,19 @@ export class HyperLiquidWsPrivate {
         this.enqueueSend({
           payload: { id: reqId, action },
           consume: orders.length,
+          priority,
         });
       }
     });
   };
 
-  cancelOrders = ({ orders }: { orders: Order[]; priority?: boolean }) => {
+  cancelOrders = ({
+    orders,
+    priority = false,
+  }: {
+    orders: Order[];
+    priority?: boolean;
+  }) => {
     return new Promise(async (resolve) => {
       const batches = chunk(orders, 20);
       const responses: any[] = [];
@@ -284,6 +292,7 @@ export class HyperLiquidWsPrivate {
         this.enqueueSend({
           payload: { id: reqId, action },
           consume: batch.length,
+          priority,
         });
       }
     });
@@ -291,6 +300,7 @@ export class HyperLiquidWsPrivate {
 
   updateOrders = ({
     updates,
+    priority = false,
   }: {
     updates: UpdateOrderOpts[];
     priority?: boolean;
@@ -331,6 +341,7 @@ export class HyperLiquidWsPrivate {
         this.enqueueSend({
           payload: { id: reqId, action },
           consume: batch.length,
+          priority,
         });
       }
     });
@@ -339,9 +350,11 @@ export class HyperLiquidWsPrivate {
   setLeverage = async ({
     symbol,
     leverage,
+    priority = false,
   }: {
     symbol: string;
     leverage: number;
+    priority?: boolean;
   }) => {
     return new Promise(async (resolve) => {
       const reqId = genIntId();
@@ -357,24 +370,9 @@ export class HyperLiquidWsPrivate {
         leverage,
       } as HLAction;
 
-      const nonce = Date.now();
-      const signature = await signL1Action({
-        privateKey: this.account.apiSecret,
-        action,
-        nonce,
-      });
-
-      this.send({
-        method: "post",
-        id: reqId,
-        request: {
-          type: "action",
-          payload: {
-            action,
-            nonce,
-            signature,
-          },
-        },
+      this.enqueueSend({
+        payload: { id: reqId, action },
+        priority,
       });
     });
   };
