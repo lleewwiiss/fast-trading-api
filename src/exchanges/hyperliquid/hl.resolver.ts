@@ -1,4 +1,4 @@
-import { HL_ENDPOINTS } from "./hl.config";
+import { HL_ENDPOINTS, HL_MAX_DECIMALS } from "./hl.config";
 import type {
   HLCandle,
   HLMetaAndAssetCtxs,
@@ -36,39 +36,36 @@ export const fetchHLMarketsAndTickers = async (config: ExchangeConfig) => {
     },
   });
 
-  const markets = universe.reduce<Record<string, Market>>(
-    (acc, market, idx) => {
-      const sizeDecimals = 10 / 10 ** (market.szDecimals + 1);
-      const priceDecimals = 10 / 10 ** (6 - market.szDecimals + 1);
+  const markets = universe.reduce<Record<string, Market>>((acc, m, idx) => {
+    const sizeDecimals = 10 / 10 ** (m.szDecimals + 1);
+    const priceDecimals = 10 / 10 ** (HL_MAX_DECIMALS - m.szDecimals + 1);
 
-      acc[market.name] = {
-        id: idx,
-        exchange: ExchangeName.HL,
-        symbol: market.name,
-        base: market.name,
-        quote: "USDC",
-        active: true,
-        precision: {
-          amount: sizeDecimals,
-          price: priceDecimals,
+    acc[m.name] = {
+      id: idx,
+      exchange: ExchangeName.HL,
+      symbol: m.name,
+      base: m.name,
+      quote: "USDC",
+      active: true,
+      precision: {
+        amount: sizeDecimals,
+        price: priceDecimals,
+      },
+      limits: {
+        amount: {
+          min: sizeDecimals,
+          max: Infinity,
+          maxMarket: Infinity,
         },
-        limits: {
-          amount: {
-            min: sizeDecimals,
-            max: Infinity,
-            maxMarket: Infinity,
-          },
-          leverage: {
-            min: 1,
-            max: market.maxLeverage,
-          },
+        leverage: {
+          min: 1,
+          max: m.maxLeverage,
         },
-      };
+      },
+    };
 
-      return acc;
-    },
-    {},
-  );
+    return acc;
+  }, {});
 
   const tickers: Record<string, Ticker> = assets.reduce(
     (acc, t, idx) => {
