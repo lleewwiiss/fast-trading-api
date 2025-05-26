@@ -1,6 +1,7 @@
 import type { HLUserOrder } from "./hl.types";
+import { HL_MAX_FIGURES } from "./hl.config";
 
-import { adjust, subtract } from "~/utils/safe-math.utils";
+import { adjust, multiply, subtract } from "~/utils/safe-math.utils";
 import {
   ExchangeName,
   OrderSide,
@@ -11,6 +12,7 @@ import {
   type PlaceOrderOpts,
   type Ticker,
 } from "~/types/lib.types";
+import { countFigures } from "~/utils/count-figures.utils";
 
 const mapOrderType = (type: string) => {
   switch (type) {
@@ -66,19 +68,41 @@ export const formatHlOrder = ({
   const ticker = tickers[order.symbol];
   const market = markets[order.symbol];
 
+  const pPrice = market.precision.price;
+  const pAmount = market.precision.amount;
+
   const isBuy = order.side === OrderSide.Buy;
   const isStop =
     order.type === OrderType.StopLoss ||
     order.type === OrderType.TakeProfit ||
     order.type === OrderType.TrailingStopLoss;
 
-  const last = ticker.last;
+  const amount = adjust(order.amount, pAmount);
 
-  const amount = adjust(order.amount, market.precision.amount);
-  const price = adjust(
-    order.price ?? (isBuy ? last + last / 100 : last - last / 100),
-    market.precision.price,
-  );
+  let price = order.price;
+
+  // HyperLiquid always need a price of order
+  // if no price is provided we apply 1% slippage from last price
+  if (!price) {
+    price = isBuy
+      ? ticker.last + ticker.last / 100
+      : ticker.last - ticker.last / 100;
+  }
+
+  // We apply the adjust() function to round to maximal decimals accepted
+  price = adjust(price, pPrice);
+
+  // Now we check if we don't have too many "significant figures" in the price
+  // meaning removing leading and trailling zeros and calculate the count of figures
+  const significantFiguresCount = countFigures(price);
+
+  if (significantFiguresCount > HL_MAX_FIGURES && !Number.isInteger(price)) {
+    const diff = significantFiguresCount - HL_MAX_FIGURES;
+    // we apply Math.min(1, xxx) because any integer is accepted
+    // we just want to remove decimals if there are too many
+    const newPrecision = Math.min(1, multiply(pPrice, 10 ** diff));
+    price = adjust(price, newPrecision);
+  }
 
   return {
     a: tickers[order.symbol].id as number,
