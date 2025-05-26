@@ -404,7 +404,7 @@ export class BybitWorker extends BaseWorker {
     );
 
     if (normalOrders.length > 0) {
-      const normalOrderIds = await this.tradingWs[accountId].placeOrderBatch({
+      const normalOrderIds = await this.tradingWs[accountId].placeOrders({
         priority,
         orders: normalOrders.flatMap((o) =>
           formatMarkerOrLimitOrder({

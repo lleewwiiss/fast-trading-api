@@ -120,7 +120,7 @@ export class BybitWsTrading {
     if (!this.isStopped) this.ws?.send(JSON.stringify(data));
   };
 
-  placeOrderBatch = ({
+  placeOrders = ({
     orders,
     priority = false,
     retry = true,
@@ -174,7 +174,7 @@ export class BybitWsTrading {
               const orderIds: string[] = [];
 
               if (toRetry.length > 0 && retry) {
-                const retriedOrderIds = await this.placeOrderBatch({
+                const retriedOrderIds = await this.placeOrders({
                   orders: toRetry,
                   priority,
                   retry: false,
