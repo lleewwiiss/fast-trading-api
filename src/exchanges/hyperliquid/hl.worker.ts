@@ -256,6 +256,26 @@ export class HyperLiquidWorker extends BaseWorker {
 
     this.emitResponse({ requestId, data: { leverage, isHedged: false } });
   }
+
+  async cancelOrders({
+    orderIds,
+    accountId,
+    requestId,
+    priority = false,
+  }: {
+    orderIds: string[];
+    accountId: string;
+    requestId: string;
+    priority?: boolean;
+  }) {
+    const orders = this.mapAccountOrdersFromIds({ orderIds, accountId });
+
+    if (orders.length > 0) {
+      await this.privateWs[accountId].cancelOrders({ priority, orders });
+    }
+
+    this.emitResponse({ requestId, data: [] });
+  }
 }
 
 new HyperLiquidWorker({

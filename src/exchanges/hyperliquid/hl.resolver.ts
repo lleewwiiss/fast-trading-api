@@ -36,13 +36,13 @@ export const fetchHLMarketsAndTickers = async (config: ExchangeConfig) => {
     },
   });
 
-  const markets: Record<string, Market> = universe.reduce(
-    (acc, market) => {
+  const markets = universe.reduce<Record<string, Market>>(
+    (acc, market, idx) => {
       const sizeDecimals = 10 / 10 ** (market.szDecimals + 1);
       const priceDecimals = 10 / 10 ** (6 - market.szDecimals + 1);
 
       acc[market.name] = {
-        id: market.name,
+        id: idx,
         exchange: ExchangeName.HL,
         symbol: market.name,
         base: market.name,
@@ -67,7 +67,7 @@ export const fetchHLMarketsAndTickers = async (config: ExchangeConfig) => {
 
       return acc;
     },
-    {} as Record<string, Market>,
+    {},
   );
 
   const tickers: Record<string, Ticker> = assets.reduce(
@@ -78,7 +78,7 @@ export const fetchHLMarketsAndTickers = async (config: ExchangeConfig) => {
       const symbol = universe[idx].name;
 
       acc[symbol] = {
-        id: symbol,
+        id: idx,
         exchange: ExchangeName.HL,
         symbol,
         cleanSymbol: symbol.replace(TICKER_REGEX, ""),

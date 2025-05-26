@@ -4,18 +4,35 @@ import { keccak } from "hash-wasm";
 import { signTypedData } from "~/utils/eip712.utils";
 import { hexToUint8Array } from "~/utils/uint8.utils";
 
-type Action = {
-  type: "order";
-  orders: Array<{
-    a: number;
-    b: boolean;
-    p: string;
-    s: string;
-    r: boolean;
-    t: { limit: { tif: string } };
-  }>;
-  grouping: string;
-};
+type Action =
+  | {
+      type: "order";
+      orders: Array<{
+        a: number;
+        b: boolean;
+        p: string;
+        s: string;
+        r: boolean;
+        t:
+          | { limit: { tif: "Alo" | "Ioc" | "Gtc" } }
+          | {
+              trigger: {
+                isMarket: boolean;
+                triggerPx: string;
+                tpsl: "tp" | "sl";
+              };
+            };
+      }>;
+      grouping: "na" | "normalTpsl" | "positionTpsl";
+      builder?: { b: string; f: number };
+    }
+  | {
+      type: "cancel";
+      cancels: Array<{
+        a: number;
+        o: number;
+      }>;
+    };
 
 export const HL_DOMAIN = {
   name: "Exchange",
@@ -78,14 +95,16 @@ export const signL1Action = async ({
   action,
   nonce,
   vaultAddress,
+  isTestnet,
 }: {
   privateKey: string;
   action: Action;
   nonce: number;
   vaultAddress?: string;
+  isTestnet?: boolean;
 }) => {
   const hash = await actionHash({ action, vaultAddress, nonce });
-  const agent = { source: "a", connectionId: hash };
+  const agent = { source: isTestnet ? "b" : "a", connectionId: hash };
 
   return signTypedData({
     privateKey,

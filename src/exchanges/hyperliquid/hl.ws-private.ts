@@ -1,6 +1,9 @@
 import type { HyperLiquidWorker } from "./hl.worker";
+import { signL1Action } from "./hl.signer";
 
-import type { Account } from "~/types/lib.types";
+import type { Account, Order } from "~/types/lib.types";
+import { chunk } from "~/utils/chunk.utils";
+import { genIntId } from "~/utils/gen-id.utils";
 import { ReconnectingWebSocket } from "~/utils/reconnecting-websocket.utils";
 
 export class HyperLiquidWsPrivate {
@@ -10,7 +13,7 @@ export class HyperLiquidWsPrivate {
   ws: ReconnectingWebSocket | null = null;
   interval: NodeJS.Timeout | null = null;
 
-  pendingRequests = new Map<string, (data: any) => void>();
+  pendingRequests = new Map<number, (data: any) => void>();
 
   isStopped = false;
   isListening = false;
@@ -55,20 +58,6 @@ export class HyperLiquidWsPrivate {
     this.subscribe({ type: "userFills", user: this.account.apiKey });
   };
 
-  ping = () => {
-    this.interval = setInterval(() => {
-      this.send({ method: "ping" });
-    }, 10_000);
-  };
-
-  send = (data: Record<string, any>) => {
-    if (!this.isStopped) this.ws?.send(JSON.stringify(data));
-  };
-
-  subscribe = (subscription: Record<string, string> & { type: string }) => {
-    this.send({ method: "subscribe", subscription });
-  };
-
   onMessage = (event: MessageEvent) => {
     // We don't want to handle messages before fetching initial data
     if (!this.isListening) return;
@@ -97,6 +86,85 @@ export class HyperLiquidWsPrivate {
     }
   };
 
+  ping = () => {
+    this.interval = setInterval(() => {
+      this.send({ method: "ping" });
+    }, 10_000);
+  };
+
+  cancelOrders = async ({
+    orders,
+  }: {
+    orders: Order[];
+    priority?: boolean;
+  }) => {
+    // eslint-disable-next-line no-async-promise-executor
+    return new Promise(async (resolve) => {
+      const batches = chunk(orders, 20);
+
+      const responses: any[] = [];
+      const toRemove: Order[] = [];
+
+      for (const batch of batches) {
+        const reqId = genIntId();
+
+        this.pendingRequests.set(reqId, (json: any) => {
+          if (json?.data?.response?.payload?.status === "err") {
+            this.parent.error(
+              `[${this.account.id}] HyperLiquid cancel order error`,
+            );
+            this.parent.error(json.data.response.payload.response);
+          }
+
+          responses.push(json);
+
+          if (responses.length === batches.length) {
+            const accountOrders =
+              this.parent.memory.private[this.account.id].orders;
+
+            this.parent.emitChanges(
+              toRemove.map(({ id }) => ({
+                type: "removeArrayElement",
+                path: `private.${this.account.id}.orders` as const,
+                index: accountOrders.findIndex((o) => o.id === id),
+              })),
+            );
+
+            resolve(responses);
+          }
+        });
+
+        const action = {
+          type: "cancel",
+          cancels: batch.map((o) => ({
+            a: this.parent.memory.public.markets[o.symbol].id as number,
+            o: o.id as number,
+          })),
+        } as const;
+
+        const nonce = Date.now();
+        const signature = await signL1Action({
+          privateKey: this.account.apiSecret,
+          action,
+          nonce,
+        });
+
+        this.send({
+          method: "post",
+          id: reqId,
+          request: {
+            type: "action",
+            payload: {
+              action,
+              nonce,
+              signature,
+            },
+          },
+        });
+      }
+    });
+  };
+
   onClose = () => {
     this.parent.error(
       `HyperLiquid Private Websocket Closed for account [${this.account.id}]`,
@@ -106,6 +174,14 @@ export class HyperLiquidWsPrivate {
       clearInterval(this.interval);
       this.interval = null;
     }
+  };
+
+  send = (data: Record<string, any>) => {
+    if (!this.isStopped) this.ws?.send(JSON.stringify(data));
+  };
+
+  subscribe = (subscription: Record<string, string> & { type: string }) => {
+    this.send({ method: "subscribe", subscription });
   };
 
   stop = () => {
