@@ -17,6 +17,7 @@ import {
   type Candle,
   type OrderBook,
   type ExchangeConfig,
+  type UpdateOrderOpts,
 } from "~/types/lib.types";
 import type { ObjectChangeCommand, ObjectPaths } from "~/types/misc.types";
 import { mapObj } from "~/utils/map-obj.utils";
@@ -325,7 +326,7 @@ export class BaseWorker {
   }
 
   async updateOrders(_params: {
-    updates: { order: Order; update: { amount: number } | { price: number } }[];
+    updates: UpdateOrderOpts[];
     accountId: string;
     requestId: string;
     priority?: boolean;
@@ -337,7 +338,7 @@ export class BaseWorker {
     orderIds,
     accountId,
   }: {
-    orderIds: string[];
+    orderIds: Order["id"][];
     accountId: string;
   }) {
     const orders = orderIds.reduce<Order[]>((acc, id) => {

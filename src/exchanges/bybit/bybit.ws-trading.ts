@@ -10,7 +10,7 @@ import type { BybitWorker } from "./bybit.worker";
 import { getHedgedOrderPositionIdx } from "./bybit.utils";
 
 import { chunk } from "~/utils/chunk.utils";
-import type { Account, Market, Order } from "~/types/lib.types";
+import type { Account, Order } from "~/types/lib.types";
 import { genId } from "~/utils/gen-id.utils";
 import { adjust } from "~/utils/safe-math.utils";
 import { sleep } from "~/utils/sleep.utils";
@@ -213,7 +213,6 @@ export class BybitWsTrading {
   }: {
     updates: {
       order: Order;
-      market: Market;
       update: { price: number } | { amount: number };
     }[];
     priority?: boolean;
@@ -253,7 +252,10 @@ export class BybitWsTrading {
             args: [
               {
                 category: "linear",
-                request: batch.map(({ order, market, update }) => {
+                request: batch.map(({ order, update }) => {
+                  const market =
+                    this.parent.memory.public.markets[order.symbol];
+
                   const amendedOrder: Record<string, string | number> = {
                     symbol: order.symbol,
                     orderId: order.id,

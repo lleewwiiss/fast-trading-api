@@ -5,12 +5,12 @@ import type {
   ChaseOpts,
   ExchangeConfig,
   FetchOHLCVParams,
-  Order,
   OrderBook,
   PlaceOrderOpts,
   StoreMemory,
   Timeframe,
   TWAPOpts,
+  UpdateOrderOpts,
 } from "~/types/lib.types";
 import type { ObjectChangeCommand, ObjectPaths } from "~/types/misc.types";
 import { genId } from "~/utils/gen-id.utils";
@@ -104,7 +104,7 @@ export class BaseExchange {
     accountId,
     priority = false,
   }: {
-    updates: { order: Order; update: { amount: number } | { price: number } }[];
+    updates: UpdateOrderOpts[];
     accountId: string;
     priority?: boolean;
   }) {

@@ -24,8 +24,8 @@ import {
   type PlaceOrderOpts,
   type Timeframe,
   type FetchOHLCVParams,
-  type Order,
   type ExchangeConfig,
+  type UpdateOrderOpts,
 } from "~/types/lib.types";
 import { partition } from "~/utils/partition.utils";
 import { subtract } from "~/utils/safe-math.utils";
@@ -448,7 +448,7 @@ export class BybitWorker extends BaseWorker {
     requestId,
     priority = false,
   }: {
-    updates: { order: Order; update: { amount: number } | { price: number } }[];
+    updates: UpdateOrderOpts[];
     accountId: string;
     requestId: string;
     priority?: boolean;
@@ -463,11 +463,7 @@ export class BybitWorker extends BaseWorker {
     if (normalUpdates.length > 0) {
       await this.tradingWs[accountId].updateOrders({
         priority,
-        updates: normalUpdates.map((update) => ({
-          order: update.order,
-          update: update.update,
-          market: this.memory.public.markets[update.order.symbol],
-        })),
+        updates: normalUpdates,
       });
     }
 

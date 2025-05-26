@@ -241,6 +241,11 @@ export interface PlaceOrderOpts {
   timeInForce?: OrderTimeInForce;
 }
 
+export interface UpdateOrderOpts {
+  order: Order;
+  update: { amount: number } | { price: number };
+}
+
 export interface TWAPOpts {
   symbol: string;
   amount: number;
