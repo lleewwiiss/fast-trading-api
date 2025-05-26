@@ -333,6 +333,24 @@ export class BaseWorker {
     this.error(`updateOrders() method not implemented`);
   }
 
+  mapAccountOrdersFromIds({
+    orderIds,
+    accountId,
+  }: {
+    orderIds: string[];
+    accountId: string;
+  }) {
+    const orders = orderIds.reduce<Order[]>((acc, id) => {
+      const order = this.memory.private[accountId].orders.find(
+        (o) => o.id === id,
+      );
+
+      return order ? [...acc, order] : acc;
+    }, []);
+
+    return orders;
+  }
+
   async cancelOrders(_params: {
     orderIds: Array<string | number>;
     accountId: string;

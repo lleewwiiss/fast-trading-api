@@ -514,13 +514,7 @@ export class BybitWorker extends BaseWorker {
     requestId: string;
     priority?: boolean;
   }) {
-    const orders = orderIds.reduce<Order[]>((acc, id) => {
-      const order = this.memory.private[accountId].orders.find(
-        (o) => o.id === id,
-      );
-
-      return order ? [...acc, order] : acc;
-    }, []);
+    const orders = this.mapAccountOrdersFromIds({ orderIds, accountId });
 
     if (orders.length > 0) {
       await this.tradingWs[accountId].cancelOrders({ priority, orders });
