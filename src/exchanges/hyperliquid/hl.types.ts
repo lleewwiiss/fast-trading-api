@@ -115,3 +115,81 @@ export type HLOrderUpdateWs = {
   order: HLUserOrder;
   status: "canceled" | "open";
 };
+
+export type HLAction =
+  | {
+      type: "order";
+      orders: Array<{
+        a: number;
+        b: boolean;
+        p: string;
+        s: string;
+        r: boolean;
+        t:
+          | { limit: { tif: "Alo" | "Ioc" | "Gtc" } }
+          | {
+              trigger: {
+                isMarket: boolean;
+                triggerPx: string;
+                tpsl: "tp" | "sl";
+              };
+            };
+      }>;
+      grouping: "na" | "normalTpsl" | "positionTpsl";
+      builder?: { b: string; f: number };
+    }
+  | {
+      type: "cancel";
+      cancels: Array<{
+        a: number;
+        o: number;
+      }>;
+    };
+
+export interface HLPostResponseSuccess<T> {
+  status: "ok";
+  response: T;
+}
+
+export interface HLPostResponseError {
+  status: "err";
+  response: string;
+}
+
+export interface HLPostResponse<T> {
+  channel: "post";
+  data: {
+    id: number;
+    response: {
+      type: "action";
+      payload: HLPostResponseSuccess<T> | HLPostResponseError;
+    };
+  };
+}
+
+export type HLPostPlaceOrdersResponse = HLPostResponse<{
+  type: "order";
+  data: {
+    statuses: Array<
+      | {
+          filled: {
+            oid: number;
+            avgPx: string;
+            totalSz: string;
+          };
+        }
+      | {
+          resting: {
+            oid: number;
+          };
+        }
+    >;
+  };
+}>;
+
+export type HLPostCancelOrdersResponse = HLPostResponse<{
+  type: "cancel";
+  data: {
+    statuses: Array<{ error: string } | string>;
+  };
+}>;

@@ -1,7 +1,13 @@
 import type { HyperLiquidWorker } from "./hl.worker";
 import { signL1Action } from "./hl.signer";
+import { formatHlOrder } from "./hl.utils";
+import type {
+  HLAction,
+  HLPostCancelOrdersResponse,
+  HLPostPlaceOrdersResponse,
+} from "./hl.types";
 
-import type { Account, Order } from "~/types/lib.types";
+import type { Account, Order, PlaceOrderOpts } from "~/types/lib.types";
 import { chunk } from "~/utils/chunk.utils";
 import { genIntId } from "~/utils/gen-id.utils";
 import { ReconnectingWebSocket } from "~/utils/reconnecting-websocket.utils";
@@ -92,13 +98,69 @@ export class HyperLiquidWsPrivate {
     }, 10_000);
   };
 
+  placeOrders = async ({
+    orders,
+  }: {
+    orders: PlaceOrderOpts[];
+    priority?: boolean;
+  }) => {
+    const orderIds: Array<Order["id"]> = [];
+
+    return new Promise<Array<Order["id"]>>(async (resolve) => {
+      const reqId = genIntId();
+
+      this.pendingRequests.set(reqId, (json: HLPostPlaceOrdersResponse) => {
+        if (json?.data?.response?.payload?.status === "ok") {
+          json.data.response.payload.response.data.statuses.forEach(
+            (status: any) => {
+              orderIds.push(status.resting?.oid ?? status.filled?.oid);
+            },
+          );
+        }
+
+        resolve(orderIds);
+      });
+
+      const action = {
+        type: "order" as const,
+        orders: orders.map((o) =>
+          formatHlOrder({
+            order: o,
+            tickers: this.parent.memory.public.tickers,
+            markets: this.parent.memory.public.markets,
+          }),
+        ),
+        grouping: "na",
+      } as HLAction;
+
+      const nonce = Date.now();
+      const signature = await signL1Action({
+        privateKey: this.account.apiSecret,
+        action,
+        nonce,
+      });
+
+      this.send({
+        method: "post",
+        id: reqId,
+        request: {
+          type: "action",
+          payload: {
+            action,
+            nonce,
+            signature,
+          },
+        },
+      });
+    });
+  };
+
   cancelOrders = async ({
     orders,
   }: {
     orders: Order[];
     priority?: boolean;
   }) => {
-    // eslint-disable-next-line no-async-promise-executor
     return new Promise(async (resolve) => {
       const batches = chunk(orders, 20);
       const responses: any[] = [];
@@ -106,7 +168,7 @@ export class HyperLiquidWsPrivate {
       for (const batch of batches) {
         const reqId = genIntId();
 
-        this.pendingRequests.set(reqId, (json: any) => {
+        this.pendingRequests.set(reqId, (json: HLPostCancelOrdersResponse) => {
           if (json?.data?.response?.payload?.status === "err") {
             this.parent.error(
               `[${this.account.id}] HyperLiquid cancel order error`,
@@ -122,12 +184,12 @@ export class HyperLiquidWsPrivate {
         });
 
         const action = {
-          type: "cancel",
+          type: "cancel" as const,
           cancels: batch.map((o) => ({
             a: this.parent.memory.public.markets[o.symbol].id as number,
             o: o.id as number,
           })),
-        } as const;
+        };
 
         const nonce = Date.now();
         const signature = await signL1Action({

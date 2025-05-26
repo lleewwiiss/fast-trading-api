@@ -57,6 +57,7 @@ export default [
         { allowInterfaces: "always" },
       ],
       "import/no-unresolved": [2, { ignore: ["bun:test"] }],
+      "no-async-promise-executor": "off",
     },
   },
   {

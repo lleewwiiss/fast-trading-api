@@ -319,7 +319,7 @@ export class BaseWorker {
     accountId: string;
     requestId: string;
     priority?: boolean;
-  }): Promise<string[]> {
+  }): Promise<Array<Order["id"]>> {
     this.error(`placeOrders() method not implemented`);
     return [];
   }

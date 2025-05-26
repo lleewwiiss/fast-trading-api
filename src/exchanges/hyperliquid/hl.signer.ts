@@ -1,38 +1,10 @@
 import { encode } from "@msgpack/msgpack";
 import { keccak } from "hash-wasm";
 
+import type { HLAction } from "./hl.types";
+
 import { signTypedData } from "~/utils/eip712.utils";
 import { hexToUint8Array } from "~/utils/uint8.utils";
-
-type Action =
-  | {
-      type: "order";
-      orders: Array<{
-        a: number;
-        b: boolean;
-        p: string;
-        s: string;
-        r: boolean;
-        t:
-          | { limit: { tif: "Alo" | "Ioc" | "Gtc" } }
-          | {
-              trigger: {
-                isMarket: boolean;
-                triggerPx: string;
-                tpsl: "tp" | "sl";
-              };
-            };
-      }>;
-      grouping: "na" | "normalTpsl" | "positionTpsl";
-      builder?: { b: string; f: number };
-    }
-  | {
-      type: "cancel";
-      cancels: Array<{
-        a: number;
-        o: number;
-      }>;
-    };
 
 export const HL_DOMAIN = {
   name: "Exchange",
@@ -54,7 +26,7 @@ const actionHash = async ({
   vaultAddress,
   expiresAfter,
 }: {
-  action: Action;
+  action: HLAction;
   nonce: number;
   vaultAddress?: string;
   expiresAfter?: number;
@@ -98,7 +70,7 @@ export const signL1Action = async ({
   isTestnet,
 }: {
   privateKey: string;
-  action: Action;
+  action: HLAction;
   nonce: number;
   vaultAddress?: string;
   isTestnet?: boolean;

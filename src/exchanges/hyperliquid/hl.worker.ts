@@ -17,6 +17,7 @@ import {
   type Account,
   type ExchangeConfig,
   type FetchOHLCVParams,
+  type PlaceOrderOpts,
   type Timeframe,
 } from "~/types/lib.types";
 
@@ -255,6 +256,27 @@ export class HyperLiquidWorker extends BaseWorker {
     ]);
 
     this.emitResponse({ requestId, data: { leverage, isHedged: false } });
+  }
+
+  async placeOrders({
+    orders,
+    accountId,
+    requestId,
+    priority = false,
+  }: {
+    orders: PlaceOrderOpts[];
+    accountId: string;
+    requestId: string;
+    priority?: boolean;
+  }) {
+    const orderIds = await this.privateWs[accountId].placeOrders({
+      orders,
+      priority,
+    });
+
+    this.emitResponse({ requestId, data: orderIds });
+
+    return orderIds;
   }
 
   async cancelOrders({
