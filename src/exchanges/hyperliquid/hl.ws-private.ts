@@ -101,9 +101,7 @@ export class HyperLiquidWsPrivate {
     // eslint-disable-next-line no-async-promise-executor
     return new Promise(async (resolve) => {
       const batches = chunk(orders, 20);
-
       const responses: any[] = [];
-      const toRemove: Order[] = [];
 
       for (const batch of batches) {
         const reqId = genIntId();
@@ -119,17 +117,6 @@ export class HyperLiquidWsPrivate {
           responses.push(json);
 
           if (responses.length === batches.length) {
-            const accountOrders =
-              this.parent.memory.private[this.account.id].orders;
-
-            this.parent.emitChanges(
-              toRemove.map(({ id }) => ({
-                type: "removeArrayElement",
-                path: `private.${this.account.id}.orders` as const,
-                index: accountOrders.findIndex((o) => o.id === id),
-              })),
-            );
-
             resolve(responses);
           }
         });
