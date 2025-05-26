@@ -578,11 +578,17 @@ export class BybitWorker extends BaseWorker {
       return;
     }
 
+    const market = this.memory.public.markets[symbol];
+    const leverageWithinBounds = Math.min(
+      Math.max(leverage, market.limits.leverage.min),
+      market.limits.leverage.max,
+    );
+
     const success = await setBybitLeverage({
       config: this.config,
       account,
       symbol,
-      leverage,
+      leverage: leverageWithinBounds,
     });
 
     if (success) {
