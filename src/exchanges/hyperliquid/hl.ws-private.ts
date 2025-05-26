@@ -112,8 +112,21 @@ export class HyperLiquidWsPrivate {
       this.pendingRequests.set(reqId, (json: HLPostPlaceOrdersResponse) => {
         if (json?.data?.response?.payload?.status === "ok") {
           json.data.response.payload.response.data.statuses.forEach(
-            (status: any) => {
-              orderIds.push(status.resting?.oid ?? status.filled?.oid);
+            (status) => {
+              if ("error" in status) {
+                this.parent.error(
+                  `[${this.account.id}] HyperLiquid place order error`,
+                );
+                this.parent.error(status.error);
+              }
+
+              if ("resting" in status) {
+                orderIds.push(status.resting.oid);
+              }
+
+              if ("filled" in status) {
+                orderIds.push(status.filled.oid);
+              }
             },
           );
         }

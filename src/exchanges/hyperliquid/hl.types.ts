@@ -172,6 +172,9 @@ export type HLPostPlaceOrdersResponse = HLPostResponse<{
   data: {
     statuses: Array<
       | {
+          error: string;
+        }
+      | {
           filled: {
             oid: number;
             avgPx: string;
