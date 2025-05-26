@@ -32,6 +32,10 @@ export class HyperLiquidWsPrivate {
   isStopped = false;
   isListening = false;
 
+  get memory() {
+    return this.parent.memory.private[this.account.id];
+  }
+
   constructor({
     parent,
     account,
@@ -65,10 +69,8 @@ export class HyperLiquidWsPrivate {
 
     this.ping();
 
-    this.subscribe({ type: "notification", user: this.account.apiKey });
     this.subscribe({ type: "webData2", user: this.account.apiKey });
     this.subscribe({ type: "orderUpdates", user: this.account.apiKey });
-    this.subscribe({ type: "userEvents", user: this.account.apiKey });
     this.subscribe({ type: "userFills", user: this.account.apiKey });
   };
 
@@ -86,31 +88,12 @@ export class HyperLiquidWsPrivate {
         });
       }
 
-      if (json.channel === "userFills" && json.data.isSnapshot !== true) {
-        const fills: HLUserFillEvent[] = json.data.fills;
-        const notif = this.parent.memory.private[this.account.id].notifications;
-
-        this.parent.emitChanges(
-          fills.map(
-            (e, idx) =>
-              ({
-                type: "update",
-                path: `private.${this.account.id}.notifications.${notif.length + idx}`,
-                value: {
-                  id: genId(),
-                  accountId: this.account.id,
-                  type: "order_fill",
-                  data: {
-                    id: e.oid,
-                    symbol: e.coin,
-                    side: e.side === "A" ? OrderSide.Sell : OrderSide.Buy,
-                    price: parseFloat(e.px),
-                    amount: parseFloat(e.sz),
-                  },
-                },
-              }) as const,
-          ),
-        );
+      if (
+        json.channel === "userFills" &&
+        json.data.isSnapshot !== true &&
+        json.data.fills.length > 0
+      ) {
+        this.onUserFills(json.data.fills);
       }
 
       if (json.channel === "webData2") {
@@ -164,6 +147,30 @@ export class HyperLiquidWsPrivate {
       this.parent.error(`HyperLiquid WebSocket message error`);
       this.parent.error(error.message);
     }
+  };
+
+  onUserFills = (fills: HLUserFillEvent[]) => {
+    const changes = fills.map(
+      (e, idx) =>
+        ({
+          type: "update",
+          path: `private.${this.account.id}.notifications.${this.memory.notifications.length + idx}`,
+          value: {
+            id: genId(),
+            accountId: this.account.id,
+            type: "order_fill",
+            data: {
+              id: e.oid,
+              symbol: e.coin,
+              side: e.side === "A" ? OrderSide.Sell : OrderSide.Buy,
+              price: parseFloat(e.px),
+              amount: parseFloat(e.sz),
+            },
+          },
+        }) as const,
+    );
+
+    this.parent.emitChanges(changes);
   };
 
   ping = () => {
