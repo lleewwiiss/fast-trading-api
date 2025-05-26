@@ -23,6 +23,12 @@ import {
 import { chunk } from "~/utils/chunk.utils";
 import { genId, genIntId } from "~/utils/gen-id.utils";
 import { ReconnectingWebSocket } from "~/utils/reconnecting-websocket.utils";
+import { sleep } from "~/utils/sleep.utils";
+
+type Data = {
+  id: number;
+  action: HLAction;
+};
 
 export class HyperLiquidWsPrivate {
   parent: HyperLiquidWorker;
@@ -31,10 +37,15 @@ export class HyperLiquidWsPrivate {
   ws: ReconnectingWebSocket | null = null;
   interval: NodeJS.Timeout | null = null;
 
-  pendingRequests = new Map<number, (data: any) => void>();
-
   isStopped = false;
   isListening = false;
+
+  pendingRequests = new Map<number, (data: any) => void>();
+
+  queue: { payload: Data; consume: number }[] = [];
+  isProcessing = false;
+  rateLimit = 20;
+  queueInterval = 1000 / this.rateLimit;
 
   get memory() {
     return this.parent.memory.private[this.account.id];
@@ -184,64 +195,58 @@ export class HyperLiquidWsPrivate {
     const orderIds: Array<Order["id"]> = [];
 
     return new Promise<Array<Order["id"]>>(async (resolve) => {
-      const reqId = genIntId();
+      const batches = chunk(orders, 20);
+      const responses: any[] = [];
 
-      this.pendingRequests.set(reqId, (json: HLPostPlaceOrdersResponse) => {
-        if (json?.data?.response?.payload?.status === "ok") {
-          json.data.response.payload.response.data.statuses.forEach(
-            (status) => {
-              if ("error" in status) {
-                this.parent.error(
-                  `[${this.account.id}] HyperLiquid place order error`,
-                );
-                this.parent.error(status.error);
-              }
+      for (const batch of batches) {
+        const reqId = genIntId();
 
-              if ("resting" in status) {
-                orderIds.push(status.resting.oid);
-              }
+        this.pendingRequests.set(reqId, (json: HLPostPlaceOrdersResponse) => {
+          if (json?.data?.response?.payload?.status === "ok") {
+            json.data.response.payload.response.data.statuses.forEach(
+              (status) => {
+                if ("error" in status) {
+                  this.parent.error(
+                    `[${this.account.id}] HyperLiquid place order error`,
+                  );
+                  this.parent.error(status.error);
+                }
 
-              if ("filled" in status) {
-                orderIds.push(status.filled.oid);
-              }
-            },
-          );
-        }
+                if ("resting" in status) {
+                  orderIds.push(status.resting.oid);
+                }
 
-        resolve(orderIds);
-      });
+                if ("filled" in status) {
+                  orderIds.push(status.filled.oid);
+                }
+              },
+            );
+          }
 
-      const action = {
-        type: "order" as const,
-        orders: orders.map((o) =>
-          formatHLOrder({
-            order: o,
-            tickers: this.parent.memory.public.tickers,
-            markets: this.parent.memory.public.markets,
-          }),
-        ),
-        grouping: "na",
-      } as HLAction;
+          responses.push(json);
 
-      const nonce = Date.now();
-      const signature = await signL1Action({
-        privateKey: this.account.apiSecret,
-        action,
-        nonce,
-      });
+          if (responses.length === batches.length) {
+            resolve(orderIds);
+          }
+        });
 
-      this.send({
-        method: "post",
-        id: reqId,
-        request: {
-          type: "action",
-          payload: {
-            action,
-            nonce,
-            signature,
-          },
-        },
-      });
+        const action = {
+          type: "order" as const,
+          orders: batch.map((o) =>
+            formatHLOrder({
+              order: o,
+              tickers: this.parent.memory.public.tickers,
+              markets: this.parent.memory.public.markets,
+            }),
+          ),
+          grouping: "na",
+        } as HLAction;
+
+        this.enqueueSend({
+          payload: { id: reqId, action },
+          consume: orders.length,
+        });
+      }
     });
   };
 
@@ -276,24 +281,9 @@ export class HyperLiquidWsPrivate {
           })),
         };
 
-        const nonce = Date.now();
-        const signature = await signL1Action({
-          privateKey: this.account.apiSecret,
-          action,
-          nonce,
-        });
-
-        this.send({
-          method: "post",
-          id: reqId,
-          request: {
-            type: "action",
-            payload: {
-              action,
-              nonce,
-              signature,
-            },
-          },
+        this.enqueueSend({
+          payload: { id: reqId, action },
+          consume: batch.length,
         });
       }
     });
@@ -338,24 +328,9 @@ export class HyperLiquidWsPrivate {
           ),
         } as HLAction;
 
-        const nonce = Date.now();
-        const signature = await signL1Action({
-          privateKey: this.account.apiSecret,
-          action,
-          nonce,
-        });
-
-        this.send({
-          method: "post",
-          id: reqId,
-          request: {
-            type: "action",
-            payload: {
-              action,
-              nonce,
-              signature,
-            },
-          },
+        this.enqueueSend({
+          payload: { id: reqId, action },
+          consume: batch.length,
         });
       }
     });
@@ -413,6 +388,62 @@ export class HyperLiquidWsPrivate {
       clearInterval(this.interval);
       this.interval = null;
     }
+  };
+
+  enqueueSend = ({
+    payload,
+    consume = 1,
+    priority = false,
+  }: {
+    payload: Data;
+    consume?: number;
+    priority?: boolean;
+  }) => {
+    if (priority) {
+      this.queue.unshift({ payload, consume });
+    } else {
+      this.queue.push({ payload, consume });
+    }
+
+    if (!this.isProcessing) {
+      this.processQueue();
+    }
+  };
+
+  processQueue = async () => {
+    this.isProcessing = true;
+
+    while (this.queue.length > 0) {
+      const item = this.queue.shift();
+
+      if (item) {
+        const { payload, consume } = item;
+
+        const nonce = Date.now();
+        const signature = await signL1Action({
+          privateKey: this.account.apiSecret,
+          action: payload.action,
+          nonce,
+        });
+
+        this.send({
+          method: "post",
+          id: payload.id,
+          request: {
+            type: "action",
+            payload: {
+              action: payload.action,
+              nonce,
+              signature,
+            },
+          },
+        });
+
+        await sleep(this.queueInterval * consume);
+      }
+    }
+
+    this.isProcessing = false;
   };
 
   send = (data: Record<string, any>) => {
