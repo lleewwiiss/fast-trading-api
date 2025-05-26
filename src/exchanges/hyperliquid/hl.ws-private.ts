@@ -44,7 +44,7 @@ export class HyperLiquidWsPrivate {
 
   queue: { payload: Data; consume: number }[] = [];
   isProcessing = false;
-  rateLimit = 20;
+  rateLimit = 10;
   queueInterval = 1000 / this.rateLimit;
 
   get memory() {
@@ -245,7 +245,6 @@ export class HyperLiquidWsPrivate {
 
         this.enqueueSend({
           payload: { id: reqId, action },
-          consume: orders.length,
           priority,
         });
       }
@@ -291,7 +290,6 @@ export class HyperLiquidWsPrivate {
 
         this.enqueueSend({
           payload: { id: reqId, action },
-          consume: batch.length,
           priority,
         });
       }
@@ -340,7 +338,6 @@ export class HyperLiquidWsPrivate {
 
         this.enqueueSend({
           payload: { id: reqId, action },
-          consume: batch.length,
           priority,
         });
       }
