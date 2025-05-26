@@ -5,11 +5,17 @@ import type {
   HLAction,
   HLPostCancelOrdersResponse,
   HLPostPlaceOrdersResponse,
+  HLUserFillEvent,
 } from "./hl.types";
 
-import type { Account, Order, PlaceOrderOpts } from "~/types/lib.types";
+import {
+  OrderSide,
+  type Account,
+  type Order,
+  type PlaceOrderOpts,
+} from "~/types/lib.types";
 import { chunk } from "~/utils/chunk.utils";
-import { genIntId } from "~/utils/gen-id.utils";
+import { genId, genIntId } from "~/utils/gen-id.utils";
 import { ReconnectingWebSocket } from "~/utils/reconnecting-websocket.utils";
 import { subtract } from "~/utils/safe-math.utils";
 import { sumBy } from "~/utils/sum-by.utils";
@@ -78,6 +84,33 @@ export class HyperLiquidWsPrivate {
           accountId: this.account.id,
           hlOrders: json.data,
         });
+      }
+
+      if (json.channel === "userFills" && json.data.isSnapshot !== true) {
+        const fills: HLUserFillEvent[] = json.data.fills;
+        const notif = this.parent.memory.private[this.account.id].notifications;
+
+        this.parent.emitChanges(
+          fills.map(
+            (e, idx) =>
+              ({
+                type: "update",
+                path: `private.${this.account.id}.notifications.${notif.length + idx}`,
+                value: {
+                  id: genId(),
+                  accountId: this.account.id,
+                  type: "order_fill",
+                  data: {
+                    id: e.oid,
+                    symbol: e.coin,
+                    side: e.side === "A" ? OrderSide.Sell : OrderSide.Buy,
+                    price: parseFloat(e.px),
+                    amount: parseFloat(e.sz),
+                  },
+                },
+              }) as const,
+          ),
+        );
       }
 
       if (json.channel === "webData2") {

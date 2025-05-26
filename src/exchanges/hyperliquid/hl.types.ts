@@ -196,3 +196,20 @@ export type HLPostCancelOrdersResponse = HLPostResponse<{
     statuses: Array<{ error: string } | string>;
   };
 }>;
+
+export type HLUserFillEvent = {
+  coin: string;
+  px: string;
+  sz: string;
+  side: string;
+  time: number;
+  startPosition: string;
+  dir: string;
+  closedPnl: string;
+  hash: string;
+  oid: number;
+  crossed: true;
+  fee: string;
+  tid: number;
+  feeToken: string;
+};
