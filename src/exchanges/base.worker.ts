@@ -52,6 +52,7 @@ export class BaseWorker {
     this.config = config;
     this.parent = parent;
     this.parent.addEventListener("message", this.onMessage);
+    this.parent.postMessage({ type: "ready" });
   }
 
   onMessage = ({ data }: ExchangeWorkerMessage) => {
@@ -98,7 +99,6 @@ export class BaseWorker {
     requestId: string;
     config: ExchangeConfig;
   }) {
-    this.log(`${this.name.toUpperCase()} Exchange starting`);
     this.log(`Initializing ${this.name.toUpperCase()} exchange data`);
 
     this.config = config;

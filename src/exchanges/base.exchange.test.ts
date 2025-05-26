@@ -25,7 +25,14 @@ const moduleMocker = {
 };
 
 const mockWorker = (
-  code = `self.postMessage({ type: "response", requestId: "test" });`,
+  code = `
+    self.postMessage({ type: "ready" });
+    self.addEventListener("message", (event) => {
+      if (event.data.requestId) {
+        self.postMessage({ type: "response", requestId: event.data.requestId });
+      }
+    });
+  `,
 ) => {
   const blob = new Blob([code], { type: "application/javascript" });
   const workerURL = URL.createObjectURL(blob);
@@ -168,7 +175,17 @@ describe("BaseExchange", () => {
       config: DEFAULT_CONFIG[ExchangeName.BYBIT],
     });
 
-    worker.postMessage = mock(() => {});
+    const originalPostMessage = worker.postMessage;
+    worker.postMessage = mock((message: any) => {
+      if (message.requestId) {
+        // Simulate worker response
+        setTimeout(() => {
+          exchange.onWorkerMessage({
+            data: { type: "response", requestId: message.requestId, data: [] },
+          } as any);
+        }, 0);
+      }
+    });
 
     await exchange.placeOrders({
       orders: [
@@ -194,6 +211,7 @@ describe("BaseExchange", () => {
       }),
     );
 
+    worker.postMessage = originalPostMessage;
     terminate();
   });
 
@@ -205,7 +223,21 @@ describe("BaseExchange", () => {
       config: DEFAULT_CONFIG[ExchangeName.BYBIT],
     });
 
-    worker.postMessage = mock(() => {});
+    const originalPostMessage = worker.postMessage;
+    worker.postMessage = mock((message: any) => {
+      if (message.requestId) {
+        // Simulate worker response
+        setTimeout(() => {
+          exchange.onWorkerMessage({
+            data: {
+              type: "response",
+              requestId: message.requestId,
+              data: undefined,
+            },
+          } as any);
+        }, 0);
+      }
+    });
 
     await exchange.updateOrders({
       updates: [
@@ -227,6 +259,7 @@ describe("BaseExchange", () => {
       }),
     );
 
+    worker.postMessage = originalPostMessage;
     terminate();
   });
 
@@ -238,7 +271,21 @@ describe("BaseExchange", () => {
       config: DEFAULT_CONFIG[ExchangeName.BYBIT],
     });
 
-    worker.postMessage = mock(() => {});
+    const originalPostMessage = worker.postMessage;
+    worker.postMessage = mock((message: any) => {
+      if (message.requestId) {
+        // Simulate worker response
+        setTimeout(() => {
+          exchange.onWorkerMessage({
+            data: {
+              type: "response",
+              requestId: message.requestId,
+              data: undefined,
+            },
+          } as any);
+        }, 0);
+      }
+    });
 
     await exchange.cancelOrders({
       orderIds: ["order1", "order2"],
@@ -256,6 +303,7 @@ describe("BaseExchange", () => {
       }),
     );
 
+    worker.postMessage = originalPostMessage;
     terminate();
   });
 
@@ -267,7 +315,21 @@ describe("BaseExchange", () => {
       config: DEFAULT_CONFIG[ExchangeName.BYBIT],
     });
 
-    worker.postMessage = mock(() => {});
+    const originalPostMessage = worker.postMessage;
+    worker.postMessage = mock((message: any) => {
+      if (message.requestId) {
+        // Simulate worker response
+        setTimeout(() => {
+          exchange.onWorkerMessage({
+            data: {
+              type: "response",
+              requestId: message.requestId,
+              data: { leverage: 10, isHedged: false },
+            },
+          } as any);
+        }, 0);
+      }
+    });
 
     await exchange.fetchPositionMetadata({
       accountId: "main",
@@ -283,6 +345,7 @@ describe("BaseExchange", () => {
       }),
     );
 
+    worker.postMessage = originalPostMessage;
     terminate();
   });
 
@@ -294,7 +357,21 @@ describe("BaseExchange", () => {
       config: DEFAULT_CONFIG[ExchangeName.BYBIT],
     });
 
-    worker.postMessage = mock(() => {});
+    const originalPostMessage = worker.postMessage;
+    worker.postMessage = mock((message: any) => {
+      if (message.requestId) {
+        // Simulate worker response
+        setTimeout(() => {
+          exchange.onWorkerMessage({
+            data: {
+              type: "response",
+              requestId: message.requestId,
+              data: true,
+            },
+          } as any);
+        }, 0);
+      }
+    });
 
     await exchange.setLeverage({
       accountId: "main",
@@ -312,6 +389,7 @@ describe("BaseExchange", () => {
       }),
     );
 
+    worker.postMessage = originalPostMessage;
     terminate();
   });
 

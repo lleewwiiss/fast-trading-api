@@ -21,6 +21,7 @@ export class BaseExchange {
 
   parent: FastTradingApi;
   worker: Worker;
+  workerReady = false;
 
   pendingRequests = new Map<string, (data: any) => void>();
   ohlcvListeners = new Map<string, (data: Candle) => void>();
@@ -45,7 +46,7 @@ export class BaseExchange {
   }
 
   start = () => {
-    this.parent.emit("log", `Starting ${this.name} Exchange`);
+    this.parent.emit("log", `Starting ${this.name.toUpperCase()} Exchange`);
     return this.dispatchWorker({
       type: "start",
       accounts: this.parent.accounts.filter((a) => a.exchange === this.name),
@@ -230,8 +231,10 @@ export class BaseExchange {
     return this.dispatchWorker({ type: "stopChase", accountId, chaseId });
   }
 
-  dispatchWorker<T>(message: Record<string, any>): Promise<T> {
+  async dispatchWorker<T>(message: Record<string, any>): Promise<T> {
     const requestId = genId();
+
+    await this.waitForWorkerReady();
 
     return new Promise((resolve) => {
       this.pendingRequests.set(requestId, resolve);
@@ -239,9 +242,24 @@ export class BaseExchange {
     });
   }
 
+  waitForWorkerReady = () => {
+    return new Promise<void>((resolve) => {
+      if (this.workerReady) return resolve();
+
+      const cb = () => {
+        this.workerReady = true;
+        this.worker.removeEventListener("message", cb);
+        resolve();
+      };
+
+      this.worker.addEventListener("message", cb);
+    });
+  };
+
   onWorkerMessage = <P extends ObjectPaths<StoreMemory>>({
     data,
   }: MessageEvent<
+    | { type: "ready" }
     | { type: "update"; changes: ObjectChangeCommand<StoreMemory, P>[] }
     | { type: "response"; requestId: string; data: any }
     | { type: "log"; message: string }
@@ -249,6 +267,7 @@ export class BaseExchange {
     | { type: "candle"; candle: Candle }
     | { type: "orderBook"; symbol: string; orderBook: OrderBook }
   >) => {
+    if (data.type === "ready") this.workerReady = true;
     if (data.type === "log") return this.parent.emit("log", data.message);
     if (data.type === "error") return this.parent.emit("error", data.error);
     if (data.type === "candle") return this.handleCandle(data.candle);
