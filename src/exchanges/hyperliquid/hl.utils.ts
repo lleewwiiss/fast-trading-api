@@ -1,4 +1,4 @@
-import type { HLUserOrder } from "./hl.types";
+import type { HLUserAccount, HLUserOrder } from "./hl.types";
 import { HL_MAX_FIGURES } from "./hl.config";
 
 import { adjust, multiply, subtract } from "~/utils/safe-math.utils";
@@ -7,12 +7,42 @@ import {
   OrderSide,
   OrderStatus,
   OrderType,
+  PositionSide,
+  type Position,
+  type Account,
   type Market,
   type Order,
   type PlaceOrderOpts,
   type Ticker,
 } from "~/types/lib.types";
 import { countFigures } from "~/utils/count-figures.utils";
+
+export const mapHLPositions = ({
+  accountId,
+  positions,
+}: {
+  accountId: Account["id"];
+  positions: HLUserAccount["assetPositions"];
+}): Position[] => {
+  return positions.map((p) => {
+    const contracts = parseFloat(p.position.szi);
+
+    return {
+      accountId,
+      exchange: ExchangeName.HL,
+      symbol: p.position.coin,
+      side: contracts > 0 ? PositionSide.Long : PositionSide.Short,
+      entryPrice: parseFloat(p.position.entryPx),
+      notional: parseFloat(p.position.positionValue),
+      leverage: p.position.leverage.value,
+      upnl: parseFloat(p.position.unrealizedPnl),
+      rpnl: 0,
+      contracts: Math.abs(contracts),
+      liquidationPrice: parseFloat(p.position.liquidationPx) || 0,
+      isHedged: p.type !== "oneWay",
+    };
+  });
+};
 
 const mapOrderType = (type: string) => {
   switch (type) {

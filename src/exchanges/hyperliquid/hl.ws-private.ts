@@ -1,6 +1,6 @@
 import type { HyperLiquidWorker } from "./hl.worker";
 import { signL1Action } from "./hl.signer";
-import { formatHlOrder } from "./hl.utils";
+import { formatHlOrder, mapHLPositions } from "./hl.utils";
 import type {
   HLAction,
   HLPostCancelOrdersResponse,
@@ -11,6 +11,8 @@ import type { Account, Order, PlaceOrderOpts } from "~/types/lib.types";
 import { chunk } from "~/utils/chunk.utils";
 import { genIntId } from "~/utils/gen-id.utils";
 import { ReconnectingWebSocket } from "~/utils/reconnecting-websocket.utils";
+import { subtract } from "~/utils/safe-math.utils";
+import { sumBy } from "~/utils/sum-by.utils";
 
 export class HyperLiquidWsPrivate {
   parent: HyperLiquidWorker;
@@ -57,8 +59,8 @@ export class HyperLiquidWsPrivate {
 
     this.ping();
 
-    this.subscribe({ type: "notifications", user: this.account.apiKey });
-    this.subscribe({ type: "web2Data", user: this.account.apiKey });
+    this.subscribe({ type: "notification", user: this.account.apiKey });
+    this.subscribe({ type: "webData2", user: this.account.apiKey });
     this.subscribe({ type: "orderUpdates", user: this.account.apiKey });
     this.subscribe({ type: "userEvents", user: this.account.apiKey });
     this.subscribe({ type: "userFills", user: this.account.apiKey });
@@ -75,6 +77,45 @@ export class HyperLiquidWsPrivate {
         this.parent.updateAccountOrders({
           accountId: this.account.id,
           hlOrders: json.data,
+        });
+      }
+
+      if (json.channel === "webData2") {
+        const { assetPositions, crossMarginSummary } =
+          json.data.clearinghouseState;
+
+        const positions = mapHLPositions({
+          accountId: this.account.id,
+          positions: assetPositions,
+        });
+
+        const used = parseFloat(crossMarginSummary.totalMarginUsed);
+        const total = parseFloat(crossMarginSummary.accountValue);
+        const free = subtract(total, used);
+        const upnl = sumBy(positions, (p) => p.upnl);
+
+        this.parent.updateAccountBalance({
+          accountId: this.account.id,
+          balance: { used, free, total, upnl },
+        });
+
+        const toRemove = this.parent.memory.private[
+          this.account.id
+        ].positions.filter(
+          (p) =>
+            !positions.some(
+              (p2) => p2.side === p.side && p2.symbol === p.symbol,
+            ),
+        );
+
+        this.parent.removeAccountPositions({
+          accountId: this.account.id,
+          positions: toRemove,
+        });
+
+        this.parent.updateAccountPositions({
+          accountId: this.account.id,
+          positions,
         });
       }
 

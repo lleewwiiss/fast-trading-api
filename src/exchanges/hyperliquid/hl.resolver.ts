@@ -5,13 +5,11 @@ import type {
   HLUserAccount,
   HLUserOrder,
 } from "./hl.types";
-import { mapHlOrder } from "./hl.utils";
+import { mapHlOrder, mapHLPositions } from "./hl.utils";
 
 import { TICKER_REGEX } from "~/utils/regex.utils";
 import {
   ExchangeName,
-  PositionSide,
-  type Position,
   type Account,
   type Balance,
   type ExchangeConfig,
@@ -118,23 +116,9 @@ export const fetchHLUserAccount = async ({
     },
   });
 
-  const positions: Position[] = response.assetPositions.map((p) => {
-    const contracts = parseFloat(p.position.szi);
-
-    return {
-      accountId: account.id,
-      exchange: ExchangeName.HL,
-      symbol: p.position.coin,
-      side: contracts > 0 ? PositionSide.Long : PositionSide.Short,
-      entryPrice: parseFloat(p.position.entryPx),
-      notional: parseFloat(p.position.positionValue),
-      leverage: p.position.leverage.value,
-      upnl: parseFloat(p.position.unrealizedPnl),
-      rpnl: 0,
-      contracts: Math.abs(contracts),
-      liquidationPrice: parseFloat(p.position.liquidationPx) || 0,
-      isHedged: p.type !== "oneWay",
-    };
+  const positions = mapHLPositions({
+    accountId: account.id,
+    positions: response.assetPositions,
   });
 
   const used = parseFloat(response.crossMarginSummary.totalMarginUsed);
