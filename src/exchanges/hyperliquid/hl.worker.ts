@@ -137,6 +137,21 @@ export class HyperLiquidWorker extends BaseWorker {
     }
   }
 
+  async removeAccount({
+    accountId,
+    requestId,
+  }: {
+    accountId: string;
+    requestId: string;
+  }) {
+    if (accountId in this.privateWs) {
+      this.privateWs[accountId].stop();
+      delete this.privateWs[accountId];
+    }
+
+    await super.removeAccount({ accountId, requestId });
+  }
+
   updateAccountOrders({
     accountId,
     hlOrders,
