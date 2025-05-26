@@ -113,7 +113,7 @@ export type HLCandle = {
 
 export type HLOrderUpdateWs = {
   order: HLUserOrder;
-  status: "canceled" | "open";
+  status: "canceled" | "open" | "filled";
 };
 
 export type HLAction =

@@ -144,44 +144,47 @@ export class HyperLiquidWorker extends BaseWorker {
     accountId: string;
     hlOrders: HLOrderUpdateWs[];
   }) {
-    const changes: any[] = [];
-
     for (const hlOrder of hlOrders) {
       if (hlOrder.status === "open") {
-        const length = this.memory.private[accountId].orders.length;
-        const exists = this.memory.private[accountId].orders.some(
+        const idx = this.memory.private[accountId].orders.findIndex(
           (o) => o.id === hlOrder.order.oid,
         );
 
-        if (!exists) {
-          changes.push({
-            type: "update",
-            path: `private.${accountId}.orders.${length}`,
-            value: mapHlOrder({
-              order: hlOrder.order,
-              accountId,
-            }),
-          });
+        if (idx === -1) {
+          const length = this.memory.private[accountId].orders.length;
+          this.emitChanges([
+            {
+              type: "update",
+              path: `private.${accountId}.orders.${length}`,
+              value: mapHlOrder({ order: hlOrder.order, accountId }),
+            },
+          ]);
+        } else {
+          this.emitChanges([
+            {
+              type: "update",
+              path: `private.${accountId}.orders.${idx}`,
+              value: mapHlOrder({ order: hlOrder.order, accountId }),
+            },
+          ]);
         }
       }
 
-      if (hlOrder.status === "canceled") {
+      if (hlOrder.status === "canceled" || hlOrder.status === "filled") {
         const idx = this.memory.private[accountId].orders.findIndex(
           (o) => o.id === hlOrder.order.oid,
         );
 
         if (idx !== -1) {
-          changes.push({
-            type: "removeArrayElement",
-            path: `private.${accountId}.orders`,
-            index: idx,
-          });
+          this.emitChanges([
+            {
+              type: "removeArrayElement",
+              path: `private.${accountId}.orders` as const,
+              index: idx,
+            },
+          ]);
         }
       }
-    }
-
-    if (changes.length > 0) {
-      this.emitChanges(changes);
     }
   }
 
