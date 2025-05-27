@@ -272,7 +272,7 @@ export class HyperLiquidWsPrivate {
         this.parent.config.options?.builderFees
       ) {
         (action as any).builder = {
-          b: this.parent.config.options.builderAddress,
+          b: this.parent.config.options.builderAddress.toLowerCase(),
           f: this.parent.config.options.builderFees,
         };
       }
@@ -352,7 +352,7 @@ export class HyperLiquidWsPrivate {
           this.parent.config.options?.builderFees
         ) {
           (action as any).builder = {
-            b: this.parent.config.options.builderAddress,
+            b: this.parent.config.options.builderAddress.toLowerCase(),
             f: this.parent.config.options.builderFees,
           };
         }
