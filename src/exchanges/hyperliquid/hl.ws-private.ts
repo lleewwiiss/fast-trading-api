@@ -267,6 +267,16 @@ export class HyperLiquidWsPrivate {
         grouping: "positionTpsl",
       } as HLAction;
 
+      if (
+        this.parent.config.options?.builderAddress &&
+        this.parent.config.options?.builderFees
+      ) {
+        (action as any).builder = {
+          b: this.parent.config.options.builderAddress,
+          f: this.parent.config.options.builderFees,
+        };
+      }
+
       this.enqueueSend({
         payload: { id: reqId, action },
         priority,
@@ -336,6 +346,16 @@ export class HyperLiquidWsPrivate {
           orders: batch,
           grouping: hasStopOrders ? "normalTpsl" : "na",
         } as HLAction;
+
+        if (
+          this.parent.config.options?.builderAddress &&
+          this.parent.config.options?.builderFees
+        ) {
+          (action as any).builder = {
+            b: this.parent.config.options.builderAddress,
+            f: this.parent.config.options.builderFees,
+          };
+        }
 
         this.enqueueSend({
           payload: { id: reqId, action },

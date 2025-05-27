@@ -12,6 +12,7 @@ export interface ExchangeConfig {
   WS_PUBLIC_URL: string;
   WS_PRIVATE_URL: string;
   WS_TRADE_URL: string;
+  options?: Record<string, any>;
 }
 
 export interface Store {

@@ -14,5 +14,9 @@ export const DEFAULT_CONFIG: Record<ExchangeName, ExchangeConfig> = {
     WS_PUBLIC_URL: "wss://api.hyperliquid.xyz/ws",
     WS_PRIVATE_URL: "wss://api.hyperliquid.xyz/ws",
     WS_TRADE_URL: "",
+    options: {
+      builderAddress: "",
+      builderFees: 0,
+    },
   },
 };
