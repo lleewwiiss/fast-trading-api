@@ -250,7 +250,7 @@ export class HyperLiquidWsPrivate {
         type: stop.type,
         side:
           position.side === PositionSide.Long ? OrderSide.Sell : OrderSide.Buy,
-        amount: position.contracts,
+        amount: 0, // HL needs size 0 for binding to stop to the position
         price: stop.price,
         reduceOnly: true,
       };
