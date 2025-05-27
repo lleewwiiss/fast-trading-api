@@ -32,7 +32,7 @@ import {
   OrderSide,
 } from "~/types/lib.types";
 import { partition } from "~/utils/partition.utils";
-import { subtract } from "~/utils/safe-math.utils";
+import { adjust, subtract } from "~/utils/safe-math.utils";
 import { omit } from "~/utils/omit.utils";
 import { toUSD } from "~/utils/to-usd.utils";
 import { sumBy } from "~/utils/sum-by.utils";
@@ -442,46 +442,68 @@ export class BybitWorker extends BaseWorker {
     requestId: string;
     priority?: boolean;
   }) {
-    const orderIds: string[] = [];
     const [normalOrders, conditionalOrders] = partition(
       orders,
       (order) =>
         order.type === OrderType.Market || order.type === OrderType.Limit,
     );
 
-    if (normalOrders.length > 0) {
-      const normalOrderIds = await this.tradingWs[accountId].placeOrders({
-        priority,
-        orders: normalOrders.flatMap((o) =>
-          formatMarkerOrLimitOrder({
-            order: o,
-            market: this.memory.public.markets[o.symbol],
-            isHedged:
-              this.memory.private[accountId].metadata.hedgedPosition[o.symbol],
-          }),
-        ),
-      });
-
-      orderIds.push(...normalOrderIds);
+    if (normalOrders.length === 0) {
+      this.error(`Bybit: called placeOrders without orders`);
+      this.emitResponse({ requestId, data: [] });
+      return [];
     }
 
-    if (conditionalOrders.length > 0) {
-      const account = this.accounts.find((a) => a.id === accountId)!;
+    const formattedNormalOrders = normalOrders.flatMap((o) =>
+      formatMarkerOrLimitOrder({
+        order: o,
+        market: this.memory.public.markets[o.symbol],
+        isHedged:
+          this.memory.private[accountId].metadata.hedgedPosition[o.symbol],
+      }),
+    );
 
-      for (const order of orders) {
-        await createBybitTradingStop({
-          config: this.config,
-          order,
-          account,
-          market: this.memory.public.markets[order.symbol],
-          ticker: this.memory.public.tickers[order.symbol],
-          isHedged:
-            this.memory.private[accountId].metadata.hedgedPosition[
-              order.symbol
-            ],
-        });
+    // Special case for bybit, we can't simply post SL/TP orders without a position open
+    // We will add field on the first normalOrder to match the SL/TP configuration
+    if (conditionalOrders.length > 0) {
+      // We shouldn't expect more than 2 conditional orders (TP and/or SL)
+      if (conditionalOrders.length > 2) {
+        this.error(`Bybit: more than 2 SL/TP orders in placeOrders`);
+        this.emitResponse({ requestId, data: [] });
+        return [];
+      }
+
+      const sl = conditionalOrders.find(
+        (o) => o.type === OrderType.StopLoss || OrderType.TrailingStopLoss,
+      );
+
+      if (sl && sl.price) {
+        const slPrice = adjust(
+          sl.price,
+          this.memory.public.markets[sl.symbol].precision.price,
+        );
+
+        formattedNormalOrders[0].stopLoss = slPrice.toString();
+        formattedNormalOrders[0].slTriggerBy = "MarkPrice";
+      }
+
+      const tp = conditionalOrders.find((o) => o.type === OrderType.TakeProfit);
+
+      if (tp && tp.price) {
+        const tpPrice = adjust(
+          tp.price,
+          this.memory.public.markets[tp.symbol].precision.price,
+        );
+
+        formattedNormalOrders[0].takeProfit = tpPrice.toString();
+        formattedNormalOrders[0].tpTriggerBy = "LastPrice";
       }
     }
+
+    const orderIds = await this.tradingWs[accountId].placeOrders({
+      priority,
+      orders: formattedNormalOrders,
+    });
 
     this.emitResponse({ requestId, data: orderIds });
 
