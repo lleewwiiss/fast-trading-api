@@ -26,6 +26,10 @@ import {
   type FetchOHLCVParams,
   type ExchangeConfig,
   type UpdateOrderOpts,
+  type PlacePositionStopOpts,
+  type Position,
+  PositionSide,
+  OrderSide,
 } from "~/types/lib.types";
 import { partition } from "~/utils/partition.utils";
 import { subtract } from "~/utils/safe-math.utils";
@@ -383,6 +387,48 @@ export class BybitWorker extends BaseWorker {
     timeframe: Timeframe;
   }) {
     this.publicWs?.unlistenOHLCV({ symbol, timeframe });
+  }
+
+  async placePositionStop({
+    position,
+    stop,
+    requestId,
+  }: {
+    position: Position;
+    stop: PlacePositionStopOpts;
+    requestId: string;
+    priority?: boolean;
+  }) {
+    const account = this.accounts.find((a) => a.id === position.accountId);
+
+    if (!account) {
+      this.error(`No account found for id: ${position.accountId}`);
+      return;
+    }
+
+    const stopOrder = {
+      symbol: position.symbol,
+      type: stop.type,
+      side:
+        position.side === PositionSide.Long ? OrderSide.Sell : OrderSide.Buy,
+      amount: position.contracts,
+      price: stop.price,
+      reduceOnly: true,
+    };
+
+    await createBybitTradingStop({
+      config: this.config,
+      order: stopOrder,
+      account,
+      market: this.memory.public.markets[position.symbol],
+      ticker: this.memory.public.tickers[position.symbol],
+      isHedged:
+        this.memory.private[account.id].metadata.hedgedPosition[
+          position.symbol
+        ],
+    });
+
+    this.emitResponse({ requestId, data: [] });
   }
 
   async placeOrders({
