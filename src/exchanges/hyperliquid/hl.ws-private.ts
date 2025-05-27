@@ -159,38 +159,48 @@ export class HyperLiquidWsPrivate {
       data: clearinghouseState,
     });
 
-    this.parent.emitChanges([
+    const balanceChange = {
+      type: "update",
+      path: `private.${this.account.id}.balance`,
+      value: balance,
+    } as const;
+
+    const ordersChange = {
+      type: "update",
+      path: `private.${this.account.id}.orders`,
+      value: openOrders.map((o) =>
+        mapHLOrder({
+          accountId: this.account.id,
+          order: o,
+        }),
+      ),
+    } as const;
+
+    const positionsChange = {
+      type: "update",
+      path: `private.${this.account.id}.positions`,
+      value: positions,
+    } as const;
+
+    const metadataChanges = positions.flatMap((p) => [
       {
         type: "update",
-        path: `private.${this.account.id}.balance`,
-        value: balance,
-      },
+        path: `private.${this.account.id}.metadata.leverage.${p.symbol}`,
+        value: p.leverage,
+      } as const,
       {
         type: "update",
-        path: `private.${this.account.id}.orders`,
-        value: openOrders.map((o) =>
-          mapHLOrder({
-            accountId: this.account.id,
-            order: o,
-          }),
-        ),
-      },
+        path: `private.${this.account.id}.metadata.hedgedPosition.${p.symbol}`,
+        value: p.isHedged ?? false,
+      } as const,
     ]);
 
-    const removedPositions = this.memory.positions.filter(
-      (p) =>
-        !positions.some((p2) => p2.side === p.side && p2.symbol === p.symbol),
-    );
-
-    this.parent.removeAccountPositions({
-      accountId: this.account.id,
-      positions: removedPositions,
-    });
-
-    this.parent.updateAccountPositions({
-      accountId: this.account.id,
-      positions,
-    });
+    this.parent.emitChanges([
+      balanceChange,
+      ordersChange,
+      positionsChange,
+      ...metadataChanges,
+    ]);
   };
 
   ping = () => {
