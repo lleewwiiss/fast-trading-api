@@ -154,6 +154,7 @@ export const formatHLOrder = ({
 }) => {
   const market = markets[order.symbol];
   const pAmount = market.precision.amount;
+  const pPrice = market.precision.price;
 
   const isBuy = order.side === OrderSide.Buy;
   const isStop =
@@ -164,25 +165,41 @@ export const formatHLOrder = ({
   const amount = adjust(order.amount, pAmount);
   const price = formatHLOrderPrice({ order, tickers, markets });
 
+  if (isStop) {
+    // We need to specify a limit price at which we agree
+    // to fill our stop loss, for this we are setting 10% (shouldnt happen)
+    const priceWithSlippage = adjust(
+      isBuy ? price + price * 0.1 : price - price * 0.1,
+      pPrice,
+    );
+
+    return {
+      a: tickers[order.symbol].id as number,
+      b: isBuy,
+      p: priceWithSlippage.toString(),
+      s: amount.toString(),
+      r: order.reduceOnly,
+      t: {
+        trigger: {
+          isMarket: true,
+          triggerPx: price.toString(),
+          tpsl: order.type === OrderType.StopLoss ? "sl" : "tp",
+        },
+      },
+    };
+  }
+
   return {
     a: tickers[order.symbol].id as number,
     b: isBuy,
     p: price.toString(),
     s: amount.toString(),
     r: order.reduceOnly,
-    t: isStop
-      ? {
-          trigger: {
-            isMarket: true,
-            triggerPx: price.toString(),
-            tpsl: order.type === OrderType.StopLoss ? "sl" : "tp",
-          },
-        }
-      : {
-          limit: {
-            tif: order.type === OrderType.Market ? "Ioc" : "Gtc",
-          },
-        },
+    t: {
+      limit: {
+        tif: order.type === OrderType.Market ? "Ioc" : "Gtc",
+      },
+    },
   };
 };
 
@@ -195,6 +212,10 @@ export const formatHLOrderUpdate = ({
   tickers: Record<string, Ticker>;
   markets: Record<string, Market>;
 }) => {
+  const market = markets[order.symbol];
+  const pPrice = market.precision.price;
+  const pAmount = market.precision.amount;
+
   const price =
     "price" in update
       ? formatHLOrderPrice({
@@ -211,9 +232,34 @@ export const formatHLOrderUpdate = ({
     order.type === OrderType.TrailingStopLoss;
 
   const amount =
-    "amount" in update
-      ? adjust(update.amount, markets[order.symbol].precision.amount)
-      : order.amount;
+    "amount" in update ? adjust(update.amount, pAmount) : order.amount;
+
+  if (isStop) {
+    // We need to specify a limit price at which we agree
+    // to fill our stop loss, for this we are setting 10% (shouldnt happen)
+    const priceWithSlippage = adjust(
+      isBuy ? price + price * 0.1 : price - price * 0.1,
+      pPrice,
+    );
+
+    return {
+      oid: order.id as number,
+      order: {
+        a: markets[order.symbol].id as number,
+        b: isBuy,
+        p: priceWithSlippage.toString(),
+        s: amount.toString(),
+        r: order.reduceOnly,
+        t: {
+          trigger: {
+            isMarket: true,
+            triggerPx: price.toString(),
+            tpsl: order.type === OrderType.StopLoss ? "sl" : "tp",
+          },
+        },
+      },
+    };
+  }
 
   return {
     oid: order.id as number,
@@ -223,19 +269,11 @@ export const formatHLOrderUpdate = ({
       p: price.toString(),
       s: amount.toString(),
       r: order.reduceOnly,
-      t: isStop
-        ? {
-            trigger: {
-              isMarket: true,
-              triggerPx: price.toString(),
-              tpsl: order.type === OrderType.StopLoss ? "sl" : "tp",
-            },
-          }
-        : {
-            limit: {
-              tif: order.type === OrderType.Market ? "Ioc" : "Gtc",
-            },
-          },
+      t: {
+        limit: {
+          tif: order.type === OrderType.Market ? "Ioc" : "Gtc",
+        },
+      },
     },
   };
 };
