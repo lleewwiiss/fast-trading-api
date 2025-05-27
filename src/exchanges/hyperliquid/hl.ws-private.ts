@@ -1,5 +1,4 @@
 import type { HyperLiquidWorker } from "./hl.worker";
-import { signL1Action } from "./hl.signer";
 import {
   formatHLOrder,
   formatHLOrderUpdate,
@@ -29,6 +28,7 @@ import { chunk } from "~/utils/chunk.utils";
 import { genId, genIntId } from "~/utils/gen-id.utils";
 import { ReconnectingWebSocket } from "~/utils/reconnecting-websocket.utils";
 import { sleep } from "~/utils/sleep.utils";
+import { signHLAction } from "~/utils/hl.utils";
 
 type Data = {
   id: number;
@@ -529,7 +529,7 @@ export class HyperLiquidWsPrivate {
         const { payload, consume } = item;
 
         const nonce = Date.now();
-        const signature = await signL1Action({
+        const signature = await signHLAction({
           privateKey: this.account.apiSecret,
           action: payload.action,
           nonce,

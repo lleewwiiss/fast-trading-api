@@ -1,8 +1,6 @@
 import { encode } from "@msgpack/msgpack";
 import { keccak } from "hash-wasm";
 
-import type { HLAction } from "./hl.types";
-
 import { signTypedData } from "~/utils/eip712.utils";
 import { hexToUint8Array } from "~/utils/uint8.utils";
 
@@ -20,13 +18,13 @@ export const HL_TYPES = {
   ],
 };
 
-const actionHash = async ({
+export const generateHLActionHash = async ({
   action,
   nonce,
   vaultAddress,
   expiresAfter,
 }: {
-  action: HLAction;
+  action: Record<string, any>;
   nonce: number;
   vaultAddress?: string;
   expiresAfter?: number;
@@ -62,7 +60,7 @@ const actionHash = async ({
   return `0x${hash}`;
 };
 
-export const signL1Action = async ({
+export const signHLAction = async ({
   privateKey,
   action,
   nonce,
@@ -70,12 +68,12 @@ export const signL1Action = async ({
   isTestnet,
 }: {
   privateKey: string;
-  action: HLAction;
+  action: Record<string, any>;
   nonce: number;
   vaultAddress?: string;
   isTestnet?: boolean;
 }) => {
-  const hash = await actionHash({ action, vaultAddress, nonce });
+  const hash = await generateHLActionHash({ action, vaultAddress, nonce });
   const agent = { source: isTestnet ? "b" : "a", connectionId: hash };
 
   return signTypedData({
