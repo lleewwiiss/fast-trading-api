@@ -195,8 +195,16 @@ export class HyperLiquidWsPrivate {
   }) => {
     const orderIds: Array<Order["id"]> = [];
 
+    const postOrders = orders.flatMap((o) =>
+      formatHLOrder({
+        order: o,
+        tickers: this.parent.memory.public.tickers,
+        markets: this.parent.memory.public.markets,
+      }),
+    );
+
     return new Promise<Array<Order["id"]>>(async (resolve) => {
-      const batches = chunk(orders, 20);
+      const batches = chunk(postOrders, 20);
       const responses: any[] = [];
 
       for (const batch of batches) {
@@ -232,14 +240,8 @@ export class HyperLiquidWsPrivate {
         });
 
         const action = {
-          type: "order" as const,
-          orders: batch.map((o) =>
-            formatHLOrder({
-              order: o,
-              tickers: this.parent.memory.public.tickers,
-              markets: this.parent.memory.public.markets,
-            }),
-          ),
+          type: "order",
+          orders: batch,
           grouping: "na",
         } as HLAction;
 

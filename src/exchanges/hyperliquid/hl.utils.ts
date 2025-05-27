@@ -90,9 +90,10 @@ export const mapHLOrder = ({
     symbol: order.coin,
     type: mapOrderType(order.orderType),
     side: order.side === "A" ? OrderSide.Sell : OrderSide.Buy,
-    price: order.isPositionTpsl
-      ? parseFloat(order.triggerPx)
-      : parseFloat(order.limitPx),
+    price:
+      order.isPositionTpsl || order.isTrigger
+        ? parseFloat(order.triggerPx)
+        : parseFloat(order.limitPx),
     amount,
     filled,
     remaining,
@@ -105,7 +106,7 @@ export const formatHLOrderPrice = ({
   tickers,
   markets,
 }: {
-  order: PlaceOrderOpts;
+  order: { symbol: string; side: OrderSide; price?: number };
   tickers: Record<string, Ticker>;
   markets: Record<string, Market>;
 }) => {
@@ -152,9 +153,10 @@ export const formatHLOrder = ({
   tickers: Record<string, Ticker>;
   markets: Record<string, Market>;
 }) => {
+  const orders: Record<string, any>[] = [];
+
   const market = markets[order.symbol];
   const pAmount = market.precision.amount;
-  const pPrice = market.precision.price;
 
   const isBuy = order.side === OrderSide.Buy;
   const isStop =
@@ -165,20 +167,42 @@ export const formatHLOrder = ({
   const amount = adjust(order.amount, pAmount);
   const price = formatHLOrderPrice({ order, tickers, markets });
 
-  if (isStop) {
-    // We need to specify a limit price at which we agree
-    // to fill our stop loss, for this we are setting 10% (shouldnt happen)
-    const priceWithSlippage = adjust(
-      isBuy ? price + price * 0.1 : price - price * 0.1,
-      pPrice,
-    );
+  // Normal order market/limit
+  // -------------------------
+  if (!isStop) {
+    orders.push({
+      a: tickers[order.symbol].id as number,
+      b: isBuy,
+      p: price.toString(),
+      s: amount.toString(),
+      r: order.reduceOnly,
+      t: {
+        limit: {
+          tif: order.type === OrderType.Market ? "Ioc" : "Gtc",
+        },
+      },
+    });
+  }
 
-    return {
+  // Condition order (SL/TP)
+  // -----------------------
+  if (isStop) {
+    const priceWithSlippage = formatHLOrderPrice({
+      order: {
+        symbol: order.symbol,
+        side: isBuy ? OrderSide.Sell : OrderSide.Buy,
+        price: isBuy ? price - price * 0.1 : price + price * 0.1,
+      },
+      tickers,
+      markets,
+    });
+
+    orders.push({
       a: tickers[order.symbol].id as number,
       b: isBuy,
       p: priceWithSlippage.toString(),
       s: amount.toString(),
-      r: order.reduceOnly,
+      r: true,
       t: {
         trigger: {
           isMarket: true,
@@ -186,21 +210,88 @@ export const formatHLOrder = ({
           tpsl: order.type === OrderType.StopLoss ? "sl" : "tp",
         },
       },
-    };
+    });
   }
 
-  return {
-    a: tickers[order.symbol].id as number,
-    b: isBuy,
-    p: price.toString(),
-    s: amount.toString(),
-    r: order.reduceOnly,
-    t: {
-      limit: {
-        tif: order.type === OrderType.Market ? "Ioc" : "Gtc",
+  // Normal order with TP defined
+  // ----------------------------
+  if (order.takeProfit) {
+    const tpPrice = formatHLOrderPrice({
+      order: {
+        symbol: order.symbol,
+        side: isBuy ? OrderSide.Sell : OrderSide.Buy,
+        price: order.takeProfit,
       },
-    },
-  };
+      tickers,
+      markets,
+    });
+
+    const priceWithSlippage = formatHLOrderPrice({
+      order: {
+        symbol: order.symbol,
+        side: isBuy ? OrderSide.Sell : OrderSide.Buy,
+        price: isBuy ? tpPrice - tpPrice * 0.1 : tpPrice + tpPrice * 0.1,
+      },
+      tickers,
+      markets,
+    });
+
+    orders.push({
+      a: tickers[order.symbol].id as number,
+      b: !isBuy,
+      p: priceWithSlippage.toString(),
+      s: amount.toString(),
+      r: true,
+      t: {
+        trigger: {
+          isMarket: true,
+          triggerPx: tpPrice.toString(),
+          tpsl: "tp",
+        },
+      },
+    });
+  }
+
+  // Normal order with SL defined
+  // ----------------------------
+  if (order.stopLoss) {
+    const slPrice = formatHLOrderPrice({
+      order: {
+        symbol: order.symbol,
+        side: isBuy ? OrderSide.Sell : OrderSide.Buy,
+        price: order.stopLoss,
+      },
+      tickers,
+      markets,
+    });
+
+    const priceWithSlippage = formatHLOrderPrice({
+      order: {
+        symbol: order.symbol,
+        side: isBuy ? OrderSide.Sell : OrderSide.Buy,
+        price: isBuy ? slPrice - slPrice * 0.1 : slPrice + slPrice * 0.1,
+      },
+      tickers,
+      markets,
+    });
+
+    orders.push({
+      a: tickers[order.symbol].id as number,
+      b: !isBuy,
+      p: priceWithSlippage.toString(),
+      s: amount.toString(),
+      r: true,
+      t: {
+        trigger: {
+          isMarket: true,
+          triggerPx: slPrice.toString(),
+          tpsl: "sl",
+        },
+      },
+    });
+  }
+
+  return orders;
 };
 
 export const formatHLOrderUpdate = ({
@@ -213,7 +304,6 @@ export const formatHLOrderUpdate = ({
   markets: Record<string, Market>;
 }) => {
   const market = markets[order.symbol];
-  const pPrice = market.precision.price;
   const pAmount = market.precision.amount;
 
   const price =
@@ -235,12 +325,15 @@ export const formatHLOrderUpdate = ({
     "amount" in update ? adjust(update.amount, pAmount) : order.amount;
 
   if (isStop) {
-    // We need to specify a limit price at which we agree
-    // to fill our stop loss, for this we are setting 10% (shouldnt happen)
-    const priceWithSlippage = adjust(
-      isBuy ? price + price * 0.1 : price - price * 0.1,
-      pPrice,
-    );
+    const priceWithSlippage = formatHLOrderPrice({
+      order: {
+        symbol: order.symbol,
+        side: isBuy ? OrderSide.Buy : OrderSide.Sell,
+        price: isBuy ? price + price * 0.1 : price - price * 0.1,
+      },
+      tickers,
+      markets,
+    });
 
     return {
       oid: order.id as number,
@@ -249,7 +342,7 @@ export const formatHLOrderUpdate = ({
         b: isBuy,
         p: priceWithSlippage.toString(),
         s: amount.toString(),
-        r: order.reduceOnly,
+        r: true,
         t: {
           trigger: {
             isMarket: true,
