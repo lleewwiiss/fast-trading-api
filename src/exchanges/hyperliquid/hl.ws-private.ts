@@ -17,9 +17,12 @@ import type {
 
 import {
   OrderSide,
+  PositionSide,
   type Account,
   type Order,
   type PlaceOrderOpts,
+  type PlacePositionStopOpts,
+  type Position,
   type UpdateOrderOpts,
 } from "~/types/lib.types";
 import { chunk } from "~/utils/chunk.utils";
@@ -209,6 +212,68 @@ export class HyperLiquidWsPrivate {
     }, 10_000);
   };
 
+  placePositionStop = ({
+    position,
+    stop,
+    priority = false,
+  }: {
+    position: Position;
+    stop: PlacePositionStopOpts;
+    priority?: boolean;
+  }) => {
+    const reqId = genIntId();
+
+    return new Promise<HLPostPlaceOrdersResponse>(async (resolve) => {
+      this.pendingRequests.set(reqId, (json: HLPostPlaceOrdersResponse) => {
+        if (json?.data?.response?.payload?.status === "ok") {
+          json.data.response.payload.response.data.statuses.forEach(
+            (status) => {
+              // Special case where HL reply with "waitingForTrigger"
+              // This is when we place stop loss / take profit on the position
+              if (typeof status === "string") return;
+
+              if ("error" in status) {
+                this.parent.error(
+                  `[${this.account.id}] HyperLiquid place order error`,
+                );
+                this.parent.error(status.error);
+              }
+            },
+          );
+        }
+
+        resolve(json);
+      });
+
+      const stopOrder = {
+        symbol: position.symbol,
+        type: stop.type,
+        side:
+          position.side === PositionSide.Long ? OrderSide.Sell : OrderSide.Buy,
+        amount: position.contracts,
+        price: stop.price,
+        reduceOnly: true,
+      };
+
+      const action = {
+        type: "order",
+        orders: [
+          formatHLOrder({
+            order: stopOrder,
+            tickers: this.parent.memory.public.tickers,
+            markets: this.parent.memory.public.markets,
+          }),
+        ],
+        grouping: "positionTpsl",
+      } as HLAction;
+
+      this.enqueueSend({
+        payload: { id: reqId, action },
+        priority,
+      });
+    });
+  };
+
   placeOrders = ({
     orders,
     priority = false,
@@ -217,7 +282,7 @@ export class HyperLiquidWsPrivate {
     priority?: boolean;
   }) => {
     const orderIds: Array<Order["id"]> = [];
-    const postOrders = orders.flatMap((o) =>
+    const postOrders = orders.map((o) =>
       formatHLOrder({
         order: o,
         tickers: this.parent.memory.public.tickers,

@@ -17,6 +17,8 @@ import {
   type FetchOHLCVParams,
   type Order,
   type PlaceOrderOpts,
+  type PlacePositionStopOpts,
+  type Position,
   type Timeframe,
   type UpdateOrderOpts,
 } from "~/types/lib.types";
@@ -223,6 +225,26 @@ export class HyperLiquidWorker extends BaseWorker {
     ]);
 
     this.emitResponse({ requestId, data: { leverage, isHedged: false } });
+  }
+
+  async placePositionStop({
+    position,
+    stop,
+    requestId,
+    priority = false,
+  }: {
+    position: Position;
+    stop: PlacePositionStopOpts;
+    requestId: string;
+    priority?: boolean;
+  }) {
+    await this.privateWs[position.accountId].placePositionStop({
+      position,
+      stop,
+      priority,
+    });
+
+    this.emitResponse({ requestId, data: [] });
   }
 
   async placeOrders({

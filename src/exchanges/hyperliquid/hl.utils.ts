@@ -153,8 +153,6 @@ export const formatHLOrder = ({
   tickers: Record<string, Ticker>;
   markets: Record<string, Market>;
 }) => {
-  const orders: Record<string, any>[] = [];
-
   const market = markets[order.symbol];
   const pAmount = market.precision.amount;
 
@@ -166,23 +164,6 @@ export const formatHLOrder = ({
 
   const amount = adjust(order.amount, pAmount);
   const price = formatHLOrderPrice({ order, tickers, markets });
-
-  // Normal order market/limit
-  // -------------------------
-  if (!isStop) {
-    orders.push({
-      a: tickers[order.symbol].id as number,
-      b: isBuy,
-      p: price.toString(),
-      s: amount.toString(),
-      r: order.reduceOnly,
-      t: {
-        limit: {
-          tif: order.type === OrderType.Market ? "Ioc" : "Gtc",
-        },
-      },
-    });
-  }
 
   // Condition order (SL/TP)
   // -----------------------
@@ -197,7 +178,7 @@ export const formatHLOrder = ({
       markets,
     });
 
-    orders.push({
+    return {
       a: tickers[order.symbol].id as number,
       b: isBuy,
       p: priceWithSlippage.toString(),
@@ -210,10 +191,23 @@ export const formatHLOrder = ({
           tpsl: order.type === OrderType.StopLoss ? "sl" : "tp",
         },
       },
-    });
+    };
   }
 
-  return orders;
+  // Normal order market/limit
+  // -------------------------
+  return {
+    a: tickers[order.symbol].id as number,
+    b: isBuy,
+    p: price.toString(),
+    s: amount.toString(),
+    r: order.reduceOnly,
+    t: {
+      limit: {
+        tif: order.type === OrderType.Market ? "Ioc" : "Gtc",
+      },
+    },
+  };
 };
 
 export const formatHLOrderUpdate = ({
