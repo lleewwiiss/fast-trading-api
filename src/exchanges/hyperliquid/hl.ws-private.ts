@@ -237,6 +237,10 @@ export class HyperLiquidWsPrivate {
           if (json?.data?.response?.payload?.status === "ok") {
             json.data.response.payload.response.data.statuses.forEach(
               (status) => {
+                // Special case where HL reply with "waitingForTrigger"
+                // This is when we place stop loss / take profit on the position
+                if (typeof status === "string") return;
+
                 if ("error" in status) {
                   this.parent.error(
                     `[${this.account.id}] HyperLiquid place order error`,

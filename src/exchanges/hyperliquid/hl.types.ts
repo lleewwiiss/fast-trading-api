@@ -199,6 +199,7 @@ export type HLPostPlaceOrdersResponse = HLPostResponse<{
   type: "order";
   data: {
     statuses: Array<
+      | string
       | {
           error: string;
         }
