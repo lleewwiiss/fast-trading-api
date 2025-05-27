@@ -217,7 +217,6 @@ export class HyperLiquidWsPrivate {
     priority?: boolean;
   }) => {
     const orderIds: Array<Order["id"]> = [];
-
     const postOrders = orders.flatMap((o) =>
       formatHLOrder({
         order: o,
@@ -266,10 +265,11 @@ export class HyperLiquidWsPrivate {
           }
         });
 
+        const hasStopOrders = batch.some((o) => "trigger" in o.t);
         const action = {
           type: "order",
           orders: batch,
-          grouping: "na",
+          grouping: hasStopOrders ? "normalTpsl" : "na",
         } as HLAction;
 
         this.enqueueSend({
