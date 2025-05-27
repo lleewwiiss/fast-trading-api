@@ -235,8 +235,6 @@ export interface PlaceOrderOpts {
   side: OrderSide;
   amount: number;
   price?: number;
-  stopLoss?: number;
-  takeProfit?: number;
   reduceOnly: boolean;
   timeInForce?: OrderTimeInForce;
 }

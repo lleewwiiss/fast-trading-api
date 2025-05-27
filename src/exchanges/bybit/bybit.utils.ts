@@ -31,7 +31,6 @@ import { adjust, subtract } from "~/utils/safe-math.utils";
 import { TICKER_REGEX } from "~/utils/regex.utils";
 import { omitUndefined } from "~/utils/omit-undefined.utils";
 import { times } from "~/utils/times.utils";
-import { omit } from "~/utils/omit.utils";
 import { toUSD } from "~/utils/to-usd.utils";
 
 export const mapBybitTicker = (t: BybitTicker): Ticker => {
@@ -179,10 +178,6 @@ export const formatMarkerOrLimitOrder = ({
 
   const amount = adjust(order.amount, pAmount);
   const price = order.price ? adjust(order.price, pPrice) : undefined;
-  const stopLoss = order.stopLoss ? adjust(order.stopLoss, pPrice) : undefined;
-  const takeProfit = order.takeProfit
-    ? adjust(order.takeProfit, pPrice)
-    : undefined;
 
   const timeInForce =
     ORDER_TIME_IN_FORCE_INVERSE[
@@ -196,11 +191,7 @@ export const formatMarkerOrLimitOrder = ({
     orderType: ORDER_TYPE_INVERSE[order.type],
     qty: `${amount}`,
     price: order.type === OrderType.Limit ? `${price}` : undefined,
-    stopLoss: order.stopLoss ? `${stopLoss}` : undefined,
-    takeProfit: order.takeProfit ? `${takeProfit}` : undefined,
     reduceOnly: order.reduceOnly || false,
-    slTriggerBy: order.stopLoss ? "MarkPrice" : undefined,
-    tpTriggerBy: order.takeProfit ? "LastPrice" : undefined,
     timeInForce: order.type === OrderType.Limit ? timeInForce : undefined,
     closeOnTrigger: false,
     positionIdx,
@@ -210,18 +201,8 @@ export const formatMarkerOrLimitOrder = ({
   const rest = amount > maxSize ? adjust(amount % maxSize, pAmount) : 0;
 
   const lotSize = adjust((amount - rest) / lots, pAmount);
-  const payloads = times(lots, (idx) => {
-    const payload =
-      idx > 0
-        ? omit(req, ["stopLoss", "takeProfit", "slTriggerBy", "tpTriggerBy"])
-        : req;
-
-    return { ...payload, qty: `${lotSize}` };
-  });
-
-  if (rest > 0) {
-    payloads.push({ ...req, qty: `${rest}` });
-  }
+  const payloads = times(lots, () => ({ ...req, qty: `${lotSize}` }));
+  if (rest > 0) payloads.push({ ...req, qty: `${rest}` });
 
   return payloads;
 };
