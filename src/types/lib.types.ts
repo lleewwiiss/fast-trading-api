@@ -244,6 +244,11 @@ export interface UpdateOrderOpts {
   update: { amount: number } | { price: number };
 }
 
+export interface PlacePositionStopOpts {
+  type: OrderType.StopLoss | OrderType.TrailingStopLoss | OrderType.TakeProfit;
+  price: number;
+}
+
 export interface TWAPOpts {
   symbol: string;
   amount: number;

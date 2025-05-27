@@ -1,6 +1,7 @@
 import type { FastTradingApi } from "~/lib/fast-trading-api.lib";
 import type {
   Account,
+  Position,
   Candle,
   ChaseOpts,
   ExchangeConfig,
@@ -11,6 +12,7 @@ import type {
   Timeframe,
   TWAPOpts,
   UpdateOrderOpts,
+  PlacePositionStopOpts,
 } from "~/types/lib.types";
 import type { ObjectChangeCommand, ObjectPaths } from "~/types/misc.types";
 import { genId } from "~/utils/gen-id.utils";
@@ -80,6 +82,23 @@ export class BaseExchange {
 
   fetchOHLCV(params: FetchOHLCVParams) {
     return this.dispatchWorker<Candle[]>({ type: "fetchOHLCV", params });
+  }
+
+  placePositionStop({
+    position,
+    stop,
+    priority = false,
+  }: {
+    position: Position;
+    stop: PlacePositionStopOpts;
+    priority?: boolean;
+  }) {
+    return this.dispatchWorker({
+      type: "placePositionStop",
+      position,
+      stop,
+      priority,
+    });
   }
 
   placeOrders({

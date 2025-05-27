@@ -18,6 +18,7 @@ import {
   type OrderBook,
   type ExchangeConfig,
   type UpdateOrderOpts,
+  type PlacePositionStopOpts,
 } from "~/types/lib.types";
 import type { ObjectChangeCommand, ObjectPaths } from "~/types/misc.types";
 import { mapObj } from "~/utils/map-obj.utils";
@@ -62,6 +63,7 @@ export class BaseWorker {
     if (data.type === "fetchOHLCV") return this.fetchOHLCV(data);
     if (data.type === "listenOHLCV") return this.listenOHLCV(data);
     if (data.type === "unlistenOHLCV") return this.unlistenOHLCV(data);
+    if (data.type === "placePositionStop") return this.placePositionStop(data);
     if (data.type === "placeOrders") return this.placeOrders(data);
     if (data.type === "updateOrders") return this.updateOrders(data);
     if (data.type === "cancelOrders") return this.cancelOrders(data);
@@ -313,6 +315,15 @@ export class BaseWorker {
     });
 
     this.emitChanges([...tickerChanges, ...positionsChanges]);
+  }
+
+  async placePositionStop(_params: {
+    position: Position;
+    stop: PlacePositionStopOpts;
+    requestId: string;
+    priority?: boolean;
+  }) {
+    this.error(`placePositionStop() method not implemented`);
   }
 
   async placeOrders(_params: {

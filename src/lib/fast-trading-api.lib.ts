@@ -10,6 +10,7 @@ import {
   type Store,
   ExchangeName,
   type Account,
+  type Position,
   type Candle,
   type PlaceOrderOpts,
   type Timeframe,
@@ -18,6 +19,7 @@ import {
   type TWAPOpts,
   type ChaseOpts,
   type ExchangeConfig,
+  type PlacePositionStopOpts,
 } from "~/types/lib.types";
 import { deepMerge } from "~/utils/deep-merge.utils";
 import { groupBy } from "~/utils/group-by.utils";
@@ -184,6 +186,22 @@ export class FastTradingApi {
     symbol: string;
   }) {
     this.getExchange(exchangeName).unlistenOrderBook(symbol);
+  }
+
+  placePositionStop({
+    position,
+    stop,
+    priority,
+  }: {
+    position: Position;
+    stop: PlacePositionStopOpts;
+    priority?: boolean;
+  }) {
+    return this.getAccountExchange(position.accountId).placePositionStop({
+      position,
+      stop,
+      priority,
+    });
   }
 
   placeOrder({

@@ -5,6 +5,8 @@ import type {
   FetchOHLCVParams,
   Order,
   PlaceOrderOpts,
+  PlacePositionStopOpts,
+  Position,
   Timeframe,
   TWAPOpts,
 } from "~/types/lib.types";
@@ -24,6 +26,13 @@ export type ExchangeWorkerMessage = MessageEvent<
   | { type: "fetchOHLCV"; requestId: string; params: FetchOHLCVParams }
   | { type: "listenOHLCV"; symbol: string; timeframe: Timeframe }
   | { type: "unlistenOHLCV"; symbol: string; timeframe: Timeframe }
+  | {
+      type: "placePositionStop";
+      position: Position;
+      stop: PlacePositionStopOpts;
+      requestId: string;
+      priority?: boolean;
+    }
   | {
       type: "placeOrders";
       orders: PlaceOrderOpts[];
