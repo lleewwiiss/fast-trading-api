@@ -98,7 +98,9 @@ export class FastTradingApi {
           } else {
             await this.exchanges[ExchangeName.BYBIT].addAccounts(exchangeAccs);
           }
+        }
 
+        if (exchangeName === ExchangeName.HL) {
           if (!this.exchanges[ExchangeName.HL]) {
             this.exchanges[ExchangeName.HL] = createHyperliquidExchange(this);
             await this.exchanges[ExchangeName.HL].start();
