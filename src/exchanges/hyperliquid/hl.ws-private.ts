@@ -119,6 +119,13 @@ export class HyperLiquidWsPrivate {
           callback(json);
           this.pendingRequests.delete(json.data.id);
         }
+
+        // This is when the signature is invalid
+        // HyperLiquid will reply with a weird error that doesn't help
+        if (json?.data?.response?.payload?.status === "err") {
+          this.parent.error(`[${this.account.id}] HyperLiquid signature error`);
+          this.parent.error(json.data.response.payload.response);
+        }
       }
     } catch (error: any) {
       this.parent.error(`HyperLiquid WebSocket message error`);
@@ -380,13 +387,6 @@ export class HyperLiquidWsPrivate {
         const reqId = genIntId();
 
         this.pendingRequests.set(reqId, (json: HLPostCancelOrdersResponse) => {
-          if (json?.data?.response?.payload?.status === "err") {
-            this.parent.error(
-              `[${this.account.id}] HyperLiquid cancel order error`,
-            );
-            this.parent.error(json.data.response.payload.response);
-          }
-
           responses.push(json);
 
           if (responses.length === batches.length) {
@@ -425,13 +425,6 @@ export class HyperLiquidWsPrivate {
         const reqId = genIntId();
 
         this.pendingRequests.set(reqId, (json: any) => {
-          if (json?.data?.response?.payload?.status === "err") {
-            this.parent.error(
-              `[${this.account.id}] HyperLiquid update order error`,
-            );
-            this.parent.error(json.data.response.payload.response);
-          }
-
           responses.push(json);
 
           if (responses.length === batches.length) {
