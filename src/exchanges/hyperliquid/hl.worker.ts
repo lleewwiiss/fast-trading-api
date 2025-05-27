@@ -6,9 +6,7 @@ import {
   fetchHLUserAccount,
   fetchHLUserOrders,
 } from "./hl.resolver";
-import type { HLOrderUpdateWs } from "./hl.types";
 import { HyperLiquidWsPublic } from "./hl.ws-public";
-import { mapHLOrder } from "./hl.utils";
 import { HyperLiquidWsPrivate } from "./hl.ws-private";
 
 import { DEFAULT_CONFIG } from "~/config";
@@ -152,57 +150,6 @@ export class HyperLiquidWorker extends BaseWorker {
     }
 
     await super.removeAccount({ accountId, requestId });
-  }
-
-  updateAccountOrders({
-    accountId,
-    hlOrders,
-  }: {
-    accountId: string;
-    hlOrders: HLOrderUpdateWs[];
-  }) {
-    for (const hlOrder of hlOrders) {
-      if (hlOrder.status === "open") {
-        const idx = this.memory.private[accountId].orders.findIndex(
-          (o) => o.id === hlOrder.order.oid,
-        );
-
-        if (idx === -1) {
-          const length = this.memory.private[accountId].orders.length;
-          this.emitChanges([
-            {
-              type: "update",
-              path: `private.${accountId}.orders.${length}`,
-              value: mapHLOrder({ order: hlOrder.order, accountId }),
-            },
-          ]);
-        } else {
-          this.emitChanges([
-            {
-              type: "update",
-              path: `private.${accountId}.orders.${idx}`,
-              value: mapHLOrder({ order: hlOrder.order, accountId }),
-            },
-          ]);
-        }
-      }
-
-      if (hlOrder.status === "canceled" || hlOrder.status === "filled") {
-        const idx = this.memory.private[accountId].orders.findIndex(
-          (o) => o.id === hlOrder.order.oid,
-        );
-
-        if (idx !== -1) {
-          this.emitChanges([
-            {
-              type: "removeArrayElement",
-              path: `private.${accountId}.orders` as const,
-              index: idx,
-            },
-          ]);
-        }
-      }
-    }
   }
 
   async fetchOHLCV({

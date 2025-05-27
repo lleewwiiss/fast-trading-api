@@ -3,6 +3,7 @@ import { signL1Action } from "./hl.signer";
 import {
   formatHLOrder,
   formatHLOrderUpdate,
+  mapHLOrder,
   mapHLUserAccount,
 } from "./hl.utils";
 import type {
@@ -11,6 +12,7 @@ import type {
   HLPostPlaceOrdersResponse,
   HLUserAccount,
   HLUserFillEvent,
+  HLUserOrder,
 } from "./hl.types";
 
 import {
@@ -85,7 +87,6 @@ export class HyperLiquidWsPrivate {
     this.ping();
 
     this.subscribe({ type: "webData2", user: this.account.apiKey });
-    this.subscribe({ type: "orderUpdates", user: this.account.apiKey });
     this.subscribe({ type: "userFills", user: this.account.apiKey });
   };
 
@@ -96,13 +97,6 @@ export class HyperLiquidWsPrivate {
     try {
       const json = JSON.parse(event.data);
 
-      if (json.channel === "orderUpdates") {
-        this.parent.updateAccountOrders({
-          accountId: this.account.id,
-          hlOrders: json.data,
-        });
-      }
-
       if (
         json.channel === "userFills" &&
         json.data.isSnapshot !== true &&
@@ -112,7 +106,7 @@ export class HyperLiquidWsPrivate {
       }
 
       if (json.channel === "webData2") {
-        this.onWebData2(json.data.clearinghouseState);
+        this.onWebData2(json.data);
       }
 
       if (json.channel === "post" && json.data.id) {
@@ -153,16 +147,35 @@ export class HyperLiquidWsPrivate {
     this.parent.emitChanges(changes);
   };
 
-  onWebData2 = (data: HLUserAccount) => {
+  onWebData2 = ({
+    clearinghouseState,
+    openOrders,
+  }: {
+    openOrders: HLUserOrder[];
+    clearinghouseState: HLUserAccount;
+  }) => {
     const { positions, balance } = mapHLUserAccount({
       accountId: this.account.id,
-      data,
+      data: clearinghouseState,
     });
 
-    this.parent.updateAccountBalance({
-      accountId: this.account.id,
-      balance,
-    });
+    this.parent.emitChanges([
+      {
+        type: "update",
+        path: `private.${this.account.id}.balance`,
+        value: balance,
+      },
+      {
+        type: "update",
+        path: `private.${this.account.id}.orders`,
+        value: openOrders.map((o) =>
+          mapHLOrder({
+            accountId: this.account.id,
+            order: o,
+          }),
+        ),
+      },
+    ]);
 
     const removedPositions = this.memory.positions.filter(
       (p) =>
