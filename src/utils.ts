@@ -22,6 +22,7 @@ export * from "./utils/request.utils";
 export * from "./utils/retry.utils";
 export * from "./utils/safe-math.utils";
 export * from "./utils/sleep.utils";
+export * from "./utils/split-signature.utils";
 export * from "./utils/sum-by.utils";
 export * from "./utils/sum.utils";
 export * from "./utils/times.utils";
