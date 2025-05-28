@@ -1,16 +1,10 @@
 import { keccak } from "hash-wasm";
-import {
-  sign,
-  pointFromScalar,
-  recover,
-  type RecoveryIdType,
-} from "tiny-secp256k1";
+import { secp256k1 } from "@noble/curves/secp256k1";
 
 import {
   compareUint8Arrays,
   hexToUint8Array,
   stringToUint8Array,
-  uint8ArrayToHex,
 } from "./uint8.utils";
 
 const FINAL_MESSAGE_PREFIX = stringToUint8Array("\x19\x01");
@@ -148,17 +142,17 @@ export const signTypedData = async ({
   ]);
   const messageHash = await keccak(finalMessage, 256);
 
-  // 4. Sign the hash with tiny-secp256k1
+  // 4. Sign the hash with @noble/curves
   const privateKeyBytes = hexToUint8Array(privateKey.slice(2));
   const messageHashBytes = hexToUint8Array(messageHash);
 
   // Get the public key from private key for recovery ID calculation
-  const publicKey = pointFromScalar(privateKeyBytes);
+  const publicKey = secp256k1.getPublicKey(privateKeyBytes);
   if (!publicKey) {
     throw new Error("Invalid private key");
   }
 
-  const signature = sign(messageHashBytes, privateKeyBytes);
+  const signature = secp256k1.sign(messageHashBytes, privateKeyBytes);
 
   // 5. Calculate the correct recovery ID
   let recovery = -1;
@@ -166,14 +160,15 @@ export const signTypedData = async ({
   // Try recovery IDs 0 and 1 to find which one recovers to the correct public key
   for (let i = 0; i < 2; i++) {
     try {
-      const recoveredPubKey = recover(
-        messageHashBytes,
-        signature,
-        i as RecoveryIdType,
-        true,
-      );
+      // Create signature with recovery bit for testing
+      const sigWithRecovery = signature.addRecoveryBit(i);
+      const recoveredPubKey =
+        sigWithRecovery.recoverPublicKey(messageHashBytes);
 
-      if (recoveredPubKey && compareUint8Arrays(publicKey, recoveredPubKey)) {
+      if (
+        recoveredPubKey &&
+        compareUint8Arrays(publicKey, recoveredPubKey.toRawBytes(true))
+      ) {
         recovery = i;
         break;
       }
@@ -188,9 +183,9 @@ export const signTypedData = async ({
   }
 
   // 6. Convert to Ethereum signature format (r,s,v)
-  // signature is a 64-byte Uint8Array [r(32) + s(32)]
-  const r = `0x${uint8ArrayToHex(signature.slice(0, 32))}`;
-  const s = `0x${uint8ArrayToHex(signature.slice(32, 64))}`;
+  // Get r and s from the signature object
+  const r = `0x${signature.r.toString(16).padStart(64, "0")}`;
+  const s = `0x${signature.s.toString(16).padStart(64, "0")}`;
 
   // Ethereum uses v = 27 + recovery
   const v = recovery + 27;
