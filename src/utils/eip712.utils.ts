@@ -1,4 +1,4 @@
-import { keccak } from "hash-wasm";
+import { keccak_256 } from "@noble/hashes/sha3.js";
 import { secp256k1 } from "@noble/curves/secp256k1";
 
 import {
@@ -16,20 +16,24 @@ type Domain = {
   verifyingContract: string;
 };
 
-const hashDomain = async (domain: Domain) => {
+const hashDomain = (domain: Domain) => {
   // For EIP-712, we need to construct the domain type string
   const domainType =
     "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)";
-  const domainTypeHash = await keccak(stringToUint8Array(domainType), 256);
-  const domainTypeHashBytes = hexToUint8Array(domainTypeHash);
+  const domainTypeHash = keccak_256(stringToUint8Array(domainType));
+  const domainTypeHashBytes = hexToUint8Array(
+    Buffer.from(domainTypeHash).toString("hex"),
+  );
 
   // Hash domain name
-  const nameHash = await keccak(stringToUint8Array(domain.name), 256);
-  const nameHashBytes = hexToUint8Array(nameHash);
+  const nameHash = keccak_256(stringToUint8Array(domain.name));
+  const nameHashBytes = hexToUint8Array(Buffer.from(nameHash).toString("hex"));
 
   // Hash domain version
-  const versionHash = await keccak(stringToUint8Array(domain.version), 256);
-  const versionHashBytes = hexToUint8Array(versionHash);
+  const versionHash = keccak_256(stringToUint8Array(domain.version));
+  const versionHashBytes = hexToUint8Array(
+    Buffer.from(versionHash).toString("hex"),
+  );
 
   // Encode chainId as uint256 (32 bytes)
   const chainIdBytes = new Uint8Array(32);
@@ -49,7 +53,7 @@ const hashDomain = async (domain: Domain) => {
     ...contractPadded,
   ]);
 
-  return await keccak(encoded, 256);
+  return Buffer.from(keccak_256(encoded)).toString("hex");
 };
 
 // Helper function to encode a single type
@@ -70,20 +74,20 @@ const encodeType = (
 };
 
 // Helper function to hash a type
-const hashType = async (
+const hashType = (
   primaryType: string,
   types: Record<string, Array<{ name: string; type: string }>>,
 ) => {
   const encoded = encodeType(primaryType, types);
-  return await keccak(stringToUint8Array(encoded), 256);
+  return Buffer.from(keccak_256(stringToUint8Array(encoded))).toString("hex");
 };
 
-const encodeData = async (
+const encodeData = (
   primaryType: string,
   data: any,
   types: Record<string, Array<{ name: string; type: string }>>,
 ) => {
-  const typeHash = await hashType(primaryType, types);
+  const typeHash = hashType(primaryType, types);
   const typeHashBytes = hexToUint8Array(typeHash);
 
   let encoded = new Uint8Array(typeHashBytes);
@@ -98,8 +102,10 @@ const encodeData = async (
 
     if (field.type === "string") {
       const stringBytes = stringToUint8Array(value);
-      const stringHash = await keccak(stringBytes, 256);
-      const stringHashBytes = hexToUint8Array(stringHash);
+      const stringHash = keccak_256(stringBytes);
+      const stringHashBytes = hexToUint8Array(
+        Buffer.from(stringHash).toString("hex"),
+      );
       encoded = new Uint8Array([...encoded, ...stringHashBytes]);
     } else if (field.type === "bytes32") {
       const bytes32 = hexToUint8Array(value.slice(2)); // Remove 0x prefix
@@ -126,13 +132,15 @@ export const signTypedData = async ({
   if (!primaryType) throw new Error("No types defined in types object");
 
   // 1. Hash the domain separator
-  const domainSeparator = await hashDomain(domain);
+  const domainSeparator = hashDomain(domain);
   const domainSeparatorBytes = hexToUint8Array(domainSeparator);
 
   // 2. Hash the struct data
-  const encodedData = await encodeData(primaryType, message, types);
-  const structHash = await keccak(encodedData, 256);
-  const structHashBytes = hexToUint8Array(structHash);
+  const encodedData = encodeData(primaryType, message, types);
+  const structHash = keccak_256(encodedData);
+  const structHashBytes = hexToUint8Array(
+    Buffer.from(structHash).toString("hex"),
+  );
 
   // 3. Create the final message hash according to EIP-712
   const finalMessage = new Uint8Array([
@@ -140,11 +148,13 @@ export const signTypedData = async ({
     ...domainSeparatorBytes,
     ...structHashBytes,
   ]);
-  const messageHash = await keccak(finalMessage, 256);
+  const messageHash = keccak_256(finalMessage);
 
   // 4. Sign the hash with @noble/curves
   const privateKeyBytes = hexToUint8Array(privateKey.slice(2));
-  const messageHashBytes = hexToUint8Array(messageHash);
+  const messageHashBytes = hexToUint8Array(
+    Buffer.from(messageHash).toString("hex"),
+  );
 
   // Get the public key from private key for recovery ID calculation
   const publicKey = secp256k1.getPublicKey(privateKeyBytes);

@@ -1,4 +1,5 @@
-import { createHMAC, createSHA256 } from "hash-wasm";
+import { hmac } from "@noble/hashes/hmac.js";
+import { sha256 } from "@noble/hashes/sha2.js";
 
 import { BROKER_ID, RECV_WINDOW } from "./bybit.config";
 
@@ -13,32 +14,26 @@ export const bybitWebsocketAuth = async ({
   secret: string;
 }) => {
   const expires = new Date().getTime() + 10_000;
-  const hmac = await createHMAC(createSHA256(), secret);
-  const signature = hmac.init().update(`GET/realtime${expires}`).digest("hex");
-  return [key, expires.toFixed(0), signature];
+  const signature = hmac(sha256, secret, `GET/realtime${expires}`);
+  return [key, expires.toFixed(0), Buffer.from(signature).toString("hex")];
 };
 
 export const bybit = async <T>(
   req: Request & { key: string; secret: string },
 ) => {
-  const hmac = await createHMAC(createSHA256(), req.secret);
-
   const timestamp = new Date().getTime();
-  const signature = hmac
-    .init()
-    .update(
-      [
-        timestamp,
-        req.key,
-        RECV_WINDOW,
-        req.params ? stringify(req.params) : "",
-        req.body ? JSON.stringify(req.body) : "",
-      ].join(""),
-    )
-    .digest("hex");
+  const message = [
+    timestamp,
+    req.key,
+    RECV_WINDOW,
+    req.params ? stringify(req.params) : "",
+    req.body ? JSON.stringify(req.body) : "",
+  ].join("");
+
+  const signature = hmac(sha256, req.secret, message);
 
   const headers = {
-    "X-BAPI-SIGN": signature,
+    "X-BAPI-SIGN": Buffer.from(signature).toString("hex"),
     "X-BAPI-API-KEY": req.key,
     "X-BAPI-TIMESTAMP": `${timestamp}`,
     "X-BAPI-RECV-WINDOW": `${RECV_WINDOW}`,

@@ -1,5 +1,5 @@
 import { encode } from "@msgpack/msgpack";
-import { keccak } from "hash-wasm";
+import { keccak_256 } from "@noble/hashes/sha3.js";
 
 import { signTypedData } from "~/utils/eip712.utils";
 import { hexToUint8Array } from "~/utils/uint8.utils";
@@ -18,7 +18,7 @@ export const HL_TYPES = {
   ],
 };
 
-export const generateHLActionHash = async ({
+export const generateHLActionHash = ({
   action,
   nonce,
   vaultAddress,
@@ -45,7 +45,7 @@ export const generateHLActionHash = async ({
     new DataView(expiresBytes.buffer).setBigUint64(0, BigInt(expiresAfter));
   }
 
-  const hash = await keccak(
+  const hash = keccak_256(
     Uint8Array.from([
       ...actionBytes,
       ...nonceBytes,
@@ -54,10 +54,9 @@ export const generateHLActionHash = async ({
       ...expiresMarker,
       ...expiresBytes,
     ]),
-    256,
   );
 
-  return `0x${hash}`;
+  return `0x${Buffer.from(hash).toString("hex")}`;
 };
 
 export const signHLAction = async ({
@@ -73,7 +72,7 @@ export const signHLAction = async ({
   vaultAddress?: string;
   isTestnet?: boolean;
 }) => {
-  const hash = await generateHLActionHash({ action, vaultAddress, nonce });
+  const hash = generateHLActionHash({ action, vaultAddress, nonce });
   const agent = { source: isTestnet ? "b" : "a", connectionId: hash };
 
   return signTypedData({
