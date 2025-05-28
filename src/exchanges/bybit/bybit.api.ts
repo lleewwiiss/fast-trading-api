@@ -5,6 +5,7 @@ import { BROKER_ID, RECV_WINDOW } from "./bybit.config";
 
 import { stringify } from "~/utils/query-string.utils";
 import { type Request, request } from "~/utils/request.utils";
+import { uint8ArrayToHex } from "~/utils/uint8.utils";
 
 export const bybitWebsocketAuth = async ({
   key,
@@ -15,7 +16,7 @@ export const bybitWebsocketAuth = async ({
 }) => {
   const expires = new Date().getTime() + 10_000;
   const signature = hmac(sha256, secret, `GET/realtime${expires}`);
-  return [key, expires.toFixed(0), Buffer.from(signature).toString("hex")];
+  return [key, expires.toFixed(0), uint8ArrayToHex(signature)];
 };
 
 export const bybit = async <T>(
@@ -33,7 +34,7 @@ export const bybit = async <T>(
   const signature = hmac(sha256, req.secret, message);
 
   const headers = {
-    "X-BAPI-SIGN": Buffer.from(signature).toString("hex"),
+    "X-BAPI-SIGN": uint8ArrayToHex(signature),
     "X-BAPI-API-KEY": req.key,
     "X-BAPI-TIMESTAMP": `${timestamp}`,
     "X-BAPI-RECV-WINDOW": `${RECV_WINDOW}`,

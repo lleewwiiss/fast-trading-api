@@ -2,7 +2,7 @@ import { encode } from "@msgpack/msgpack";
 import { keccak_256 } from "@noble/hashes/sha3.js";
 
 import { signTypedData } from "~/utils/eip712.utils";
-import { hexToUint8Array } from "~/utils/uint8.utils";
+import { hexToUint8Array, uint8ArrayToHex } from "~/utils/uint8.utils";
 
 export const HL_DOMAIN = {
   name: "Exchange",
@@ -56,7 +56,7 @@ export const generateHLActionHash = ({
     ]),
   );
 
-  return `0x${Buffer.from(hash).toString("hex")}`;
+  return `0x${uint8ArrayToHex(hash)}`;
 };
 
 export const signHLAction = async ({

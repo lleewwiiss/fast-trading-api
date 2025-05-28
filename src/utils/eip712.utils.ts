@@ -5,6 +5,7 @@ import {
   compareUint8Arrays,
   hexToUint8Array,
   stringToUint8Array,
+  uint8ArrayToHex,
 } from "./uint8.utils";
 
 const FINAL_MESSAGE_PREFIX = stringToUint8Array("\x19\x01");
@@ -16,24 +17,14 @@ type Domain = {
   verifyingContract: string;
 };
 
+const domainType =
+  "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)";
+
 const hashDomain = (domain: Domain) => {
   // For EIP-712, we need to construct the domain type string
-  const domainType =
-    "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)";
-  const domainTypeHash = keccak_256(stringToUint8Array(domainType));
-  const domainTypeHashBytes = hexToUint8Array(
-    Buffer.from(domainTypeHash).toString("hex"),
-  );
-
-  // Hash domain name
-  const nameHash = keccak_256(stringToUint8Array(domain.name));
-  const nameHashBytes = hexToUint8Array(Buffer.from(nameHash).toString("hex"));
-
-  // Hash domain version
-  const versionHash = keccak_256(stringToUint8Array(domain.version));
-  const versionHashBytes = hexToUint8Array(
-    Buffer.from(versionHash).toString("hex"),
-  );
+  const domainTypeHash = keccak_256(domainType);
+  const nameHash = keccak_256(domain.name);
+  const versionHash = keccak_256(domain.version);
 
   // Encode chainId as uint256 (32 bytes)
   const chainIdBytes = new Uint8Array(32);
@@ -46,14 +37,14 @@ const hashDomain = (domain: Domain) => {
   contractPadded.set(contractBytes, 12); // Pad to 32 bytes (addresses are 20 bytes)
 
   const encoded = new Uint8Array([
-    ...domainTypeHashBytes,
-    ...nameHashBytes,
-    ...versionHashBytes,
+    ...domainTypeHash,
+    ...nameHash,
+    ...versionHash,
     ...chainIdBytes,
     ...contractPadded,
   ]);
 
-  return Buffer.from(keccak_256(encoded)).toString("hex");
+  return uint8ArrayToHex(keccak_256(encoded));
 };
 
 // Helper function to encode a single type
@@ -79,7 +70,7 @@ const hashType = (
   types: Record<string, Array<{ name: string; type: string }>>,
 ) => {
   const encoded = encodeType(primaryType, types);
-  return Buffer.from(keccak_256(stringToUint8Array(encoded))).toString("hex");
+  return uint8ArrayToHex(keccak_256(encoded));
 };
 
 const encodeData = (
@@ -101,12 +92,8 @@ const encodeData = (
     const value = data[field.name];
 
     if (field.type === "string") {
-      const stringBytes = stringToUint8Array(value);
-      const stringHash = keccak_256(stringBytes);
-      const stringHashBytes = hexToUint8Array(
-        Buffer.from(stringHash).toString("hex"),
-      );
-      encoded = new Uint8Array([...encoded, ...stringHashBytes]);
+      const stringHash = keccak_256(value);
+      encoded = new Uint8Array([...encoded, ...stringHash]);
     } else if (field.type === "bytes32") {
       const bytes32 = hexToUint8Array(value.slice(2)); // Remove 0x prefix
       encoded = new Uint8Array([...encoded, ...bytes32]);
@@ -138,31 +125,23 @@ export const signTypedData = async ({
   // 2. Hash the struct data
   const encodedData = encodeData(primaryType, message, types);
   const structHash = keccak_256(encodedData);
-  const structHashBytes = hexToUint8Array(
-    Buffer.from(structHash).toString("hex"),
-  );
 
   // 3. Create the final message hash according to EIP-712
   const finalMessage = new Uint8Array([
     ...FINAL_MESSAGE_PREFIX,
     ...domainSeparatorBytes,
-    ...structHashBytes,
+    ...structHash,
   ]);
-  const messageHash = keccak_256(finalMessage);
 
   // 4. Sign the hash with @noble/curves
+  const messageHash = keccak_256(finalMessage);
   const privateKeyBytes = hexToUint8Array(privateKey.slice(2));
-  const messageHashBytes = hexToUint8Array(
-    Buffer.from(messageHash).toString("hex"),
-  );
 
   // Get the public key from private key for recovery ID calculation
   const publicKey = secp256k1.getPublicKey(privateKeyBytes);
-  if (!publicKey) {
-    throw new Error("Invalid private key");
-  }
+  if (!publicKey) throw new Error("Invalid private key");
 
-  const signature = secp256k1.sign(messageHashBytes, privateKeyBytes);
+  const signature = secp256k1.sign(messageHash, privateKeyBytes);
 
   // 5. Calculate the correct recovery ID
   let recovery = -1;
@@ -172,8 +151,7 @@ export const signTypedData = async ({
     try {
       // Create signature with recovery bit for testing
       const sigWithRecovery = signature.addRecoveryBit(i);
-      const recoveredPubKey =
-        sigWithRecovery.recoverPublicKey(messageHashBytes);
+      const recoveredPubKey = sigWithRecovery.recoverPublicKey(messageHash);
 
       if (
         recoveredPubKey &&
