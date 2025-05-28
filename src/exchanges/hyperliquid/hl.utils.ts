@@ -1,7 +1,7 @@
 import type { HLUserAccount, HLUserOrder } from "./hl.types";
 import { HL_MAX_FIGURES } from "./hl.config";
 
-import { adjust, multiply, subtract } from "~/utils/safe-math.utils";
+import { adjust, subtract } from "~/utils/safe-math.utils";
 import {
   ExchangeName,
   OrderSide,
@@ -18,6 +18,7 @@ import {
 } from "~/types/lib.types";
 import { countFigures } from "~/utils/count-figures.utils";
 import { sumBy } from "~/utils/sum-by.utils";
+import { afterDecimals } from "~/utils/after-decimals.utils";
 
 export const mapHLUserAccount = ({
   accountId,
@@ -135,9 +136,12 @@ export const formatHLOrderPrice = ({
 
   if (significantFiguresCount > HL_MAX_FIGURES && !Number.isInteger(price)) {
     const diff = significantFiguresCount - HL_MAX_FIGURES;
+    const newDecimalsCount = afterDecimals(price) - diff;
+
     // we apply Math.min(1, xxx) because any integer is accepted
     // we just want to remove decimals if there are too many
-    const newPrecision = Math.min(1, multiply(pPrice, 10 ** diff));
+    const newPrecision = Math.min(1, 10 / 10 ** (newDecimalsCount + 1));
+
     price = adjust(price, newPrecision);
   }
 
