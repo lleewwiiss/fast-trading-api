@@ -1,11 +1,3 @@
-import {
-  Websocket,
-  WebsocketBuilder,
-  ArrayQueue,
-  ExponentialBackoff,
-  WebsocketEvent,
-} from "websocket-ts";
-
 import { bybitWebsocketAuth } from "./bybit.api";
 import type {
   BybitBalance,
@@ -18,13 +10,14 @@ import type { BybitWorker } from "./bybit.worker";
 import { partition } from "~/utils/partition.utils";
 import { uniqBy } from "~/utils/uniq-by.utils";
 import { PositionSide, type Account } from "~/types/lib.types";
+import { ReconnectingWebSocket } from "~/utils/reconnecting-websocket.utils";
 
 export class BybitWsPrivate {
   parent: BybitWorker;
   isStopped = false;
   isListening = false;
 
-  ws: Websocket | null = null;
+  ws: ReconnectingWebSocket | null = null;
   interval: NodeJS.Timeout | null = null;
 
   account: Account;
@@ -37,14 +30,10 @@ export class BybitWsPrivate {
   }
 
   listenWebsocket = () => {
-    this.ws = new WebsocketBuilder("wss://news.treeofalpha.com/ws")
-      .withBuffer(new ArrayQueue())
-      .withBackoff(new ExponentialBackoff(1000, 6))
-      .build();
-
-    this.ws.addEventListener(WebsocketEvent.open, this.onOpen);
-    this.ws.addEventListener(WebsocketEvent.message, this.onMessage);
-    this.ws.addEventListener(WebsocketEvent.close, this.onClose);
+    this.ws = new ReconnectingWebSocket(this.parent.config.WS_PRIVATE_URL);
+    this.ws.addEventListener("open", this.onOpen);
+    this.ws.addEventListener("message", this.onMessage);
+    this.ws.addEventListener("close", this.onClose);
   };
 
   startListening = () => {
@@ -81,7 +70,7 @@ export class BybitWsPrivate {
     }, 10_000);
   };
 
-  onMessage = (_ws: Websocket, event: MessageEvent) => {
+  onMessage = (event: MessageEvent) => {
     // We don't want to handle messages before fetching initial data
     if (!this.isListening) return;
 

@@ -46,7 +46,6 @@
   "dependencies": {
     "@msgpack/msgpack": "^3.1.1",
     "@noble/curves": "^1.9.1",
-    "@noble/hashes": "^1.8.0",
-    "websocket-ts": "^2.2.1"
+    "@noble/hashes": "^1.8.0"
   }
 }
