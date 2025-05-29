@@ -1,3 +1,11 @@
+import type { Websocket } from "websocket-ts";
+import {
+  WebsocketBuilder,
+  ArrayQueue,
+  ExponentialBackoff,
+  WebsocketEvent,
+} from "websocket-ts";
+
 import { bybitWebsocketAuth } from "./bybit.api";
 import { BROKER_ID, RECV_WINDOW } from "./bybit.config";
 import type {
@@ -14,7 +22,6 @@ import type { Account, Order } from "~/types/lib.types";
 import { genId } from "~/utils/gen-id.utils";
 import { adjust } from "~/utils/safe-math.utils";
 import { sleep } from "~/utils/sleep.utils";
-import { ReconnectingWebSocket } from "~/utils/reconnecting-websocket.utils";
 
 type Data = {
   op: string;
@@ -30,7 +37,7 @@ export class BybitWsTrading {
 
   isStopped = false;
 
-  ws: ReconnectingWebSocket | null = null;
+  ws: Websocket | null = null;
   interval: NodeJS.Timeout | null = null;
 
   pendingRequests = new Map<string, (data: any) => void>();
@@ -47,10 +54,14 @@ export class BybitWsTrading {
   }
 
   listenWebsocket = () => {
-    this.ws = new ReconnectingWebSocket(this.parent.config.WS_TRADE_URL);
-    this.ws.addEventListener("open", this.onOpen);
-    this.ws.addEventListener("message", this.onMessage);
-    this.ws.addEventListener("close", this.onClose);
+    this.ws = new WebsocketBuilder(this.parent.config.WS_TRADE_URL)
+      .withBuffer(new ArrayQueue())
+      .withBackoff(new ExponentialBackoff(1000, 6))
+      .build();
+
+    this.ws.addEventListener(WebsocketEvent.open, this.onOpen);
+    this.ws.addEventListener(WebsocketEvent.message, this.onMessage);
+    this.ws.addEventListener(WebsocketEvent.close, this.onClose);
   };
 
   onOpen = async () => {
@@ -88,7 +99,7 @@ export class BybitWsTrading {
     }, 10_000);
   };
 
-  onMessage = (event: MessageEvent) => {
+  onMessage = (_ws: Websocket, event: MessageEvent) => {
     if (event.data.includes("pong")) {
       this.onPong();
       return;

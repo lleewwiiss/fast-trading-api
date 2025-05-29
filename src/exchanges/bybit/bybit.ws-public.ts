@@ -1,3 +1,11 @@
+import {
+  WebsocketBuilder,
+  ArrayQueue,
+  ExponentialBackoff,
+  WebsocketEvent,
+  type Websocket,
+} from "websocket-ts";
+
 import { INTERVAL } from "./bybit.config";
 import type { BybitTicker } from "./bybit.types";
 import { mapBybitTicker } from "./bybit.utils";
@@ -10,14 +18,13 @@ import {
   type Ticker,
   type Timeframe,
 } from "~/types/lib.types";
-import { ReconnectingWebSocket } from "~/utils/reconnecting-websocket.utils";
 import { mapObj } from "~/utils/map-obj.utils";
 
 export class BybitWsPublic {
   parent: BybitWorker;
   isStopped = false;
 
-  ws: ReconnectingWebSocket | null = null;
+  ws: Websocket | null = null;
   interval: NodeJS.Timeout | null = null;
 
   messageHandlers: Record<string, (event: MessageEvent) => void> = {};
@@ -35,10 +42,14 @@ export class BybitWsPublic {
   }
 
   listenWebsocket = () => {
-    this.ws = new ReconnectingWebSocket(this.parent.config.WS_PUBLIC_URL);
-    this.ws.addEventListener("open", this.onOpen);
-    this.ws.addEventListener("message", this.onMessage);
-    this.ws.addEventListener("close", this.onClose);
+    this.ws = new WebsocketBuilder(this.parent.config.WS_PUBLIC_URL)
+      .withBuffer(new ArrayQueue())
+      .withBackoff(new ExponentialBackoff(1000, 6))
+      .build();
+
+    this.ws.addEventListener(WebsocketEvent.open, this.onOpen);
+    this.ws.addEventListener(WebsocketEvent.message, this.onMessage);
+    this.ws.addEventListener(WebsocketEvent.close, this.onClose);
   };
 
   onOpen = () => {
@@ -72,7 +83,7 @@ export class BybitWsPublic {
     }, 10_000);
   };
 
-  onMessage = (event: MessageEvent) => {
+  onMessage = (_ws: Websocket, event: MessageEvent) => {
     for (const key in this.messageHandlers) {
       this.messageHandlers[key](event);
     }

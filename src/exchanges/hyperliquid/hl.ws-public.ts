@@ -1,8 +1,15 @@
+import {
+  WebsocketBuilder,
+  ArrayQueue,
+  ExponentialBackoff,
+  WebsocketEvent,
+  type Websocket,
+} from "websocket-ts";
+
 import type { HyperLiquidWorker } from "./hl.worker";
 import type { HLActiveAssetCtxWs } from "./hl.types";
 
 import type { Candle, OrderBook, Ticker, Timeframe } from "~/types/lib.types";
-import { ReconnectingWebSocket } from "~/utils/reconnecting-websocket.utils";
 import { calcOrderBookTotal, sortOrderBook } from "~/utils/orderbook.utils";
 
 export class HyperLiquidWsPublic {
@@ -11,7 +18,7 @@ export class HyperLiquidWsPublic {
   pingAt = 0;
   isStopped = false;
 
-  ws: ReconnectingWebSocket | null = null;
+  ws: Websocket | null = null;
   pingTimeout: NodeJS.Timeout | null = null;
 
   pendingRequests = new Map<string, (data: any) => void>();
@@ -31,10 +38,14 @@ export class HyperLiquidWsPublic {
   }
 
   listenWebSocket = () => {
-    this.ws = new ReconnectingWebSocket(this.parent.config.WS_PUBLIC_URL);
-    this.ws.addEventListener("open", this.onOpen);
-    this.ws.addEventListener("message", this.onMessage);
-    this.ws.addEventListener("close", this.onClose);
+    this.ws = new WebsocketBuilder(this.parent.config.WS_PUBLIC_URL)
+      .withBuffer(new ArrayQueue())
+      .withBackoff(new ExponentialBackoff(1000, 6))
+      .build();
+
+    this.ws.addEventListener(WebsocketEvent.open, this.onOpen);
+    this.ws.addEventListener(WebsocketEvent.message, this.onMessage);
+    this.ws.addEventListener(WebsocketEvent.close, this.onClose);
   };
 
   listenOHLCV = ({
@@ -196,7 +207,7 @@ export class HyperLiquidWsPublic {
     this.send({ method: "ping" });
   };
 
-  onMessage = (event: MessageEvent) => {
+  onMessage = (_ws: Websocket, event: MessageEvent) => {
     try {
       const json = JSON.parse(event.data);
       for (const key in this.messageHandlers) {

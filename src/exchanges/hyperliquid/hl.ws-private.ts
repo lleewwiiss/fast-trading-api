@@ -1,3 +1,11 @@
+import {
+  Websocket,
+  WebsocketBuilder,
+  ArrayQueue,
+  ExponentialBackoff,
+  WebsocketEvent,
+} from "websocket-ts";
+
 import type { HyperLiquidWorker } from "./hl.worker";
 import {
   formatHLOrder,
@@ -26,7 +34,6 @@ import {
 } from "~/types/lib.types";
 import { chunk } from "~/utils/chunk.utils";
 import { genId, genIntId } from "~/utils/gen-id.utils";
-import { ReconnectingWebSocket } from "~/utils/reconnecting-websocket.utils";
 import { sleep } from "~/utils/sleep.utils";
 import { signHLAction } from "~/utils/hl.utils";
 
@@ -39,7 +46,7 @@ export class HyperLiquidWsPrivate {
   parent: HyperLiquidWorker;
   account: Account;
 
-  ws: ReconnectingWebSocket | null = null;
+  ws: Websocket | null = null;
   interval: NodeJS.Timeout | null = null;
 
   isStopped = false;
@@ -69,10 +76,14 @@ export class HyperLiquidWsPrivate {
   }
 
   listenWebsocket = () => {
-    this.ws = new ReconnectingWebSocket(this.parent.config.WS_PRIVATE_URL);
-    this.ws.addEventListener("open", this.onOpen);
-    this.ws.addEventListener("message", this.onMessage);
-    this.ws.addEventListener("close", this.onClose);
+    this.ws = new WebsocketBuilder(this.parent.config.WS_PRIVATE_URL)
+      .withBuffer(new ArrayQueue())
+      .withBackoff(new ExponentialBackoff(1000, 6))
+      .build();
+
+    this.ws.addEventListener(WebsocketEvent.open, this.onOpen);
+    this.ws.addEventListener(WebsocketEvent.message, this.onMessage);
+    this.ws.addEventListener(WebsocketEvent.close, this.onClose);
   };
 
   startListening = () => {
@@ -93,7 +104,7 @@ export class HyperLiquidWsPrivate {
     this.subscribe({ type: "userFills", user: this.account.apiKey });
   };
 
-  onMessage = (event: MessageEvent) => {
+  onMessage = (_ws: Websocket, event: MessageEvent) => {
     // We don't want to handle messages before fetching initial data
     if (!this.isListening) return;
 
