@@ -32,6 +32,8 @@ export const fetchHLMarketsAndTickers = async (config: ExchangeConfig) => {
   });
 
   const markets = universe.reduce<Record<string, Market>>((acc, m, idx) => {
+    if (m.isDelisted) return acc;
+
     const sizeDecimals = 10 / 10 ** (m.szDecimals + 1);
     const priceDecimals = 10 / 10 ** (HL_MAX_DECIMALS - m.szDecimals + 1);
 
@@ -64,6 +66,8 @@ export const fetchHLMarketsAndTickers = async (config: ExchangeConfig) => {
 
   const tickers: Record<string, Ticker> = assets.reduce(
     (acc, t, idx) => {
+      if (universe[idx].isDelisted) return acc;
+
       const last = t.midPx ? parseFloat(t.midPx) : 0;
       const prevDay = parseFloat(t.prevDayPx);
       const percentage = ((last - prevDay) / prevDay) * 100;

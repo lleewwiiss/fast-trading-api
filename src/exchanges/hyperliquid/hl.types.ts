@@ -5,6 +5,7 @@ export type HLMetaAndAssetCtxs = [
       name: string;
       maxLeverage: number;
       marginTableId: number;
+      isDelisted: boolean;
     }>;
   },
   Array<{
