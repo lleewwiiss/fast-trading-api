@@ -20,6 +20,7 @@ class ChaseInstance {
   orderIds: Array<string | number> = [];
   isPlacingOrder = false;
   isStopped = false;
+  lastTickerPrice: number | null = null;
 
   disposeWatchNotifications: () => void;
   disposeWatchTicker: () => void;
@@ -132,7 +133,32 @@ class ChaseInstance {
     // and only if the price is different from the last order price
     const onTickerChange = () => {
       if (!this.isPlacingOrder && this.state.price !== this.orderPrice) {
-        this.infinitePlaceOrder();
+        // If in stalk mode, always replace the order
+        if (this.opts.stalk) {
+          this.infinitePlaceOrder();
+          return;
+        }
+
+        // Check if price is moving towards our order
+        const currentPrice =
+          this.opts.side === OrderSide.Buy ? this.ticker.ask : this.ticker.bid;
+
+        if (this.lastTickerPrice !== null) {
+          const isMovingTowardsOrder =
+            this.opts.side === OrderSide.Buy
+              ? currentPrice < this.lastTickerPrice // Price decreasing (moving towards buy order)
+              : currentPrice > this.lastTickerPrice; // Price increasing (moving towards sell order)
+
+          // Only replace order if price is moving away from our order
+          if (!isMovingTowardsOrder) {
+            this.infinitePlaceOrder();
+          }
+        } else {
+          // First time, place the order
+          this.infinitePlaceOrder();
+        }
+
+        this.lastTickerPrice = currentPrice;
       }
     };
 
