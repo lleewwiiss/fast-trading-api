@@ -12,6 +12,7 @@ import {
 } from "~/types/lib.types";
 import { ReconnectingWebSocket } from "~/utils/reconnecting-websocket.utils";
 import { mapObj } from "~/utils/map-obj.utils";
+import { tryParse } from "~/utils/try-parse.utils";
 
 export class BybitWsPublic {
   parent: BybitWorker;
@@ -80,12 +81,14 @@ export class BybitWsPublic {
 
   handleTickers = (event: MessageEvent) => {
     if (event.data.startsWith('{"topic":"tickers.')) {
-      const json = JSON.parse(event.data);
+      const json = tryParse<{ type: string; data: BybitTicker }>(event.data);
+      if (!json) return;
 
       if (json.type === "snapshot") {
         const d: BybitTicker = json.data;
         const t: Ticker = mapBybitTicker(d);
         this.parent.updateTicker(t);
+        return;
       }
 
       if (json.type === "delta") {
@@ -106,6 +109,7 @@ export class BybitWsPublic {
         if (d.turnover24h) t.quoteVolume = parseFloat(d.turnover24h);
 
         this.parent.updateTickerDelta(t);
+        return;
       }
     }
   };
@@ -118,9 +122,12 @@ export class BybitWsPublic {
 
     this.messageHandlers[ohlcvTopic] = (event: MessageEvent) => {
       if (event.data.startsWith(`{"topic":"${ohlcvTopic}`)) {
+        const json = tryParse<{ data: any }>(event.data);
+        if (!json) return;
+
         const {
           data: [c],
-        } = JSON.parse(event.data);
+        } = json;
 
         const candle: Candle = {
           symbol,
@@ -189,17 +196,20 @@ export class BybitWsPublic {
 
     this.messageHandlers[orderBookTopic] = (event: MessageEvent) => {
       if (event.data.startsWith(`{"topic":"${orderBookTopic}"`)) {
-        const data = JSON.parse(event.data);
+        const json = tryParse<{ type: string; data: any }>(event.data);
+        if (!json) return;
 
-        if (data.type === "snapshot") {
+        const { type, data } = json;
+
+        if (type === "snapshot") {
           orderBook.bids = [];
           orderBook.asks = [];
 
-          for (const key in data.data as Record<string, string[][]>) {
+          for (const key in data as Record<string, string[][]>) {
             if (key !== "a" && key !== "b") continue;
 
             const sideKey = key === "a" ? "asks" : "bids";
-            const orders = data.data[key];
+            const orders = data[key];
 
             orders.forEach((order: string[]) => {
               orderBook[sideKey].push({
