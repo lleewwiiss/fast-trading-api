@@ -4,6 +4,7 @@ import type { HLActiveAssetCtxWs } from "./hl.types";
 import type { Candle, OrderBook, Ticker, Timeframe } from "~/types/lib.types";
 import { ReconnectingWebSocket } from "~/utils/reconnecting-websocket.utils";
 import { calcOrderBookTotal, sortOrderBook } from "~/utils/orderbook.utils";
+import { tryParse } from "~/utils/try-parse.utils";
 
 export class HyperLiquidWsPublic {
   parent: HyperLiquidWorker;
@@ -197,14 +198,11 @@ export class HyperLiquidWsPublic {
   };
 
   onMessage = (event: MessageEvent) => {
-    try {
-      const json = JSON.parse(event.data);
-      for (const key in this.messageHandlers) {
-        this.messageHandlers[key](json);
-      }
-    } catch (error: any) {
-      this.parent.error(`HyperLiquid WebSocket message error`);
-      this.parent.error(error.message);
+    const json = tryParse<{ channel: string; data: any }>(event.data);
+    if (!json) return;
+
+    for (const key in this.messageHandlers) {
+      this.messageHandlers[key](json);
     }
   };
 
