@@ -1,4 +1,8 @@
-import type { HLUserAccount, HLUserOrder } from "./hl.types";
+import type {
+  HLUserAccount,
+  HLUserOrder,
+  HLUserOrderHistory,
+} from "./hl.types";
 import { HL_MAX_FIGURES } from "./hl.config";
 
 import { adjust, subtract } from "~/utils/safe-math.utils";
@@ -100,6 +104,34 @@ export const mapHLOrder = ({
     remaining,
     reduceOnly: o.reduceOnly || o.isPositionTpsl,
     timestamp: o.timestamp,
+  };
+
+  return order;
+};
+
+export const mapHLOrderHistory = ({
+  order: o,
+  accountId,
+}: {
+  order: HLUserOrderHistory;
+  accountId: string;
+}) => {
+  const amount = parseFloat(o.sz);
+
+  const order: Order = {
+    id: o.oid,
+    exchange: ExchangeName.HL,
+    accountId,
+    status: OrderStatus.Filled,
+    symbol: o.coin,
+    type: OrderType.Market, // Not accurate but don't really matters
+    side: o.side === "A" ? OrderSide.Sell : OrderSide.Buy,
+    price: parseFloat(o.px),
+    amount,
+    filled: amount,
+    remaining: 0,
+    reduceOnly: false, // Not accurate but don't really matters
+    timestamp: o.time,
   };
 
   return order;

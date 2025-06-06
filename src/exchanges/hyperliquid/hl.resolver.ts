@@ -4,8 +4,9 @@ import type {
   HLMetaAndAssetCtxs,
   HLUserAccount,
   HLUserOrder,
+  HLUserOrderHistory,
 } from "./hl.types";
-import { mapHLOrder, mapHLUserAccount } from "./hl.utils";
+import { mapHLOrder, mapHLOrderHistory, mapHLUserAccount } from "./hl.utils";
 
 import { TICKER_REGEX } from "~/utils/regex.utils";
 import {
@@ -141,6 +142,30 @@ export const fetchHLUserOrders = async ({
 
   const orders: Order[] = response.map((o) =>
     mapHLOrder({ order: o, accountId: account.id }),
+  );
+
+  return orders;
+};
+
+export const fetchHLUserOrdersHistory = async ({
+  config,
+  account,
+}: {
+  config: ExchangeConfig;
+  account: Account;
+}) => {
+  const response = await request<HLUserOrderHistory[]>({
+    url: `${config.PUBLIC_API_URL}${HL_ENDPOINTS.PUBLIC.INFO}`,
+    method: "POST",
+    body: {
+      type: "userFills",
+      user: account.apiKey,
+      aggregateByTime: true,
+    },
+  });
+
+  const orders: Order[] = response.map((o) =>
+    mapHLOrderHistory({ order: o, accountId: account.id }),
   );
 
   return orders;

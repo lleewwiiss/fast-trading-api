@@ -8,6 +8,7 @@ export type Request = {
   params?: Record<string, string | number | string[] | number[]>;
   body?: Record<
     string,
+    | boolean
     | string
     | number
     | string[]

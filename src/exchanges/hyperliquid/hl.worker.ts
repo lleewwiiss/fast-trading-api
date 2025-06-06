@@ -5,6 +5,7 @@ import {
   fetchHLOHLCV,
   fetchHLUserAccount,
   fetchHLUserOrders,
+  fetchHLUserOrdersHistory,
 } from "./hl.resolver";
 import { HyperLiquidWsPublic } from "./hl.ws-public";
 import { HyperLiquidWsPrivate } from "./hl.ws-private";
@@ -121,17 +122,27 @@ export class HyperLiquidWorker extends BaseWorker {
 
       // Fetch user orders
       const orders = await fetchHLUserOrders({ config: this.config, account });
+
+      this.log(
+        `Loaded ${orders.length} HyperLiquid active orders for account [${account.id}]`,
+      );
+
+      const ordersHistory = await fetchHLUserOrdersHistory({
+        config: this.config,
+        account,
+      });
+
+      this.log(
+        `Loaded ${ordersHistory.length} HyperLiquid orders history for account [${account.id}]`,
+      );
+
       this.emitChanges([
         {
           type: "update",
           path: `private.${account.id}.orders`,
-          value: orders,
+          value: [...orders, ...ordersHistory],
         },
       ]);
-
-      this.log(
-        `Loaded ${orders.length} HyperLiquid orders for account [${account.id}]`,
-      );
     }
 
     if (requestId) {

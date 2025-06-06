@@ -80,6 +80,24 @@ export type HLUserOrder = {
   triggerPx: string;
 };
 
+export type HLUserOrderHistory = {
+  coin: string;
+  px: string;
+  sz: string;
+  side: "A" | "B";
+  time: number;
+  startPosition: string;
+  dir: string;
+  closedPnl: string;
+  hash: string;
+  oid: number;
+  crossed: boolean;
+  fee: string;
+  builderFee: string;
+  tid: number;
+  feeToken: string;
+};
+
 export type HLActiveAssetCtxWs = {
   channel: "activeAssetCtx";
   data: {
