@@ -29,6 +29,7 @@ import { genId, genIntId } from "~/utils/gen-id.utils";
 import { ReconnectingWebSocket } from "~/utils/reconnecting-websocket.utils";
 import { sleep } from "~/utils/sleep.utils";
 import { signHLAction } from "~/utils/hl.utils";
+import { tryParse } from "~/utils/try-parse.utils";
 
 type Data = {
   id: number;
@@ -97,39 +98,35 @@ export class HyperLiquidWsPrivate {
     // We don't want to handle messages before fetching initial data
     if (!this.isListening) return;
 
-    try {
-      const json = JSON.parse(event.data);
+    const json = tryParse<{ channel: string; data: any }>(event.data);
+    if (!json) return;
 
-      if (
-        json.channel === "userFills" &&
-        json.data.isSnapshot !== true &&
-        json.data.fills.length > 0
-      ) {
-        this.onUserFills(json.data.fills);
+    if (
+      json.channel === "userFills" &&
+      json.data.isSnapshot !== true &&
+      json.data.fills.length > 0
+    ) {
+      this.onUserFills(json.data.fills);
+    }
+
+    if (json.channel === "webData2") {
+      this.onWebData2(json.data);
+    }
+
+    if (json.channel === "post" && json.data.id) {
+      const callback = this.pendingRequests.get(json.data.id);
+
+      if (callback) {
+        callback(json);
+        this.pendingRequests.delete(json.data.id);
       }
 
-      if (json.channel === "webData2") {
-        this.onWebData2(json.data);
+      // This is when the signature is invalid
+      // HyperLiquid will reply with a weird error that doesn't help
+      if (json?.data?.response?.payload?.status === "err") {
+        this.parent.error(`[${this.account.id}] HyperLiquid signature error`);
+        this.parent.error(json.data.response.payload.response);
       }
-
-      if (json.channel === "post" && json.data.id) {
-        const callback = this.pendingRequests.get(json.data.id);
-
-        if (callback) {
-          callback(json);
-          this.pendingRequests.delete(json.data.id);
-        }
-
-        // This is when the signature is invalid
-        // HyperLiquid will reply with a weird error that doesn't help
-        if (json?.data?.response?.payload?.status === "err") {
-          this.parent.error(`[${this.account.id}] HyperLiquid signature error`);
-          this.parent.error(json.data.response.payload.response);
-        }
-      }
-    } catch (error: any) {
-      this.parent.error(`HyperLiquid WebSocket message error`);
-      this.parent.error(error.message);
     }
   };
 
