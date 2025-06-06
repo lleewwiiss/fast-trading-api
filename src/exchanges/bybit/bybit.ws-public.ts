@@ -221,12 +221,12 @@ export class BybitWsPublic {
           }
         }
 
-        if (data.type === "delta") {
-          for (const key in data.data as Record<string, string[][]>) {
+        if (type === "delta") {
+          for (const key in data as Record<string, string[][]>) {
             if (key !== "a" && key !== "b") continue;
 
             const orderKey = key === "a" ? "asks" : "bids";
-            const orders = data.data[key];
+            const orders = data[key];
 
             orders.forEach((order: string[]) => {
               const price = parseFloat(order[0]);
