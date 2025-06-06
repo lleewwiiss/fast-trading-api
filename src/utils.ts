@@ -27,6 +27,7 @@ export * from "./utils/sum-by.utils";
 export * from "./utils/sum.utils";
 export * from "./utils/times.utils";
 export * from "./utils/to-usd.utils";
+export * from "./utils/try-parse.utils";
 export * from "./utils/uint8.utils";
 export * from "./utils/uniq-by.utils";
 export * from "./utils/uniq.utils";
