@@ -12,6 +12,7 @@ import {
   createBybitTradingStop,
   fetchBybitSymbolPositions,
   setBybitLeverage,
+  fetchBybitOrdersHistory,
 } from "./bybit.resolver";
 import type { BybitOrder } from "./bybit.types";
 import { formatMarkerOrLimitOrder, mapBybitOrder } from "./bybit.utils";
@@ -178,16 +179,26 @@ export class BybitWorker extends BaseWorker {
       // We delay fetch orders, as its no mandatory to start trading
       // TODO: replay orders update received after initial orders data?
       const orders = await fetchBybitOrders({ config: this.config, account });
+
+      this.log(
+        `Loaded ${orders.length} Bybit active orders for account [${account.id}]`,
+      );
+
+      const ordersHistory = await fetchBybitOrdersHistory({
+        config: this.config,
+        account,
+      });
+
       this.emitChanges([
         {
           type: "update",
           path: `private.${account.id}.orders`,
-          value: orders,
+          value: [...orders, ...ordersHistory],
         },
       ]);
 
       this.log(
-        `Loaded ${orders.length} Bybit orders for account [${account.id}]`,
+        `Loaded ${ordersHistory.length} Bybit orders history for account [${account.id}]`,
       );
     }
 
@@ -294,7 +305,6 @@ export class BybitWorker extends BaseWorker {
 
       if (
         bybitOrder.orderStatus === "Cancelled" ||
-        bybitOrder.orderStatus === "Filled" ||
         bybitOrder.orderStatus === "Deactivated"
       ) {
         const changes = this.memory.private[accountId].orders.reduce<
@@ -326,7 +336,8 @@ export class BybitWorker extends BaseWorker {
       if (
         bybitOrder.orderStatus === "New" ||
         bybitOrder.orderStatus === "Untriggered" ||
-        bybitOrder.orderStatus === "PartiallyFilled"
+        bybitOrder.orderStatus === "PartiallyFilled" ||
+        bybitOrder.orderStatus === "Filled"
       ) {
         const [updateOrders, addOrders] = partition(orders, (order) =>
           this.memory.private[accountId].orders.some((o) => o.id === order.id),

@@ -141,6 +141,7 @@ export interface Position {
 
 export enum OrderStatus {
   Open = "open",
+  Filled = "filled",
   Closed = "closed",
   Canceled = "canceled",
 }
@@ -179,6 +180,7 @@ export interface Order {
   filled: number;
   remaining: number;
   reduceOnly: boolean;
+  timestamp: number;
 }
 
 export interface OrderBookOrder {

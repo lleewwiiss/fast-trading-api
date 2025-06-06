@@ -11,6 +11,7 @@ import {
   getHedgedOrderPositionIdx,
   mapBybitBalance,
   mapBybitOrder,
+  mapBybitOrderHistory,
   mapBybitPosition,
   mapBybitTicker,
 } from "./bybit.utils";
@@ -225,6 +226,32 @@ export const fetchBybitOrders = async ({
   const bybitOrders: BybitOrder[] = await recursiveFetch();
   const orders: Order[] = bybitOrders.flatMap((o) =>
     mapBybitOrder({ accountId: account.id, order: o }),
+  );
+
+  return orders;
+};
+
+export const fetchBybitOrdersHistory = async ({
+  account,
+  config,
+}: {
+  config: ExchangeConfig;
+  account: Account;
+}) => {
+  const json = await bybit<{ result: { list: BybitOrder[] } }>({
+    key: account.apiKey,
+    secret: account.apiSecret,
+    url: `${config.PRIVATE_API_URL}${BYBIT_ENDPOINTS.PRIVATE.ORDERS_HISTORY}`,
+    params: {
+      category: "linear",
+      settleCoin: "USDT",
+      orderStatus: "Filled",
+      limit: 50,
+    },
+  });
+
+  const orders: Order[] = json.result.list.map((o) =>
+    mapBybitOrderHistory({ accountId: account.id, order: o }),
   );
 
   return orders;

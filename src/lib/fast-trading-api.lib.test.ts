@@ -365,6 +365,7 @@ describe("FastTradingApi", () => {
         filled: 0,
         remaining: 5,
         reduceOnly: false,
+        timestamp: 123456789,
       };
       api.updateOrder({ order, update: { amount: 10 } });
       expect(updateOrdersMock).toHaveBeenCalledWith({
@@ -399,6 +400,7 @@ describe("FastTradingApi", () => {
         filled: 0,
         remaining: 5,
         reduceOnly: false,
+        timestamp: 123456789,
       };
       const orderB = { ...orderA, id: "2" };
       const updates = [
@@ -603,6 +605,7 @@ describe("FastTradingApi", () => {
         filled: 0,
         remaining: 5,
         reduceOnly: false,
+        timestamp: 123456789,
       };
       expect(() =>
         api.updateOrder({ order, update: { amount: 10 } }),
@@ -632,6 +635,7 @@ describe("FastTradingApi", () => {
         filled: 0,
         remaining: 5,
         reduceOnly: false,
+        timestamp: 123456789,
       };
       const updates = [{ order, update: { price: 200 } }];
       expect(() => api.updateOrders({ updates })).toThrowError(
