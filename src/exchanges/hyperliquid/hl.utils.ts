@@ -73,33 +73,36 @@ const mapOrderType = (type: string) => {
 };
 
 export const mapHLOrder = ({
-  order,
+  order: o,
   accountId,
 }: {
   order: HLUserOrder;
   accountId: string;
-}): Order => {
-  const amount = parseFloat(order.origSz);
-  const remaining = parseFloat(order.sz);
+}) => {
+  const amount = parseFloat(o.origSz);
+  const remaining = parseFloat(o.sz);
   const filled = subtract(amount, remaining);
 
-  return {
-    id: order.oid,
+  const order: Order = {
+    id: o.oid,
     exchange: ExchangeName.HL,
     accountId,
     status: OrderStatus.Open,
-    symbol: order.coin,
-    type: mapOrderType(order.orderType),
-    side: order.side === "A" ? OrderSide.Sell : OrderSide.Buy,
+    symbol: o.coin,
+    type: mapOrderType(o.orderType),
+    side: o.side === "A" ? OrderSide.Sell : OrderSide.Buy,
     price:
-      order.isPositionTpsl || order.isTrigger
-        ? parseFloat(order.triggerPx)
-        : parseFloat(order.limitPx),
+      o.isPositionTpsl || o.isTrigger
+        ? parseFloat(o.triggerPx)
+        : parseFloat(o.limitPx),
     amount,
     filled,
     remaining,
-    reduceOnly: order.reduceOnly || order.isPositionTpsl,
+    reduceOnly: o.reduceOnly || o.isPositionTpsl,
+    timestamp: o.timestamp,
   };
+
+  return order;
 };
 
 export const formatHLOrderPrice = ({
