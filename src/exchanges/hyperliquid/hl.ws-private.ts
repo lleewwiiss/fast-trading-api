@@ -131,25 +131,38 @@ export class HyperLiquidWsPrivate {
   };
 
   onUserFills = (fills: HLUserFillEvent[]) => {
-    const changes = fills.map(
-      (e, idx) =>
-        ({
-          type: "update",
-          path: `private.${this.account.id}.notifications.${this.memory.notifications.length + idx}`,
-          value: {
-            id: genId(),
-            accountId: this.account.id,
-            type: "order_fill",
-            data: {
-              id: e.oid,
-              symbol: e.coin,
-              side: e.side === "A" ? OrderSide.Sell : OrderSide.Buy,
-              price: parseFloat(e.px),
-              amount: parseFloat(e.sz),
-            },
+    const notifLength = this.memory.notifications.length;
+    const fillsLength = this.memory.fills.length;
+
+    const changes = fills.flatMap((e, idx) => [
+      {
+        type: "update",
+        path: `private.${this.account.id}.notifications.${notifLength + idx}`,
+        value: {
+          id: genId(),
+          accountId: this.account.id,
+          type: "order_fill",
+          data: {
+            id: e.oid,
+            symbol: e.coin,
+            side: e.side === "A" ? OrderSide.Sell : OrderSide.Buy,
+            price: parseFloat(e.px),
+            amount: parseFloat(e.sz),
           },
-        }) as const,
-    );
+        },
+      } as const,
+      {
+        type: "update",
+        path: `private.${this.account.id}.fills.${fillsLength + idx}`,
+        value: {
+          symbol: e.coin,
+          side: e.side === "A" ? OrderSide.Sell : OrderSide.Buy,
+          price: parseFloat(e.px),
+          amount: parseFloat(e.sz),
+          timestamp: Date.now(),
+        },
+      } as const,
+    ]);
 
     this.parent.emitChanges(changes);
   };

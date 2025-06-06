@@ -11,7 +11,7 @@ import {
   getHedgedOrderPositionIdx,
   mapBybitBalance,
   mapBybitOrder,
-  mapBybitOrderHistory,
+  mapBybitFill,
   mapBybitPosition,
   mapBybitTicker,
 } from "./bybit.utils";
@@ -250,11 +250,7 @@ export const fetchBybitOrdersHistory = async ({
     },
   });
 
-  const orders: Order[] = json.result.list.map((o) =>
-    mapBybitOrderHistory({ accountId: account.id, order: o }),
-  );
-
-  return orders;
+  return json.result.list.map(mapBybitFill);
 };
 
 export const fetchBybitOHLCV = async ({

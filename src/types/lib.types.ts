@@ -42,6 +42,7 @@ export interface ExchangeAccountMemory {
   balance: Balance;
   positions: Position[];
   orders: Order[];
+  fills: Fill[];
   notifications: Notification[];
   twaps: TWAPState[];
   chases: ChaseState[];
@@ -180,6 +181,14 @@ export interface Order {
   filled: number;
   remaining: number;
   reduceOnly: boolean;
+  timestamp: number;
+}
+
+export interface Fill {
+  symbol: string;
+  side: OrderSide;
+  price: number;
+  amount: number;
   timestamp: number;
 }
 

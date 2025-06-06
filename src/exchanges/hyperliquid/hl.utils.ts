@@ -14,6 +14,7 @@ import {
   PositionSide,
   type Account,
   type Balance,
+  type Fill,
   type Market,
   type Order,
   type PlaceOrderOpts,
@@ -109,32 +110,16 @@ export const mapHLOrder = ({
   return order;
 };
 
-export const mapHLOrderHistory = ({
-  order: o,
-  accountId,
-}: {
-  order: HLUserOrderHistory;
-  accountId: string;
-}) => {
-  const amount = parseFloat(o.sz);
-
-  const order: Order = {
-    id: o.oid,
-    exchange: ExchangeName.HL,
-    accountId,
-    status: OrderStatus.Filled,
-    symbol: o.coin,
-    type: OrderType.Market, // Not accurate but don't really matters
-    side: o.side === "A" ? OrderSide.Sell : OrderSide.Buy,
-    price: parseFloat(o.px),
-    amount,
-    filled: amount,
-    remaining: 0,
-    reduceOnly: false, // Not accurate but don't really matters
-    timestamp: o.time,
+export const mapHLFill = (order: HLUserOrderHistory) => {
+  const fill: Fill = {
+    symbol: order.coin,
+    side: order.side === "A" ? OrderSide.Sell : OrderSide.Buy,
+    price: parseFloat(order.px),
+    amount: parseFloat(order.sz),
+    timestamp: order.time,
   };
 
-  return order;
+  return fill;
 };
 
 export const formatHLOrderPrice = ({

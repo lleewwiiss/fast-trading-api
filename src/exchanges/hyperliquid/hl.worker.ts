@@ -127,6 +127,14 @@ export class HyperLiquidWorker extends BaseWorker {
         `Loaded ${orders.length} HyperLiquid active orders for account [${account.id}]`,
       );
 
+      this.emitChanges([
+        {
+          type: "update",
+          path: `private.${account.id}.orders`,
+          value: orders,
+        },
+      ]);
+
       const ordersHistory = await fetchHLUserOrdersHistory({
         config: this.config,
         account,
@@ -139,8 +147,8 @@ export class HyperLiquidWorker extends BaseWorker {
       this.emitChanges([
         {
           type: "update",
-          path: `private.${account.id}.orders`,
-          value: [...orders, ...ordersHistory],
+          path: `private.${account.id}.fills`,
+          value: ordersHistory,
         },
       ]);
     }

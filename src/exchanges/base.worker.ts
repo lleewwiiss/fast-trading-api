@@ -118,6 +118,7 @@ export class BaseWorker {
           balance: { used: 0, free: 0, total: 0, upnl: 0 },
           positions: [],
           orders: [],
+          fills: [],
           notifications: [],
           twaps: [],
           chases: [],

@@ -21,6 +21,7 @@ import {
   OrderTimeInForce,
   OrderType,
   PositionSide,
+  type Fill,
   type Market,
   type Order,
   type PlaceOrderOpts,
@@ -156,38 +157,19 @@ export const mapBybitOrder = ({
   return orders;
 };
 
-export const mapBybitOrderHistory = ({
-  order: o,
-  accountId,
-}: {
-  order: BybitOrder;
-  accountId: string;
-}) => {
+export const mapBybitFill = (o: BybitOrder) => {
   const isStop = o.stopOrderType !== "UNKNOWN" && o.stopOrderType !== "";
-
   const oPrice = isStop ? o.triggerPrice : o.price;
-  const oType = isStop ? o.stopOrderType : o.orderType;
 
-  const order: Order = {
-    id: o.orderId,
-    exchange: ExchangeName.BYBIT,
-    accountId,
-    status: ORDER_STATUS[o.orderStatus],
+  const fill: Fill = {
     symbol: o.symbol,
-    type: ORDER_TYPE[oType as keyof typeof ORDER_TYPE],
     side: ORDER_SIDE[o.side as keyof typeof ORDER_SIDE],
     price: parseFloat(oPrice),
     amount: parseFloat(o.qty || "0"),
-    filled: parseFloat(o.cumExecQty || "0"),
-    reduceOnly: o.reduceOnly || false,
-    remaining: subtract(
-      parseFloat(o.qty || "0"),
-      parseFloat(o.cumExecQty || "0"),
-    ),
     timestamp: parseInt(o.updatedTime, 10),
   };
 
-  return order;
+  return fill;
 };
 
 export const formatMarkerOrLimitOrder = ({
