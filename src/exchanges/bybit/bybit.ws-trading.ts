@@ -15,6 +15,7 @@ import { genId } from "~/utils/gen-id.utils";
 import { adjust } from "~/utils/safe-math.utils";
 import { sleep } from "~/utils/sleep.utils";
 import { ReconnectingWebSocket } from "~/utils/reconnecting-websocket.utils";
+import { tryParse } from "~/utils/try-parse.utils";
 
 type Data = {
   op: string;
@@ -95,12 +96,14 @@ export class BybitWsTrading {
     }
 
     if (event.data.includes("reqId")) {
-      const data = JSON.parse(event.data);
-      const callback = this.pendingRequests.get(data.reqId);
+      const json = tryParse<{ reqId: string }>(event.data);
+      if (!json) return;
+
+      const callback = this.pendingRequests.get(json.reqId);
 
       if (callback) {
-        callback(data);
-        this.pendingRequests.delete(data.reqId);
+        callback(json);
+        this.pendingRequests.delete(json.reqId);
       }
     }
   };
