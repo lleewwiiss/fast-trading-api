@@ -11,6 +11,7 @@ import { partition } from "~/utils/partition.utils";
 import { uniqBy } from "~/utils/uniq-by.utils";
 import { PositionSide, type Account } from "~/types/lib.types";
 import { ReconnectingWebSocket } from "~/utils/reconnecting-websocket.utils";
+import { tryParse } from "~/utils/try-parse.utils";
 
 export class BybitWsPrivate {
   parent: BybitWorker;
@@ -74,88 +75,93 @@ export class BybitWsPrivate {
     // We don't want to handle messages before fetching initial data
     if (!this.isListening) return;
 
-    if (event.data.includes('"topic":"position.linear"')) {
-      const { data }: { data: BybitWebsocketPosition[] } = JSON.parse(
-        event.data,
-      );
+    const parsed = tryParse<{ topic: string; data: any }>(event.data);
+    if (!parsed) return;
 
-      // I don't know why but bybit sends empty positions with side ""
-      // see: https://bybit-exchange.github.io/docs/v5/websocket/private/position
-      const [toRemoveClosed, toUpdate] = partition(data, (p) => p.side === "");
-
-      // We can have a case where user closees a side of a position when placing
-      // an order on the opposite side bigger than the current position
-      const toRemoveOppositeSide = toUpdate.filter((p) => p.positionIdx === 0);
-      const toRemove: Array<{ side: PositionSide; symbol: string }> = [];
-
-      if (toRemoveOppositeSide.length > 0) {
-        toRemove.push(
-          ...toRemoveOppositeSide.map(({ side, symbol }) => ({
-            side: side === "Buy" ? PositionSide.Short : PositionSide.Long,
-            symbol,
-          })),
-        );
-      }
-
-      if (toRemoveClosed.length > 0) {
-        toRemove.push(
-          ...toRemoveClosed.flatMap(({ positionIdx: pIdx, symbol }) => {
-            if (pIdx === 0) {
-              return [
-                { side: PositionSide.Long, symbol },
-                { side: PositionSide.Short, symbol },
-              ];
-            }
-
-            const side = pIdx === 1 ? PositionSide.Long : PositionSide.Short;
-            return [{ side, symbol }];
-          }),
-        );
-      }
-
-      if (toRemove.length > 0) {
-        this.parent.removeAccountPositions({
-          accountId: this.account.id,
-          positions: uniqBy(toRemove, (p) => p.side + p.symbol),
-        });
-      }
-
-      if (toUpdate.length > 0) {
-        this.parent.updateAccountPositions({
-          accountId: this.account.id,
-          positions: toUpdate.map((p) => {
-            const position = mapBybitPosition({
-              position: p,
-              accountId: this.account.id,
-            });
-
-            // we need to calculate ourself the notional value
-            // because bybit doesn't sends the up-to-date value based on ticker price
-            const notional =
-              position.contracts *
-              this.parent.memory.public.tickers[p.symbol].last;
-
-            return { ...position, notional };
-          }),
-        });
-      }
+    if (parsed.topic === "position.linear") {
+      const data = parsed.data as BybitWebsocketPosition[];
+      this.onPositionTopic(data);
+      return;
     }
 
-    if (event.data.includes('"topic":"wallet"')) {
-      const { data }: { data: BybitBalance[] } = JSON.parse(event.data);
-
+    if (parsed.topic === "wallet") {
+      const data = parsed.data as BybitBalance[];
       this.parent.updateAccountBalance({
         accountId: this.account.id,
         balance: mapBybitBalance(data[0]),
       });
+      return;
     }
 
-    if (event.data.includes('"topic":"order.linear"')) {
-      const { data }: { data: BybitOrder[] } = JSON.parse(event.data);
-
+    if (parsed.topic === "order.linear") {
+      const data = parsed.data as BybitOrder[];
       this.parent.updateAccountOrders({
         accountId: this.account.id,
         bybitOrders: data,
+      });
+      return;
+    }
+  };
+
+  onPositionTopic = (data: BybitWebsocketPosition[]) => {
+    // I don't know why but bybit sends empty positions with side ""
+    // see: https://bybit-exchange.github.io/docs/v5/websocket/private/position
+    const [toRemoveClosed, toUpdate] = partition(data, (p) => p.side === "");
+
+    // We can have a case where user closees a side of a position when placing
+    // an order on the opposite side bigger than the current position
+    const toRemoveOppositeSide = toUpdate.filter((p) => p.positionIdx === 0);
+    const toRemove: Array<{ side: PositionSide; symbol: string }> = [];
+
+    if (toRemoveOppositeSide.length > 0) {
+      toRemove.push(
+        ...toRemoveOppositeSide.map(({ side, symbol }) => ({
+          side: side === "Buy" ? PositionSide.Short : PositionSide.Long,
+          symbol,
+        })),
+      );
+    }
+
+    if (toRemoveClosed.length > 0) {
+      toRemove.push(
+        ...toRemoveClosed.flatMap(({ positionIdx: pIdx, symbol }) => {
+          if (pIdx === 0) {
+            return [
+              { side: PositionSide.Long, symbol },
+              { side: PositionSide.Short, symbol },
+            ];
+          }
+
+          const side = pIdx === 1 ? PositionSide.Long : PositionSide.Short;
+          return [{ side, symbol }];
+        }),
+      );
+    }
+
+    if (toRemove.length > 0) {
+      this.parent.removeAccountPositions({
+        accountId: this.account.id,
+        positions: uniqBy(toRemove, (p) => p.side + p.symbol),
+      });
+    }
+
+    if (toUpdate.length > 0) {
+      this.parent.updateAccountPositions({
+        accountId: this.account.id,
+        positions: toUpdate.map((p) => {
+          const position = mapBybitPosition({
+            position: p,
+            accountId: this.account.id,
+          });
+
+          // we need to calculate ourself the notional value
+          // because bybit doesn't sends the up-to-date value based on ticker price
+          const notional =
+            position.contracts *
+            this.parent.memory.public.tickers[p.symbol].last;
+
+          return { ...position, notional };
+        }),
       });
     }
   };
