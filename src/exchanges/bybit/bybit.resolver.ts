@@ -29,6 +29,7 @@ import {
   type FetchOHLCVParams,
   ExchangeName,
   type ExchangeConfig,
+  type Fill,
 } from "~/types/lib.types";
 import { omitUndefined } from "~/utils/omit-undefined.utils";
 import { orderBy } from "~/utils/order-by.utils";
@@ -238,19 +239,46 @@ export const fetchBybitOrdersHistory = async ({
   config: ExchangeConfig;
   account: Account;
 }) => {
-  const json = await bybit<{ result: { list: BybitOrder[] } }>({
-    key: account.apiKey,
-    secret: account.apiSecret,
-    url: `${config.PRIVATE_API_URL}${BYBIT_ENDPOINTS.PRIVATE.ORDERS_HISTORY}`,
-    params: {
-      category: "linear",
-      settleCoin: "USDT",
-      orderStatus: "Filled",
-      limit: 50,
-    },
-  });
+  const recursiveFetch = async (
+    cursor: string = "",
+    orders: BybitOrder[] = [],
+  ) => {
+    const json = await bybit<{
+      result: { list: BybitOrder[]; nextPageCursor?: string };
+    }>({
+      key: account.apiKey,
+      secret: account.apiSecret,
+      url: `${config.PRIVATE_API_URL}${BYBIT_ENDPOINTS.PRIVATE.ORDERS_HISTORY}`,
+      params: {
+        category: "linear",
+        settleCoin: "USDT",
+        orderStatus: "Filled",
+        limit: 50,
+        cursor,
+      },
+    });
 
-  return json.result.list.map(mapBybitFill);
+    const ordersList = Array.isArray(json.result.list) ? json.result.list : [];
+
+    if (ordersList.length !== 50) {
+      return orders.concat(ordersList);
+    }
+
+    // Limit to 5 pages to fetch?
+    if (json.result.nextPageCursor && orders.length <= 250) {
+      return recursiveFetch(
+        json.result.nextPageCursor,
+        orders.concat(ordersList),
+      );
+    }
+
+    return orders;
+  };
+
+  const bybitOrders: BybitOrder[] = await recursiveFetch();
+  const fills: Fill[] = bybitOrders.map(mapBybitFill);
+
+  return fills;
 };
 
 export const fetchBybitOHLCV = async ({
