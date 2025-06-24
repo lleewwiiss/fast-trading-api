@@ -70,6 +70,7 @@ export interface Account {
   exchange: ExchangeName;
   apiKey: string;
   apiSecret: string;
+  vaultAddress?: string;
 }
 
 export interface Balance {

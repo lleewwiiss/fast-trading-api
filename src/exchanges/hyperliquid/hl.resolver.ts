@@ -114,7 +114,7 @@ export const fetchHLUserAccount = async ({
     method: "POST",
     body: {
       type: "clearinghouseState",
-      user: account.apiKey,
+      user: account.vaultAddress ?? account.apiKey,
     },
   });
 
@@ -136,7 +136,7 @@ export const fetchHLUserOrders = async ({
     method: "POST",
     body: {
       type: "frontendOpenOrders",
-      user: account.apiKey,
+      user: account.vaultAddress ?? account.apiKey,
     },
   });
 
@@ -159,7 +159,7 @@ export const fetchHLUserOrdersHistory = async ({
     method: "POST",
     body: {
       type: "userFills",
-      user: account.apiKey,
+      user: account.vaultAddress ?? account.apiKey,
       aggregateByTime: true,
     },
   });
