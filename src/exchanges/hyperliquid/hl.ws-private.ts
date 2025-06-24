@@ -28,7 +28,7 @@ import { chunk } from "~/utils/chunk.utils";
 import { genId, genIntId } from "~/utils/gen-id.utils";
 import { ReconnectingWebSocket } from "~/utils/reconnecting-websocket.utils";
 import { sleep } from "~/utils/sleep.utils";
-import { signHLAction } from "~/utils/hl.utils";
+import { signHLAction } from "~/utils/signer.utils";
 import { tryParse } from "~/utils/try-parse.utils";
 
 type Data = {
