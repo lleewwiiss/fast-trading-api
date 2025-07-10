@@ -1,3 +1,5 @@
+import type { ChainType } from "@lifi/sdk";
+
 import type { ObjectChangeCommand, ObjectPaths } from "./misc.types";
 
 export interface FastTradingApiOptions {
@@ -63,13 +65,28 @@ export interface FetchOHLCVParams {
 export enum ExchangeName {
   BYBIT = "bybit",
   HL = "hyperliquid",
+  BINANCE = "binance",
+  ONCHAIN = "onchain",
 }
 
 export interface Account {
   id: string;
   exchange: ExchangeName;
-  apiKey: string;
-  apiSecret: string;
+
+  // Legacy private key fields (deprecated, use Privy session signer instead)
+  apiKey?: string; // Old Solana private key
+  apiSecret?: string; // Old EVM private key
+
+  // Privy session signer fields
+  identityToken?: string; // Privy JWT token
+  walletAddress?: string; // Public wallet address
+  chainType?: "EVM" | "SOLANA"; // Chain type
+
+  // Service configuration
+  lifiApiKey?: string;
+  codexApiKey?: string;
+  evmRpcUrl?: string;
+  solRpcUrl?: string;
 }
 
 export interface Balance {
@@ -77,6 +94,7 @@ export interface Balance {
   free: number;
   total: number;
   upnl: number;
+  onchainBalances?: Record<string, Balance>; // Optional, only used for onchain
 }
 
 export interface Ticker {
@@ -138,6 +156,12 @@ export interface Position {
   contracts: number;
   liquidationPrice: number;
   isHedged?: boolean;
+
+  // Optional onchain-specific data
+  tokenAddress?: string;
+  chainType?: ChainType;
+  networkId?: number;
+  networkName?: string;
 }
 
 export enum OrderStatus {

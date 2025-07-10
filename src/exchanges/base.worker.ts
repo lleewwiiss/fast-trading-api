@@ -1,3 +1,5 @@
+import type { ChainType } from "@lifi/sdk";
+
 import type { ExchangeWorkerMessage } from "./base.types";
 
 import { ChaseExtension } from "~/extenstions/chase.extension";
@@ -86,6 +88,11 @@ export class BaseWorker {
     if (data.type === "startChase") return this.chaseExtension.start(data);
     if (data.type === "stopChase") return this.chaseExtension.stop(data);
 
+    // Token tracking (onchain specific)
+    if (data.type === "addTokenToTracking") {
+      return this.addTokenToTracking(data);
+    }
+
     // TODO: move this into an error log
     this.error(`Unsupported command to ${this.name.toUpperCase()} worker`);
   };
@@ -97,15 +104,19 @@ export class BaseWorker {
   async start({
     accounts,
     config,
+    requestId,
   }: {
     accounts: Account[];
     requestId: string;
     config: ExchangeConfig;
   }) {
     this.log(`Initializing ${this.name.toUpperCase()} exchange data`);
+    this.log(`BaseWorker.start called with requestId: ${requestId}`);
 
     this.config = config;
     this.addAccounts({ accounts });
+
+    this.log(`BaseWorker.start completed`);
   }
 
   async addAccounts({ accounts }: { accounts: Account[]; requestId?: string }) {
@@ -388,6 +399,14 @@ export class BaseWorker {
     leverage: number;
   }) {
     this.error(`setLeverage() method not implemented`);
+  }
+
+  async addTokenToTracking(_params: {
+    requestId: string;
+    tokenAddress: string;
+    chain: ChainType;
+  }) {
+    this.error(`addTokenToTracking() method not implemented`);
   }
 
   emitChanges = <P extends ObjectPaths<StoreMemory[ExchangeName]>>(

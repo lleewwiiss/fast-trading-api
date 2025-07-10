@@ -19,6 +19,8 @@ export const defaultExchangeStoreState: ExchangeMemory = {
 export const defaultStoreState: StoreMemory = {
   [ExchangeName.BYBIT]: structuredClone(defaultExchangeStoreState),
   [ExchangeName.HL]: structuredClone(defaultExchangeStoreState),
+  [ExchangeName.BINANCE]: structuredClone(defaultExchangeStoreState),
+  [ExchangeName.ONCHAIN]: structuredClone(defaultExchangeStoreState),
 };
 
 export class MemoryStore implements Store {

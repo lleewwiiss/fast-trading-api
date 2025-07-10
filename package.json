@@ -23,29 +23,42 @@
     "prepare": "husky"
   },
   "devDependencies": {
-    "@eslint/js": "^9.27.0",
+    "@eslint/js": "^9.30.1",
+    "@privy-io/react-auth": "^2.17.3",
     "@types/bun": "latest",
-    "@typescript-eslint/parser": "^8.33.0",
-    "eslint": "^9.27.0",
+    "@typescript-eslint/parser": "^8.35.1",
+    "eslint": "^9.30.1",
     "eslint-config-prettier": "10.1.1",
     "eslint-import-resolver-typescript": "4.3.1",
-    "eslint-plugin-import": "^2.31.0",
-    "eslint-plugin-prettier": "^5.4.1",
+    "eslint-plugin-import": "^2.32.0",
+    "eslint-plugin-prettier": "^5.5.1",
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-solid": "^0.14.5",
-    "globals": "^16.2.0",
+    "globals": "^16.3.0",
     "husky": "^9.1.7",
-    "prettier": "^3.5.3",
+    "prettier": "^3.6.2",
     "tsc-alias": "^1.8.16",
-    "typescript-eslint": "^8.33.0",
-    "viem": "^2.30.5"
+    "typescript-eslint": "^8.35.1",
+    "viem": "^2.31.7"
   },
   "peerDependencies": {
-    "typescript": "^5.8.2"
+    "typescript": "^5.8.3"
   },
   "dependencies": {
+    "@codex-data/sdk": "^1.0.10",
+    "@coral-xyz/anchor": "^0.31.1",
+    "@lifi/sdk": "^3.7.11",
+    "@meteora-ag/dlmm": "^1.5.4",
     "@msgpack/msgpack": "^3.1.2",
-    "@noble/curves": "^1.9.1",
-    "@noble/hashes": "^1.8.0"
+    "@noble/curves": "^1.9.2",
+    "@noble/hashes": "^1.8.0",
+    "@privy-io/server-auth": "^1.28.2",
+    "@pump-fun/pump-sdk": "^1.4.3",
+    "@pump-fun/pump-swap-sdk": "^0.0.1-beta.51",
+    "@raydium-io/raydium-sdk-v2": "^0.1.141-alpha",
+    "@solana/spl-token": "^0.4.13",
+    "@solana/web3.js": "^1.98.2",
+    "bs58": "^6.0.0",
+    "jito-ts": "^4.2.0"
   }
 }

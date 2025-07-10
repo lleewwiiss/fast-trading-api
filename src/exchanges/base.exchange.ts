@@ -43,8 +43,38 @@ export class BaseExchange {
     this.name = name;
     this.config = config;
     this.parent = parent;
-    this.worker = createWorker();
-    this.worker.addEventListener("message", this.onWorkerMessage);
+
+    this.parent.emit(
+      "log",
+      `Creating worker for ${name.toUpperCase()} exchange`,
+    );
+
+    try {
+      this.worker = createWorker();
+      this.parent.emit(
+        "log",
+        `Worker created successfully for ${name.toUpperCase()} exchange`,
+      );
+
+      this.worker.addEventListener("message", this.onWorkerMessage);
+      this.worker.addEventListener("error", (error) => {
+        this.parent.emit(
+          "error",
+          `Worker error in ${name.toUpperCase()}: ${error.message}`,
+        );
+      });
+
+      this.parent.emit(
+        "log",
+        `Message listeners added for ${name.toUpperCase()} worker`,
+      );
+    } catch (error) {
+      this.parent.emit(
+        "error",
+        `Failed to create worker for ${name.toUpperCase()}: ${error}`,
+      );
+      throw error;
+    }
   }
 
   start = () => {

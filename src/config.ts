@@ -1,4 +1,5 @@
 import { ExchangeName, type ExchangeConfig } from "./types";
+import { ONCHAIN_CONFIG } from "./exchanges/onchain/onchain.config";
 
 export const DEFAULT_CONFIG: Record<ExchangeName, ExchangeConfig> = {
   [ExchangeName.BYBIT]: {
@@ -19,4 +20,12 @@ export const DEFAULT_CONFIG: Record<ExchangeName, ExchangeConfig> = {
       builderFees: 0,
     },
   },
+  [ExchangeName.BINANCE]: {
+    PUBLIC_API_URL: "https://fapi.binance.com",
+    PRIVATE_API_URL: "https://fapi.binance.com",
+    WS_PUBLIC_URL: "wss://fstream.binance.com/ws",
+    WS_PRIVATE_URL: "wss://fstream.binance.com/ws",
+    WS_TRADE_URL: "",
+  },
+  [ExchangeName.ONCHAIN]: ONCHAIN_CONFIG,
 };
