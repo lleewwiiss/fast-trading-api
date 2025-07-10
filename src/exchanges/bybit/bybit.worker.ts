@@ -13,6 +13,8 @@ import {
   fetchBybitSymbolPositions,
   setBybitLeverage,
   fetchBybitOrdersHistory,
+  cancelAllBybitOrders,
+  cancelSymbolBybitOrders,
 } from "./bybit.resolver";
 import type { BybitOrder } from "./bybit.types";
 import {
@@ -623,6 +625,49 @@ export class BybitWorker extends BaseWorker {
       await this.tradingWs[accountId].cancelOrders({ priority, orders });
     }
 
+    this.emitResponse({ requestId, data: [] });
+  }
+
+  async cancelSymbolOrders({
+    symbol,
+    accountId,
+    requestId,
+  }: {
+    symbol: string;
+    accountId: string;
+    requestId: string;
+  }) {
+    const account = this.accounts.find((a) => a.id === accountId);
+
+    if (!account) {
+      this.error(`No account found for id: ${accountId}`);
+      return;
+    }
+
+    await cancelSymbolBybitOrders({
+      account,
+      config: this.config,
+      symbol,
+    });
+
+    this.emitResponse({ requestId, data: [] });
+  }
+
+  async cancelAllOrders({
+    accountId,
+    requestId,
+  }: {
+    accountId: string;
+    requestId: string;
+  }) {
+    const account = this.accounts.find((a) => a.id === accountId);
+
+    if (!account) {
+      this.error(`No account found for id: ${accountId}`);
+      return;
+    }
+
+    await cancelAllBybitOrders({ account, config: this.config });
     this.emitResponse({ requestId, data: [] });
   }
 

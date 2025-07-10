@@ -307,6 +307,48 @@ export class HyperLiquidWorker extends BaseWorker {
     this.emitResponse({ requestId, data: [] });
   }
 
+  async cancelSymbolOrders({
+    accountId,
+    requestId,
+    symbol,
+    priority = false,
+  }: {
+    accountId: string;
+    requestId: string;
+    symbol: string;
+    priority?: boolean;
+  }) {
+    const allOrders = this.memory.private[accountId]?.orders ?? [];
+    const symbolOrders = allOrders.filter((o) => o.symbol === symbol);
+
+    if (symbolOrders.length > 0) {
+      await this.privateWs[accountId].cancelOrders({
+        priority,
+        orders: symbolOrders,
+      });
+    }
+
+    this.emitResponse({ requestId, data: [] });
+  }
+
+  async cancelAllOrders({
+    accountId,
+    requestId,
+    priority = false,
+  }: {
+    accountId: string;
+    requestId: string;
+    priority?: boolean;
+  }) {
+    const orders = this.memory.private[accountId]?.orders ?? [];
+
+    if (orders.length > 0) {
+      await this.privateWs[accountId].cancelOrders({ orders, priority });
+    }
+
+    this.emitResponse({ requestId, data: [] });
+  }
+
   async updateOrders({
     updates,
     accountId,

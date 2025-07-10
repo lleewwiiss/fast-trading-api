@@ -67,6 +67,10 @@ export class BaseWorker {
     if (data.type === "placeOrders") return this.placeOrders(data);
     if (data.type === "updateOrders") return this.updateOrders(data);
     if (data.type === "cancelOrders") return this.cancelOrders(data);
+    if (data.type === "cancelSymbolOrders") {
+      return this.cancelSymbolOrders(data);
+    }
+    if (data.type === "cancelAllOrders") return this.cancelAllOrders(data);
     if (data.type === "listenOB") return this.listenOrderBook(data.symbol);
     if (data.type === "unlistenOB") return this.unlistenOrderBook(data.symbol);
     if (data.type === "addAccounts") return this.addAccounts(data);
@@ -371,6 +375,23 @@ export class BaseWorker {
     priority?: boolean;
   }) {
     this.error(`cancelOrders() method not implemented`);
+  }
+
+  async cancelSymbolOrders(_params: {
+    symbol: string;
+    accountId: string;
+    requestId: string;
+    priority?: boolean;
+  }) {
+    this.error(`cancelSymbolOrders() method not implemented`);
+  }
+
+  async cancelAllOrders(_params: {
+    accountId: string;
+    requestId: string;
+    priority?: boolean;
+  }) {
+    this.error(`cancelAllOrders() method not implemented`);
   }
 
   async fetchPositionMetadata(_params: {

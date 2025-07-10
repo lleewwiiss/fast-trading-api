@@ -48,6 +48,19 @@ export type ExchangeWorkerMessage = MessageEvent<
       priority?: boolean;
     }
   | {
+      type: "cancelSymbolOrders";
+      symbol: string;
+      accountId: string;
+      requestId: string;
+      priority?: boolean;
+    }
+  | {
+      type: "cancelAllOrders";
+      accountId: string;
+      requestId: string;
+      priority?: boolean;
+    }
+  | {
       type: "updateOrders";
       updates: {
         order: Order;
