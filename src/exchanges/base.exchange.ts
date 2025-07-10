@@ -182,6 +182,37 @@ export class BaseExchange {
     });
   }
 
+  cancelSymbolOrders({
+    symbol,
+    accountId,
+    priority = false,
+  }: {
+    symbol: string;
+    accountId: string;
+    priority?: boolean;
+  }) {
+    return this.dispatchWorker({
+      type: "cancelSymbolOrders",
+      symbol,
+      accountId,
+      priority,
+    });
+  }
+
+  cancelAllOrders({
+    accountId,
+    priority = false,
+  }: {
+    accountId: string;
+    priority?: boolean;
+  }) {
+    return this.dispatchWorker({
+      type: "cancelAllOrders",
+      accountId,
+      priority,
+    });
+  }
+
   fetchPositionMetadata({
     accountId,
     symbol,

@@ -414,3 +414,55 @@ export const setBybitLeverage = async ({
 
   return response.retCode === 0;
 };
+
+export const cancelSymbolBybitOrders = async ({
+  account,
+  config,
+  symbol,
+}: {
+  account: Account;
+  config: ExchangeConfig;
+  symbol: string;
+}) => {
+  const response = await bybit<{ retCode: number; retMsg: string }>({
+    url: `${config.PRIVATE_API_URL}${BYBIT_ENDPOINTS.PRIVATE.CANCEL_ALL_ORDERS}`,
+    method: "POST",
+    body: {
+      category: "linear",
+      symbol,
+    },
+    key: account.apiKey,
+    secret: account.apiSecret,
+  });
+
+  if (response.retCode !== 0) {
+    // TODO: Log error
+  }
+
+  return response.retCode === 0;
+};
+
+export const cancelAllBybitOrders = async ({
+  account,
+  config,
+}: {
+  account: Account;
+  config: ExchangeConfig;
+}) => {
+  const response = await bybit<{ retCode: number; retMsg: string }>({
+    url: `${config.PRIVATE_API_URL}${BYBIT_ENDPOINTS.PRIVATE.CANCEL_ALL_ORDERS}`,
+    method: "POST",
+    body: {
+      category: "linear",
+      settleCoin: "USDT",
+    },
+    key: account.apiKey,
+    secret: account.apiSecret,
+  });
+
+  if (response.retCode !== 0) {
+    // TODO: Log error
+  }
+
+  return response.retCode === 0;
+};

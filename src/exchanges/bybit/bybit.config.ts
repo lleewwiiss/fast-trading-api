@@ -23,6 +23,7 @@ export const BYBIT_ENDPOINTS = {
     ORDERS_HISTORY: "/v5/order/history",
     TRADING_STOP: "/v5/position/trading-stop",
     SET_LEVERAGE: "/v5/position/set-leverage",
+    CANCEL_ALL_ORDERS: "/v5/order/cancel-all",
   },
 };
 

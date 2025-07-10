@@ -328,6 +328,35 @@ export class FastTradingApi {
     });
   }
 
+  cancelSymbolOrders({
+    symbol,
+    accountId,
+    priority = false,
+  }: {
+    symbol: string;
+    accountId: string;
+    priority?: boolean;
+  }) {
+    return this.getAccountExchange(accountId).cancelSymbolOrders({
+      symbol,
+      accountId,
+      priority,
+    });
+  }
+
+  cancelAllOrders({
+    accountId,
+    priority = false,
+  }: {
+    accountId: string;
+    priority?: boolean;
+  }) {
+    return this.getAccountExchange(accountId).cancelAllOrders({
+      accountId,
+      priority,
+    });
+  }
+
   fetchPositionMetadata({
     accountId,
     symbol,

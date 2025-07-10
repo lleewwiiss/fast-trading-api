@@ -28,7 +28,7 @@ import { chunk } from "~/utils/chunk.utils";
 import { genId, genIntId } from "~/utils/gen-id.utils";
 import { ReconnectingWebSocket } from "~/utils/reconnecting-websocket.utils";
 import { sleep } from "~/utils/sleep.utils";
-import { signHLAction } from "~/utils/hl.utils";
+import { signHLAction } from "~/utils/signer.utils";
 import { tryParse } from "~/utils/try-parse.utils";
 
 type Data = {
@@ -90,8 +90,15 @@ export class HyperLiquidWsPrivate {
 
     this.ping();
 
-    this.subscribe({ type: "webData2", user: this.account.apiKey });
-    this.subscribe({ type: "userFills", user: this.account.apiKey });
+    this.subscribe({
+      type: "webData2",
+      user: this.account.vaultAddress ?? this.account.apiKey,
+    });
+
+    this.subscribe({
+      type: "userFills",
+      user: this.account.vaultAddress ?? this.account.apiKey,
+    });
   };
 
   onMessage = (event: MessageEvent) => {
@@ -366,7 +373,8 @@ export class HyperLiquidWsPrivate {
 
         if (
           this.parent.config.options?.builderAddress &&
-          this.parent.config.options?.builderFees
+          this.parent.config.options?.builderFees &&
+          !this.account.vaultAddress
         ) {
           (action as any).builder = {
             b: this.parent.config.options.builderAddress.toLowerCase(),
@@ -534,20 +542,27 @@ export class HyperLiquidWsPrivate {
         const nonce = Date.now();
         const signature = await signHLAction({
           privateKey: this.account.apiSecret,
+          vaultAddress: this.account.vaultAddress,
           action: payload.action,
           nonce,
         });
+
+        const requestPayload: Record<string, any> = {
+          action: payload.action,
+          nonce,
+          signature,
+        };
+
+        if (this.account.vaultAddress) {
+          requestPayload.vaultAddress = this.account.vaultAddress;
+        }
 
         this.send({
           method: "post",
           id: payload.id,
           request: {
             type: "action",
-            payload: {
-              action: payload.action,
-              nonce,
-              signature,
-            },
+            payload: requestPayload,
           },
         });
 

@@ -72,10 +72,8 @@ export enum ExchangeName {
 export interface Account {
   id: string;
   exchange: ExchangeName;
-
-  // Legacy private key fields (deprecated, use Privy session signer instead)
-  apiKey?: string; // Old Solana private key
-  apiSecret?: string; // Old EVM private key
+  apiKey: string;
+  apiSecret: string;
 
   // Privy session signer fields
   identityToken?: string; // Privy JWT token
@@ -87,6 +85,8 @@ export interface Account {
   codexApiKey?: string;
   evmRpcUrl?: string;
   solRpcUrl?: string;
+
+  vaultAddress?: string;
 }
 
 export interface Balance {
