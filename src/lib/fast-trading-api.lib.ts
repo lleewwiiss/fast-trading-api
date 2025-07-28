@@ -6,6 +6,7 @@ import { createBybitExchange } from "~/exchanges/bybit/bybit.exchange";
 import { createHyperliquidExchange } from "~/exchanges/hyperliquid/hl.exchange";
 import { createBinanceExchange } from "~/exchanges/binance/binance.exchange";
 import { createOnchainExchange } from "~/exchanges/onchain/onchain.exchange";
+import { createPolymarketExchange } from "~/exchanges/polymarket/pm.exchange";
 import {
   type FastTradingApiOptions,
   type FetchOHLCVParams,
@@ -64,6 +65,10 @@ export class FastTradingApi {
 
     if (exchangesList.has(ExchangeName.ONCHAIN)) {
       this.exchanges[ExchangeName.ONCHAIN] = createOnchainExchange(this);
+    }
+
+    if (exchangesList.has(ExchangeName.POLYMARKET)) {
+      this.exchanges[ExchangeName.POLYMARKET] = createPolymarketExchange(this);
     }
 
     await Promise.all(
@@ -136,6 +141,18 @@ export class FastTradingApi {
             await this.exchanges[ExchangeName.ONCHAIN].start();
           } else {
             await this.exchanges[ExchangeName.ONCHAIN].addAccounts(
+              exchangeAccs,
+            );
+          }
+        }
+
+        if (exchangeName === ExchangeName.POLYMARKET) {
+          if (!this.exchanges[ExchangeName.POLYMARKET]) {
+            this.exchanges[ExchangeName.POLYMARKET] =
+              createPolymarketExchange(this);
+            await this.exchanges[ExchangeName.POLYMARKET].start();
+          } else {
+            await this.exchanges[ExchangeName.POLYMARKET].addAccounts(
               exchangeAccs,
             );
           }

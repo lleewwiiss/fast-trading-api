@@ -73,8 +73,8 @@ export const fetchPMTickers = async (
       });
 
       tickers[symbol] = ticker;
-    } catch (error) {
-      console.warn(`Failed to fetch ticker for ${symbol}:`, error);
+    } catch {
+      // Silently skip failed ticker fetches
     }
   }
 
@@ -209,46 +209,41 @@ export const placePMOrders = async ({
   const nonce = Date.now(); // Get current nonce for the account
 
   for (const order of orders) {
-    try {
-      // Format the order
-      const orderArgs = formatPMOrder({ order, tickers, markets });
+    // Format the order
+    const orderArgs = formatPMOrder({ order, tickers, markets });
 
-      // Create EIP712 order message
-      const orderMessage = createEip712OrderMessage(orderArgs, account, nonce);
+    // Create EIP712 order message
+    const orderMessage = createEip712OrderMessage(orderArgs, account, nonce);
 
-      // Sign the order
-      const signature = await signEip712Order(orderMessage, account.apiSecret);
+    // Sign the order
+    const signature = await signEip712Order(orderMessage, account.apiSecret);
 
-      // Create order payload
-      const orderPayload = {
-        ...orderMessage,
-        signature,
-      };
+    // Create order payload
+    const orderPayload = {
+      ...orderMessage,
+      signature,
+    };
 
-      // Create L2 auth headers
-      const headers = await createL2AuthHeaders(
-        account,
-        "POST",
-        PM_ENDPOINTS.PRIVATE.ORDERS,
-        JSON.stringify(orderPayload),
-      );
+    // Create L2 auth headers
+    const headers = await createL2AuthHeaders(
+      account,
+      "POST",
+      PM_ENDPOINTS.PRIVATE.ORDERS,
+      JSON.stringify(orderPayload),
+    );
 
-      // Place the order
-      const response = await request<PMApiResponse<{ orderId: string }>>({
-        url: `${config.PRIVATE_API_URL}${PM_ENDPOINTS.PRIVATE.ORDERS}`,
-        method: "POST",
-        headers,
-        body: orderPayload,
-      });
+    // Place the order
+    const response = await request<PMApiResponse<{ orderId: string }>>({
+      url: `${config.PRIVATE_API_URL}${PM_ENDPOINTS.PRIVATE.ORDERS}`,
+      method: "POST",
+      headers,
+      body: orderPayload,
+    });
 
-      if (response.success && response.data) {
-        orderIds.push(response.data.orderId);
-      } else {
-        throw new Error(response.error || "Order placement failed");
-      }
-    } catch (error) {
-      console.error(`Failed to place order for ${order.symbol}:`, error);
-      throw error;
+    if (response.success && response.data) {
+      orderIds.push(response.data.orderId);
+    } else {
+      throw new Error(response.error || "Order placement failed");
     }
   }
 
@@ -267,38 +262,33 @@ export const cancelPMOrders = async ({
   const results: string[] = [];
 
   for (const orderId of orderIds) {
-    try {
-      const payload = { order_id: orderId };
-      const headers = await createL2AuthHeaders(
-        account,
-        "DELETE",
-        PM_ENDPOINTS.PRIVATE.CANCEL,
-        JSON.stringify(payload),
-      );
+    const payload = { order_id: orderId };
+    const headers = await createL2AuthHeaders(
+      account,
+      "DELETE",
+      PM_ENDPOINTS.PRIVATE.CANCEL,
+      JSON.stringify(payload),
+    );
 
-      const response = await fetch(
-        `${config.PRIVATE_API_URL}${PM_ENDPOINTS.PRIVATE.CANCEL}`,
-        {
-          method: "DELETE",
-          headers: {
-            "content-type": "application/json",
-            ...headers,
-          },
-          body: JSON.stringify(payload),
+    const response = await fetch(
+      `${config.PRIVATE_API_URL}${PM_ENDPOINTS.PRIVATE.CANCEL}`,
+      {
+        method: "DELETE",
+        headers: {
+          "content-type": "application/json",
+          ...headers,
         },
-      );
-      const result = (await response.json()) as PMApiResponse<{
-        orderId: string;
-      }>;
+        body: JSON.stringify(payload),
+      },
+    );
+    const result = (await response.json()) as PMApiResponse<{
+      orderId: string;
+    }>;
 
-      if (result.success) {
-        results.push(orderId);
-      } else {
-        throw new Error(result.error || "Order cancellation failed");
-      }
-    } catch (error) {
-      console.error(`Failed to cancel order ${orderId}:`, error);
-      throw error;
+    if (result.success) {
+      results.push(orderId);
+    } else {
+      throw new Error(result.error || "Order cancellation failed");
     }
   }
 

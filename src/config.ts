@@ -1,5 +1,6 @@
 import { ExchangeName, type ExchangeConfig } from "./types";
 import { ONCHAIN_CONFIG } from "./exchanges/onchain/onchain.config";
+import { PM_CONFIG } from "./exchanges/polymarket/pm.config";
 
 export const DEFAULT_CONFIG: Record<ExchangeName, ExchangeConfig> = {
   [ExchangeName.BYBIT]: {
@@ -28,4 +29,5 @@ export const DEFAULT_CONFIG: Record<ExchangeName, ExchangeConfig> = {
     WS_TRADE_URL: "",
   },
   [ExchangeName.ONCHAIN]: ONCHAIN_CONFIG,
+  [ExchangeName.POLYMARKET]: PM_CONFIG,
 };

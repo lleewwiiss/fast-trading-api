@@ -21,6 +21,7 @@ export const defaultStoreState: StoreMemory = {
   [ExchangeName.HL]: structuredClone(defaultExchangeStoreState),
   [ExchangeName.BINANCE]: structuredClone(defaultExchangeStoreState),
   [ExchangeName.ONCHAIN]: structuredClone(defaultExchangeStoreState),
+  [ExchangeName.POLYMARKET]: structuredClone(defaultExchangeStoreState),
 };
 
 export class MemoryStore implements Store {

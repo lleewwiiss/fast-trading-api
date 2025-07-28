@@ -12,6 +12,9 @@ import {
   fetchBinanceSymbolPositions,
   setBinanceLeverage,
   fetchBinanceOrdersHistory,
+  cancelAllBinanceOrders,
+  cancelSymbolBinanceOrders,
+  createBinanceTradingStop,
 } from "./binance.resolver";
 import type { BinanceOrder } from "./binance.types";
 import {
@@ -570,17 +573,148 @@ export class BinanceWorker extends BaseWorker {
   }
 
   async updateOrders({
+    updates,
+    accountId,
     requestId,
+    priority: _priority = false,
   }: {
     updates: UpdateOrderOpts[];
     accountId: string;
     requestId: string;
     priority?: boolean;
   }) {
-    // Binance doesn't support order modification directly
-    // We need to cancel and replace
-    this.log("Binance order updates not implemented - requires cancel/replace");
-    this.emitResponse({ requestId });
+    const account = this.accounts.find((a) => a.id === accountId);
+    if (!account) {
+      this.error(`Account ${accountId} not found`);
+      this.emitResponse({ requestId, data: { error: "Account not found" } });
+      return;
+    }
+
+    // Binance doesn't support direct order modification
+    // We need to cancel existing orders and place new ones
+    const results = [];
+
+    for (const { order, update } of updates) {
+      try {
+        // First cancel the existing order
+        await binance({
+          url: `${this.config.PRIVATE_API_URL}${BINANCE_ENDPOINTS.PRIVATE.ORDER}`,
+          method: "DELETE",
+          params: {
+            symbol: order.symbol,
+            orderId: order.id,
+          },
+          key: account.apiKey,
+          secret: account.apiSecret,
+        });
+
+        // Then place a new order with updated parameters
+        const market = this.memory.public.markets[order.symbol];
+        if (!market) {
+          this.error(`Market ${order.symbol} not found`);
+          continue;
+        }
+
+        const nextOrder: PlaceOrderOpts = {
+          symbol: order.symbol,
+          type: order.type,
+          side: order.side,
+          amount: order.amount,
+          reduceOnly: order.reduceOnly,
+        };
+
+        // Apply updates
+        if ("price" in update) nextOrder.price = update.price;
+        if ("amount" in update) nextOrder.amount = update.amount;
+
+        const isHedged =
+          this.memory.private[accountId].metadata.hedgedPosition[order.symbol];
+        const orderPayloads = formatBinanceOrder({
+          order: nextOrder,
+          market,
+          isHedged,
+        });
+
+        for (const payload of orderPayloads) {
+          const response = await binance<BinanceOrder>({
+            url: `${this.config.PRIVATE_API_URL}${BINANCE_ENDPOINTS.PRIVATE.ORDER}`,
+            method: "POST",
+            params: payload as any,
+            key: account.apiKey,
+            secret: account.apiSecret,
+          });
+
+          results.push(response.orderId.toString());
+        }
+      } catch (error) {
+        this.error(`Failed to update Binance order ${order.id}: ${error}`);
+      }
+    }
+
+    this.emitResponse({ requestId, data: results });
+  }
+
+  async cancelSymbolOrders({
+    symbol,
+    accountId,
+    requestId,
+  }: {
+    symbol: string;
+    accountId: string;
+    requestId: string;
+  }) {
+    const account = this.accounts.find((a) => a.id === accountId);
+
+    if (!account) {
+      this.error(`No account found for id: ${accountId}`);
+      this.emitResponse({ requestId, data: { error: "Account not found" } });
+      return;
+    }
+
+    try {
+      const success = await cancelSymbolBinanceOrders({
+        account,
+        config: this.config,
+        symbol,
+      });
+
+      this.emitResponse({ requestId, data: { success } });
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      this.error(`Failed to cancel symbol orders: ${errorMessage}`);
+      this.emitResponse({ requestId, data: { error: errorMessage } });
+    }
+  }
+
+  async cancelAllOrders({
+    accountId,
+    requestId,
+  }: {
+    accountId: string;
+    requestId: string;
+  }) {
+    const account = this.accounts.find((a) => a.id === accountId);
+
+    if (!account) {
+      this.error(`No account found for id: ${accountId}`);
+      this.emitResponse({ requestId, data: { error: "Account not found" } });
+      return;
+    }
+
+    try {
+      const success = await cancelAllBinanceOrders({
+        account,
+        config: this.config,
+      });
+
+      this.emitResponse({ requestId, data: { success } });
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      this.error(`Failed to cancel all orders: ${errorMessage}`);
+      this.emitResponse({ requestId, data: { error: errorMessage } });
+    }
   }
 
   async fetchPositionMetadata({
@@ -652,56 +786,53 @@ export class BinanceWorker extends BaseWorker {
 
     if (!account) {
       this.error(`No account found for id: ${position.accountId}`);
+      this.emitResponse({ requestId, data: { error: "Account not found" } });
       return;
     }
 
     const market = this.memory.public.markets[position.symbol];
     if (!market) {
       this.error(`No market data found for symbol: ${position.symbol}`);
+      this.emitResponse({ requestId, data: { error: "Market not found" } });
+      return;
+    }
+
+    const ticker = this.memory.public.tickers[position.symbol];
+    if (!ticker) {
+      this.error(`No ticker data found for symbol: ${position.symbol}`);
+      this.emitResponse({ requestId, data: { error: "Ticker not found" } });
       return;
     }
 
     const isHedged =
       this.memory.private[account.id].metadata.hedgedPosition[position.symbol];
 
+    const stopOrder: PlaceOrderOpts = {
+      symbol: position.symbol,
+      type: stop.type,
+      side:
+        position.side === PositionSide.Long ? OrderSide.Sell : OrderSide.Buy,
+      amount: position.contracts,
+      price: stop.price,
+      reduceOnly: true,
+    };
+
     try {
-      const orders = formatBinanceOrder({
-        order: {
-          symbol: position.symbol,
-          type: stop.type,
-          side:
-            position.side === PositionSide.Long
-              ? OrderSide.Sell
-              : OrderSide.Buy,
-          amount: position.contracts,
-          price: stop.price,
-          reduceOnly: true,
-        },
+      const response = await createBinanceTradingStop({
+        config: this.config,
+        order: stopOrder,
+        account,
         market,
+        ticker,
         isHedged,
       });
 
-      const responses = await Promise.all(
-        orders.map((order) =>
-          binance({
-            key: account.apiKey,
-            secret: account.apiSecret,
-            method: "POST",
-            url: `${this.config.PRIVATE_API_URL}${BINANCE_ENDPOINTS.PRIVATE.ORDER}`,
-            params: {
-              ...order,
-              reduceOnly: order.reduceOnly ? "true" : "false",
-              closePosition: order.closePosition ? "true" : "false",
-              priceProtect: order.priceProtect ? "true" : "false",
-            },
-          }),
-        ),
-      );
-
-      this.emitResponse({ requestId, data: responses });
+      this.emitResponse({ requestId, data: [response.orderId.toString()] });
     } catch (error) {
-      this.error(`Failed to place Binance position stop: ${error}`);
-      this.emitResponse({ requestId, data: [] });
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      this.error(`Failed to place Binance position stop: ${errorMessage}`);
+      this.emitResponse({ requestId, data: { error: errorMessage } });
     }
   }
 }

@@ -1,6 +1,7 @@
 import { binance } from "./binance.api";
 import { BINANCE_ENDPOINTS } from "./binance.config";
 import type { BinanceOrder, BinanceListenKey } from "./binance.types";
+import { mapBinanceBalance, mapBinancePosition } from "./binance.utils";
 import type { BinanceWorker } from "./binance.worker";
 
 import { ReconnectingWebSocket } from "~/utils/reconnecting-websocket.utils";
@@ -161,17 +162,83 @@ export class BinanceWsPrivate {
     // data.a contains account update information
     if (data.a) {
       // Update balances if available
-      if (data.a.B) {
-        // Balance updates
-        // TODO: Implement balance updates
-        data.a.B.filter((b: any) => parseFloat(b.wb) !== 0);
+      if (data.a.B && Array.isArray(data.a.B)) {
+        const balanceUpdates = data.a.B.filter(
+          (b: any) => parseFloat(b.wb || "0") !== 0,
+        );
+        if (balanceUpdates.length > 0) {
+          // Convert to BinanceBalance format
+          const binanceBalances = balanceUpdates.map((b: any) => ({
+            accountAlias: "",
+            asset: b.a,
+            balance: b.wb,
+            crossWalletBalance: b.cw,
+            crossUnPnl: "0",
+            availableBalance: b.wb,
+            maxWithdrawAmount: b.wb,
+            marginAvailable: true,
+            updateTime: Date.now(),
+          }));
+
+          // Update parent with new balance data
+          this.parent.updateAccountBalance({
+            accountId: this.account.id,
+            balance: mapBinanceBalance(binanceBalances),
+          });
+        }
       }
 
       // Update positions if available
-      if (data.a.P) {
-        // Position updates
-        // TODO: Implement position updates
-        data.a.P.filter((p: any) => parseFloat(p.pa) !== 0);
+      if (data.a.P && Array.isArray(data.a.P)) {
+        const positionUpdates = data.a.P.filter(
+          (p: any) => parseFloat(p.pa || "0") !== 0,
+        );
+        if (positionUpdates.length > 0) {
+          // Convert to BinancePosition format and then to internal Position format
+          const positions = positionUpdates
+            .map((p: any) => {
+              const binancePosition = {
+                symbol: p.s,
+                positionAmt: p.pa,
+                entryPrice: p.ep,
+                breakEvenPrice: "0",
+                markPrice: "0", // Will be updated from ticker
+                unRealizedProfit: p.up,
+                liquidationPrice: "0",
+                leverage: "1",
+                maxNotionalValue: "0",
+                marginType: p.mt,
+                isolatedMargin: p.iw,
+                isAutoAddMargin: "false",
+                positionSide: p.ps,
+                notional: "0",
+                isolatedWallet: p.iw,
+                updateTime: Date.now(),
+                bidNotional: "0",
+                askNotional: "0",
+              };
+
+              return mapBinancePosition({
+                position: binancePosition,
+                accountId: this.account.id,
+              });
+            })
+            .filter((p: any) => p !== null);
+
+          if (positions.length > 0) {
+            this.parent.updateAccountPositions({
+              accountId: this.account.id,
+              positions: positions.map((p: any) => {
+                // Calculate notional using current ticker price
+                const ticker = this.parent.memory.public.tickers[p.symbol];
+                const notional = ticker
+                  ? p.contracts * ticker.last
+                  : p.notional;
+                return { ...p, notional };
+              }),
+            });
+          }
+        }
       }
     }
   };

@@ -1,5 +1,9 @@
 import { binance } from "./binance.api";
-import { BINANCE_ENDPOINTS, INTERVAL } from "./binance.config";
+import {
+  BINANCE_ENDPOINTS,
+  INTERVAL,
+  ORDER_SIDE_INVERSE,
+} from "./binance.config";
 import type {
   BinanceBalance,
   BinanceInstrument,
@@ -18,6 +22,7 @@ import {
   mapBinanceTicker,
   mapBinanceKline,
   mapBinanceFill,
+  getPositionSide,
 } from "./binance.utils";
 
 import { retry } from "~/utils/retry.utils";
@@ -30,12 +35,15 @@ import {
   type Position,
   type Ticker,
   type FetchOHLCVParams,
+  type PlaceOrderOpts,
   ExchangeName,
+  OrderType,
   type ExchangeConfig,
 } from "~/types/lib.types";
 import { omitUndefined } from "~/utils/omit-undefined.utils";
 import { orderBy } from "~/utils/order-by.utils";
 import { stringify } from "~/utils/query-string.utils";
+import { adjust } from "~/utils/safe-math.utils";
 
 export const fetchBinanceMarkets = async (config: ExchangeConfig) => {
   const response = await retry(() =>
@@ -174,7 +182,7 @@ export const fetchBinanceBalance = async ({
   config: ExchangeConfig;
   account: Account;
 }) => {
-  const json = await binance<BinanceBalance[]>({
+  const response = await binance<BinanceBalance[] | any>({
     key: account.apiKey,
     secret: account.apiSecret,
     url: `${config.PRIVATE_API_URL}${BINANCE_ENDPOINTS.PRIVATE.BALANCE}`,
@@ -182,7 +190,9 @@ export const fetchBinanceBalance = async ({
     retries: 3,
   });
 
-  return mapBinanceBalance(json);
+  // Handle both array response and object response
+  const balances = Array.isArray(response) ? response : response.data || [];
+  return mapBinanceBalance(balances);
 };
 
 export const fetchBinancePositions = async ({
@@ -192,7 +202,7 @@ export const fetchBinancePositions = async ({
   config: ExchangeConfig;
   account: Account;
 }) => {
-  const json = await binance<BinancePosition[]>({
+  const response = await binance<BinancePosition[] | any>({
     key: account.apiKey,
     secret: account.apiSecret,
     url: `${config.PRIVATE_API_URL}${BINANCE_ENDPOINTS.PRIVATE.POSITIONS}`,
@@ -200,9 +210,15 @@ export const fetchBinancePositions = async ({
     retries: 3,
   });
 
-  const positions: Position[] = json
-    .map((p) => mapBinancePosition({ position: p, accountId: account.id }))
-    .filter((p): p is Position => p !== null);
+  // Handle both array response and object response
+  const positionsData = Array.isArray(response)
+    ? response
+    : response.data || [];
+  const positions: Position[] = positionsData
+    .map((p: BinancePosition) =>
+      mapBinancePosition({ position: p, accountId: account.id }),
+    )
+    .filter((p: Position | null): p is Position => p !== null);
 
   return positions;
 };
@@ -216,7 +232,7 @@ export const fetchBinanceSymbolPositions = async ({
   account: Account;
   symbol: string;
 }) => {
-  const json = await binance<BinancePosition[]>({
+  const response = await binance<BinancePosition[] | any>({
     key: account.apiKey,
     secret: account.apiSecret,
     url: `${config.PRIVATE_API_URL}${BINANCE_ENDPOINTS.PRIVATE.POSITIONS}`,
@@ -224,9 +240,15 @@ export const fetchBinanceSymbolPositions = async ({
     retries: 3,
   });
 
-  const positions: Position[] = json
-    .map((p) => mapBinancePosition({ position: p, accountId: account.id }))
-    .filter((p): p is Position => p !== null);
+  // Handle both array response and object response
+  const positionsData = Array.isArray(response)
+    ? response
+    : response.data || [];
+  const positions: Position[] = positionsData
+    .map((p: BinancePosition) =>
+      mapBinancePosition({ position: p, accountId: account.id }),
+    )
+    .filter((p: Position | null): p is Position => p !== null);
 
   return positions;
 };
@@ -238,7 +260,7 @@ export const fetchBinanceOrders = async ({
   config: ExchangeConfig;
   account: Account;
 }) => {
-  const json = await binance<BinanceOrder[]>({
+  const response = await binance<BinanceOrder[] | any>({
     key: account.apiKey,
     secret: account.apiSecret,
     url: `${config.PRIVATE_API_URL}${BINANCE_ENDPOINTS.PRIVATE.OPEN_ORDERS}`,
@@ -246,7 +268,9 @@ export const fetchBinanceOrders = async ({
     retries: 3,
   });
 
-  const orders: Order[] = json.map((o) =>
+  // Handle both array response and object response
+  const ordersData = Array.isArray(response) ? response : response.data || [];
+  const orders: Order[] = ordersData.map((o: BinanceOrder) =>
     mapBinanceOrder({ accountId: account.id, order: o }),
   );
 
@@ -356,6 +380,113 @@ export const setBinanceLeverage = async ({
       symbol,
       leverage,
     },
+    key: account.apiKey,
+    secret: account.apiSecret,
+  });
+
+  if (response.code && response.code !== 200) {
+    // TODO: Log error
+  }
+
+  return !response.code || response.code === 200;
+};
+
+export const createBinanceTradingStop = async ({
+  order,
+  market,
+  ticker,
+  account,
+  config,
+  isHedged,
+}: {
+  order: PlaceOrderOpts;
+  market: Market;
+  ticker: Ticker;
+  account: Account;
+  config: ExchangeConfig;
+  isHedged?: boolean;
+}) => {
+  const price = adjust(order.price ?? 0, market.precision.price);
+  const positionSide = isHedged ? getPositionSide(order) : "BOTH";
+  const body: Record<string, any> = {
+    symbol: order.symbol,
+    side: ORDER_SIDE_INVERSE[order.side],
+    quantity: `${adjust(order.amount, market.precision.amount)}`,
+    reduceOnly: true,
+    positionSide,
+    workingType: "CONTRACT_PRICE",
+    newOrderRespType: "RESULT",
+  };
+
+  if (order.type === OrderType.StopLoss) {
+    body.type = "STOP_MARKET";
+    body.stopPrice = `${price}`;
+  }
+
+  if (order.type === OrderType.TakeProfit) {
+    body.type = "TAKE_PROFIT_MARKET";
+    body.stopPrice = `${price}`;
+  }
+
+  if (order.type === OrderType.TrailingStopLoss) {
+    const distance = adjust(
+      Math.max(ticker.last, price) - Math.min(ticker.last, price),
+      market.precision.price,
+    );
+
+    body.type = "TRAILING_STOP_MARKET";
+    body.activationPrice = `${ticker.last}`;
+    body.callbackRate = `${((distance / ticker.last) * 100).toFixed(2)}`;
+  }
+
+  const response = await binance<BinanceOrder>({
+    url: `${config.PRIVATE_API_URL}${BINANCE_ENDPOINTS.PRIVATE.ORDER}`,
+    method: "POST",
+    params: body,
+    key: account.apiKey,
+    secret: account.apiSecret,
+  });
+
+  return response;
+};
+
+export const cancelSymbolBinanceOrders = async ({
+  account,
+  config,
+  symbol,
+}: {
+  account: Account;
+  config: ExchangeConfig;
+  symbol: string;
+}) => {
+  const response = await binance<{ code: number; msg?: string }>({
+    url: `${config.PRIVATE_API_URL}${BINANCE_ENDPOINTS.PRIVATE.CANCEL_ALL_ORDERS}`,
+    method: "DELETE",
+    params: {
+      symbol,
+    },
+    key: account.apiKey,
+    secret: account.apiSecret,
+  });
+
+  if (response.code && response.code !== 200) {
+    // TODO: Log error
+  }
+
+  return !response.code || response.code === 200;
+};
+
+export const cancelAllBinanceOrders = async ({
+  account,
+  config,
+}: {
+  account: Account;
+  config: ExchangeConfig;
+}) => {
+  const response = await binance<{ code: number; msg?: string }>({
+    url: `${config.PRIVATE_API_URL}${BINANCE_ENDPOINTS.PRIVATE.CANCEL_ALL_ORDERS}`,
+    method: "DELETE",
+    params: {},
     key: account.apiKey,
     secret: account.apiSecret,
   });

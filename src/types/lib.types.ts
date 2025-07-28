@@ -67,6 +67,7 @@ export enum ExchangeName {
   HL = "hyperliquid",
   BINANCE = "binance",
   ONCHAIN = "onchain",
+  POLYMARKET = "polymarket",
 }
 
 export interface Account {
