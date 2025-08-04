@@ -154,7 +154,7 @@ export class OnchainWorker extends BaseWorker {
     name: ExchangeName;
   }) {
     super({ parent, config, name });
-    this.privySessionSigner = new PrivySessionSigner();
+    this.privySessionSigner = new PrivySessionSigner(config?.options);
   }
 
   async start({
