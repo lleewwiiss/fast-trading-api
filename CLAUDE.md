@@ -135,6 +135,15 @@ The codebase is migrating from private key signing to Privy session signers for 
 - Comprehensive position tracking with realized/unrealized P&L across chains
 - OHLCV data fetching for technical analysis
 
+### Polymarket (Prediction Market)
+**Unique Features:**
+- **Binary Options Trading**: Specialized in YES/NO outcome markets
+- **CLOB Architecture**: Central limit order book for prediction markets
+- **USDC Settlement**: All markets settled in USDC
+- **Market Resolution**: Binary outcome resolution system
+
+**Authentication:** Uses standard Web Worker implementation pattern
+
 ### CEX vs DEX Comparison
 
 **Centralized Exchanges (Bybit, Binance):**

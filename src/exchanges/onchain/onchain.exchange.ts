@@ -9,7 +9,11 @@ export function createOnchainExchange(
   parent: FastTradingApi,
   config?: Partial<ExchangeConfig>,
 ): BaseExchange {
-  const finalConfig = { ...ONCHAIN_CONFIG, ...config };
+  // Use the config from parent.config if available, otherwise use the passed config
+  const exchangeConfig = parent.config
+    ? parent.config["onchain"]
+    : config || ONCHAIN_CONFIG;
+  const finalConfig = { ...ONCHAIN_CONFIG, ...exchangeConfig };
 
   return new BaseExchange({
     name: "onchain",
