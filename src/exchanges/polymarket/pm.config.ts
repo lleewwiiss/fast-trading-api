@@ -74,5 +74,13 @@ export const PM_CONFIG = {
     maxOrdersPerBatch: PM_MAX_ORDERS_PER_BATCH,
     operatorAddress: PM_OPERATOR_ADDRESS,
     rateLimits: PM_RATE_LIMITS,
+    // CORS proxy configuration
+    corsProxy: {
+      enabled: false, // Set to true to enable CORS proxy
+      baseUrl: "https://corsproxy.io/?key=68cf79d5&url=",
+      // Alternative proxies:
+      // baseUrl: "https://cors-anywhere.herokuapp.com/",
+      // baseUrl: "https://api.allorigins.win/raw?url=",
+    },
   },
 };

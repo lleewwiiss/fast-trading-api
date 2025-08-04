@@ -9,6 +9,9 @@ export const ONCHAIN_CONFIG: ExchangeConfig = {
   options: {
     lifiApiUrl: "https://li.quest/v1",
     codexApiUrl: "  https://graph.codex.io/graphql",
+    privyAppId: "",
+    privyAppSecret: "",
+    privyVerificationKey: "",
     timeout: 30000,
     testnet: false,
   },

@@ -27,7 +27,13 @@ describe("request utility", () => {
     global.fetch = mock(
       () =>
         Promise.resolve({
+          ok: true,
           json: () => Promise.resolve(mockJsonResponse),
+          text: () => Promise.resolve(JSON.stringify(mockJsonResponse)),
+          headers: {
+            get: (name: string) =>
+              name === "content-type" ? "application/json" : null,
+          },
         }) as unknown as Response,
     );
   });

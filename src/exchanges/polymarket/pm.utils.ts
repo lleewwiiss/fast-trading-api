@@ -36,6 +36,11 @@ import { genId } from "~/utils/gen-id.utils";
 export const mapPMMarket = (market: PMMarket): Record<string, Market> => {
   const markets: Record<string, Market> = {};
 
+  if (!market.tokens || !Array.isArray(market.tokens)) {
+    // Skipping market without tokens (logged in worker)
+    return markets;
+  }
+
   market.tokens.forEach((token) => {
     markets[token.ticker] = {
       id: token.token_id,

@@ -1,6 +1,5 @@
 import { PM_ENDPOINTS } from "./pm.config";
 import type {
-  PMMarket,
   PMOrder,
   PMPosition,
   PMTicker,
@@ -33,21 +32,95 @@ import {
   type PlaceOrderOpts,
 } from "~/types/lib.types";
 import { request } from "~/utils/request.utils";
+import { getApiUrl } from "~/utils/cors-proxy.utils";
 
 export const fetchPMMarkets = async (config: ExchangeConfig) => {
-  const response = await request<PMMarket[]>({
-    url: `${config.PUBLIC_API_URL}${PM_ENDPOINTS.PUBLIC.MARKETS}`,
-    method: "GET",
-  });
+  try {
+    // Try CLOB API first for active trading markets
+    const clobResponse = await request<any>({
+      url: getApiUrl(`${config.PRIVATE_API_URL}/markets`, config),
+      method: "GET",
+    });
 
-  const markets: Record<string, Market> = {};
+    const markets: Record<string, Market> = {};
 
-  response.forEach((market) => {
-    const marketData = mapPMMarket(market);
-    Object.assign(markets, marketData);
-  });
+    // Check if response has data array
+    const marketsList = clobResponse.data || clobResponse;
 
-  return markets;
+    if (Array.isArray(marketsList)) {
+      marketsList.forEach((market: any) => {
+        if (market.tokens && Array.isArray(market.tokens)) {
+          const marketData = mapPMMarket(market);
+          Object.assign(markets, marketData);
+        }
+      });
+    }
+
+    // If no markets found, try gamma API
+    if (Object.keys(markets).length === 0) {
+      // No markets from CLOB, trying gamma API (logged in worker)
+      const gammaResponse = await request<any[]>({
+        url: getApiUrl(`${config.PUBLIC_API_URL}/events`, config),
+        method: "GET",
+      });
+
+      // Process events that have markets
+      gammaResponse.slice(0, 5).forEach((event) => {
+        // Limit to first 5 events for debugging
+        if (event.markets && Array.isArray(event.markets)) {
+          event.markets.forEach((market: any) => {
+            // Processing market logged in worker
+            // Convert gamma market format to expected format
+            const convertedMarket = {
+              ...market,
+              condition_id: market.conditionId,
+              end_date_iso: market.endDate,
+              tokens: [],
+            };
+
+            // Parse clobTokenIds to create tokens
+            if (market.clobTokenIds) {
+              try {
+                const tokenIds = JSON.parse(market.clobTokenIds);
+                const outcomes = JSON.parse(market.outcomes || '["Yes", "No"]');
+
+                // Only process if we have valid token IDs and outcomes
+                if (tokenIds.length > 0 && outcomes.length > 0) {
+                  tokenIds.forEach((tokenId: string, index: number) => {
+                    const outcome = outcomes[index] || `Option ${index + 1}`;
+                    const ticker =
+                      `${market.slug || market.question?.substring(0, 30).replace(/[^a-zA-Z0-9]/g, "-") || "MARKET"}-${outcome}`
+                        .toUpperCase()
+                        .replace(/--+/g, "-");
+                    convertedMarket.tokens.push({
+                      token_id: tokenId,
+                      outcome,
+                      ticker,
+                      price: "0",
+                    });
+                  });
+
+                  // Only add if we have tokens
+                  if (convertedMarket.tokens.length > 0) {
+                    const marketData = mapPMMarket(convertedMarket);
+                    Object.assign(markets, marketData);
+                  }
+                }
+              } catch {
+                // Failed to parse market logged in worker
+              }
+            }
+          });
+        }
+      });
+    }
+
+    // Fetched markets count logged in worker
+    return markets;
+  } catch {
+    // Error fetching markets logged in worker
+    return {};
+  }
 };
 
 export const fetchPMTickers = async (
@@ -59,8 +132,9 @@ export const fetchPMTickers = async (
   // Fetch tickers for each market token
   for (const [symbol, market] of Object.entries(markets)) {
     try {
-      const response = await request<PMTicker>({
-        url: `${config.PUBLIC_API_URL}${PM_ENDPOINTS.PUBLIC.TICKER}`,
+      // Try CLOB price endpoint first
+      const response = await request<any>({
+        url: getApiUrl(`${config.PRIVATE_API_URL}/price`, config),
         method: "GET",
         params: { token_id: market.id },
       });
@@ -68,13 +142,50 @@ export const fetchPMTickers = async (
       const ticker = mapPMTicker(response, {
         token_id: market.id.toString(),
         outcome: market.base,
-        price: response.price,
+        price: response.price || "0",
         ticker: symbol,
       });
 
       tickers[symbol] = ticker;
     } catch {
-      // Silently skip failed ticker fetches
+      // Try gamma API as fallback
+      try {
+        const response = await request<PMTicker>({
+          url: getApiUrl(
+            `${config.PUBLIC_API_URL}${PM_ENDPOINTS.PUBLIC.TICKER}`,
+            config,
+          ),
+          method: "GET",
+          params: { token_id: market.id },
+        });
+
+        const ticker = mapPMTicker(response, {
+          token_id: market.id.toString(),
+          outcome: market.base,
+          price: response.price || "0",
+          ticker: symbol,
+        });
+
+        tickers[symbol] = ticker;
+      } catch {
+        // Create default ticker with 0 values
+        tickers[symbol] = {
+          id: market.id,
+          exchange: market.exchange,
+          symbol,
+          cleanSymbol: symbol,
+          bid: 0,
+          ask: 0,
+          last: 0,
+          mark: 0,
+          index: 0,
+          percentage: 0,
+          openInterest: 0,
+          fundingRate: 0,
+          volume: 0,
+          quoteVolume: 0,
+        };
+      }
     }
   }
 
@@ -95,7 +206,10 @@ export const fetchPMUserAccount = async ({
   );
 
   const response = await request<PMUserBalance[]>({
-    url: `${config.PRIVATE_API_URL}${PM_ENDPOINTS.PRIVATE.BALANCE}`,
+    url: getApiUrl(
+      `${config.PRIVATE_API_URL}${PM_ENDPOINTS.PRIVATE.BALANCE}`,
+      config,
+    ),
     method: "GET",
     headers,
   });
@@ -130,7 +244,10 @@ export const fetchPMUserOrders = async ({
   );
 
   const response = await request<PMOrder[]>({
-    url: `${config.PRIVATE_API_URL}${PM_ENDPOINTS.PRIVATE.ORDERS}`,
+    url: getApiUrl(
+      `${config.PRIVATE_API_URL}${PM_ENDPOINTS.PRIVATE.ORDERS}`,
+      config,
+    ),
     method: "GET",
     headers,
   });
@@ -156,7 +273,10 @@ export const fetchPMUserOrderHistory = async ({
   );
 
   const response = await request<PMUserOrderHistory[]>({
-    url: `${config.PRIVATE_API_URL}${PM_ENDPOINTS.PRIVATE.ORDER_HISTORY}`,
+    url: getApiUrl(
+      `${config.PRIVATE_API_URL}${PM_ENDPOINTS.PRIVATE.ORDER_HISTORY}`,
+      config,
+    ),
     method: "GET",
     headers,
   });
@@ -178,7 +298,10 @@ export const fetchPMPositions = async ({
   );
 
   const response = await request<PMPosition[]>({
-    url: `${config.PRIVATE_API_URL}${PM_ENDPOINTS.PRIVATE.POSITIONS}`,
+    url: getApiUrl(
+      `${config.PRIVATE_API_URL}${PM_ENDPOINTS.PRIVATE.POSITIONS}`,
+      config,
+    ),
     method: "GET",
     headers,
   });
@@ -234,7 +357,10 @@ export const placePMOrders = async ({
 
     // Place the order
     const response = await request<PMApiResponse<{ orderId: string }>>({
-      url: `${config.PRIVATE_API_URL}${PM_ENDPOINTS.PRIVATE.ORDERS}`,
+      url: getApiUrl(
+        `${config.PRIVATE_API_URL}${PM_ENDPOINTS.PRIVATE.ORDERS}`,
+        config,
+      ),
       method: "POST",
       headers,
       body: orderPayload,
@@ -338,7 +464,10 @@ export const fetchPMOrderBook = async ({
   tokenId: string;
 }) => {
   const response = await request<PMOrderBook>({
-    url: `${config.PUBLIC_API_URL}${PM_ENDPOINTS.PUBLIC.ORDER_BOOK}`,
+    url: getApiUrl(
+      `${config.PUBLIC_API_URL}${PM_ENDPOINTS.PUBLIC.ORDER_BOOK}`,
+      config,
+    ),
     method: "GET",
     params: { token_id: tokenId },
   });
@@ -378,7 +507,10 @@ export const fetchPMOHLCV = async ({
   }
 
   const response = await request<PMCandle[]>({
-    url: `${config.PUBLIC_API_URL}${PM_ENDPOINTS.PUBLIC.CANDLES}`,
+    url: getApiUrl(
+      `${config.PUBLIC_API_URL}${PM_ENDPOINTS.PUBLIC.CANDLES}`,
+      config,
+    ),
     method: "GET",
     params: queryParams,
   });
