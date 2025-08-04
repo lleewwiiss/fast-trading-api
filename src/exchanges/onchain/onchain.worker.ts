@@ -166,6 +166,8 @@ export class OnchainWorker extends BaseWorker {
     config: ExchangeConfig;
     requestId: string;
   }) {
+    await super.start({ accounts, config, requestId });
+
     if (
       !this.config.options ||
       !this.config.options["CodexAPIKey"] ||
@@ -2685,10 +2687,6 @@ export class OnchainWorker extends BaseWorker {
           orderIds.push(orderId);
         } catch (orderError) {
           this.error(`Failed to execute order ${order.symbol}: ${orderError}`);
-
-          // Continue with other orders even if one fails
-          // You might want to return partial results or handle this differently
-          continue;
         }
       }
 
