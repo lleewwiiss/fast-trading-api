@@ -6,19 +6,17 @@ import type { PrivyVerificationResult } from "./onchain.types";
 export class PrivySessionSigner {
   private privyClient: PrivyClient;
   private sessionCache: Map<string, PrivyVerificationResult>;
-  private config: any;
-
   constructor(config?: any) {
-    // Use passed config if available, otherwise fall back to PRIVY_CONFIG
-    this.config = config || PRIVY_CONFIG;
-    const appId = this.config.privyAppId || PRIVY_CONFIG.appId;
-    const appSecret = this.config.privyAppSecret || PRIVY_CONFIG.appSecret;
-
-    if (!appId || !appSecret) {
-      throw new Error("Privy configuration is missing required fields");
+    if (!config?.privyAppId || !config?.privyAppSecret) {
+      throw new Error(
+        "Privy configuration is missing required fields: privyAppId and privyAppSecret must be provided in config.options",
+      );
     }
 
-    this.privyClient = new PrivyClient(appId, appSecret);
+    this.privyClient = new PrivyClient(
+      config.privyAppId,
+      config.privyAppSecret,
+    );
     this.sessionCache = new Map();
   }
 

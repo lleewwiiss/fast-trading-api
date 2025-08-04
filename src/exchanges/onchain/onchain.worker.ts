@@ -168,6 +168,11 @@ export class OnchainWorker extends BaseWorker {
   }) {
     await super.start({ accounts, config, requestId });
 
+    this.log(`ONCHAIN worker starting with ${accounts.length} accounts`);
+    this.log(
+      `Config options keys: ${Object.keys(this.config.options || {}).join(", ")}`,
+    );
+
     if (
       !this.config.options ||
       !this.config.options["CodexAPIKey"] ||
@@ -2138,6 +2143,13 @@ export class OnchainWorker extends BaseWorker {
   }) {
     super.addAccounts({ accounts, requestId });
 
+    this.log(`Adding ${accounts.length} ONCHAIN accounts`);
+    accounts.forEach((account, index) => {
+      this.log(
+        `Account ${index}: id=${account.id}, walletAddress=${account.walletAddress}, exchange=${account.exchange}`,
+      );
+    });
+
     for (const account of accounts) {
       this.privateWs[account.id] = new OnchainWsPrivate({
         parent: this,
@@ -2179,8 +2191,16 @@ export class OnchainWorker extends BaseWorker {
   async loadAccountData(accountId: string) {
     const account = this.accounts.find((a) => a.id === accountId);
 
+    this.log(`Loading account data for ${accountId}`);
+    this.log(`Account found: ${!!account}, Codex SDK: ${!!this.codexSdk}`);
+    if (account) {
+      this.log(`Account walletAddress: ${account.walletAddress}`);
+    }
+
     if (!account || !this.codexSdk || !account.walletAddress) {
-      this.error(`No account or Codex SDK found for ${accountId}`);
+      this.error(
+        `No account or Codex SDK found for ${accountId}. Account: ${!!account}, CodexSDK: ${!!this.codexSdk}, WalletAddress: ${account?.walletAddress}`,
+      );
       return;
     }
 
