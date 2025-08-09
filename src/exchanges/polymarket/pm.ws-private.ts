@@ -1,11 +1,11 @@
 import type { PolymarketWorker } from "./pm.worker";
-import type { PMWSMessage, PMWSSubscription } from "./pm.types";
+import type { PMWSMessage } from "./pm.types";
 import {
   formatPMOrder,
   createEip712OrderMessage,
   signEip712Order,
-  createL2AuthHeaders,
   mapPMOrder,
+  createOrDeriveApiKey,
 } from "./pm.utils";
 import { PM_MAX_ORDERS_PER_BATCH } from "./pm.config";
 
@@ -34,6 +34,13 @@ export class PolymarketWsPrivate {
   isListening = false;
   isAuthenticated = false;
 
+  // CLOB API credentials (generated from wallet credentials)
+  clobCredentials: {
+    apiKey: string;
+    secret: string;
+    passphrase: string;
+  } | null = null;
+
   pendingRequests = new Map<string, (data: any) => void>();
   orderNonce = 0;
 
@@ -50,12 +57,19 @@ export class PolymarketWsPrivate {
   constructor({
     parent,
     account,
+    clobCredentials,
   }: {
     parent: PolymarketWorker;
     account: Account;
+    clobCredentials?: {
+      apiKey: string;
+      secret: string;
+      passphrase: string;
+    } | null;
   }) {
     this.parent = parent;
     this.account = account;
+    this.clobCredentials = clobCredentials || null;
     this.listenWebsocket();
   }
 
@@ -84,46 +98,110 @@ export class PolymarketWsPrivate {
   };
 
   authenticate = async () => {
-    const authHeaders = await createL2AuthHeaders(
-      this.account,
-      "GET",
-      "/ws/user",
-    );
+    // Check if we already have CLOB credentials or need to create them
+    if (!this.clobCredentials) {
+      // Check if account has direct CLOB credentials
+      const hasDirectClobCredentials =
+        this.account.apiKey &&
+        !this.account.apiKey.startsWith("0x") &&
+        this.account.apiSecret &&
+        !this.account.apiSecret.startsWith("0x") &&
+        this.account.apiSecret.length < 60; // Private keys are 64+ chars
 
-    const subscription: PMWSSubscription = {
-      auth: authHeaders,
-      type: "USER",
-      markets: Object.keys(this.parent.memory.public.markets),
+      if (hasDirectClobCredentials) {
+        // Use existing CLOB credentials
+        this.clobCredentials = {
+          apiKey: this.account.apiKey,
+          secret: this.account.apiSecret,
+          passphrase: this.account.apiSecret,
+        };
+        this.parent.log(
+          `Using existing CLOB credentials for account [${this.account.id}]`,
+        );
+      } else {
+        // Try to create or derive CLOB credentials from wallet credentials
+        this.parent.log(
+          `Attempting to create or derive CLOB API credentials for account [${this.account.id}]`,
+        );
+        this.clobCredentials = await createOrDeriveApiKey(
+          this.account,
+          this.parent.config,
+        );
+
+        if (!this.clobCredentials) {
+          this.parent.log(
+            `Polymarket WebSocket: Failed to create CLOB API credentials. WebSocket will close. Need wallet with private key for L1 auth.`,
+          );
+          this.isAuthenticated = false;
+          return;
+        }
+      }
+    }
+
+    // According to Polymarket WebSocket docs, correct format is:
+    // {"markets": data, "type": "user", "auth": {"apiKey": ..., "secret": ..., "passphrase": ...}}
+    const subscription = {
+      markets: [], // Empty markets array for now
+      type: "user",
+      auth: {
+        apiKey: this.clobCredentials.apiKey,
+        secret: this.clobCredentials.secret,
+        passphrase: this.clobCredentials.passphrase,
+      },
     };
 
     this.send(subscription);
     this.isAuthenticated = true;
     this.parent.log(
-      `Polymarket WebSocket authenticated for [${this.account.id}]`,
+      `Polymarket WebSocket authenticated with CLOB credentials for [${this.account.id}]`,
     );
+
+    // Start heartbeat to keep connection alive
+    this.startHeartbeat();
   };
 
   startHeartbeat = () => {
     this.heartbeatInterval = setInterval(() => {
-      this.send({ type: "ping" });
-    }, 30000); // 30 seconds
+      this.send("PING");
+    }, 10000); // 10 seconds as per Polymarket docs
   };
 
   onMessage = (event: MessageEvent) => {
     if (!this.isListening) return;
 
+    // Handle plain string messages (like PONG)
+    if (
+      typeof event.data === "string" &&
+      (event.data === "PONG" || event.data === "PING")
+    ) {
+      this.handleMessage(event.data);
+      return;
+    }
+
+    // Try to parse JSON messages
     const message = tryParse<PMWSMessage>(event.data);
     if (!message) return;
 
     this.handleMessage(message);
   };
 
-  handleMessage = (message: PMWSMessage) => {
+  handleMessage = (message: PMWSMessage | string) => {
+    // Handle PONG response (plain string)
+    if (message === "PONG") {
+      // Heartbeat response received
+      return;
+    }
+
+    // Handle structured messages
+    if (typeof message === "string") {
+      return; // Ignore other plain string messages
+    }
+
     const { channel } = message;
 
     switch (channel) {
       case "pong":
-        // Heartbeat response
+        // Legacy heartbeat response
         break;
 
       case "order_status":
@@ -452,9 +530,23 @@ export class PolymarketWsPrivate {
   };
 
   onClose = () => {
-    this.parent.error(
-      `Polymarket Private WebSocket closed for account [${this.account.id}]`,
-    );
+    // If we don't have valid CLOB API credentials, this is expected
+    const hasValidClobCredentials =
+      this.account.apiKey &&
+      !this.account.apiKey.startsWith("0x") &&
+      this.account.apiSecret &&
+      !this.account.apiSecret.startsWith("0x") &&
+      this.account.apiSecret.length < 60;
+
+    if (!hasValidClobCredentials) {
+      this.parent.log(
+        `Polymarket Private WebSocket closed for account [${this.account.id}] - Expected: No valid CLOB API credentials provided`,
+      );
+    } else {
+      this.parent.error(
+        `Polymarket Private WebSocket closed for account [${this.account.id}] - Unexpected: Had valid CLOB credentials`,
+      );
+    }
 
     this.isAuthenticated = false;
     this.stopHeartbeat();
@@ -512,7 +604,9 @@ export class PolymarketWsPrivate {
 
   send = (data: any) => {
     if (!this.isStopped && this.ws?.readyState === WebSocket.OPEN) {
-      this.ws.send(JSON.stringify(data));
+      // Send strings directly (like PING), JSON stringify objects
+      const payload = typeof data === "string" ? data : JSON.stringify(data);
+      this.ws.send(payload);
     }
   };
 

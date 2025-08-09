@@ -10,36 +10,50 @@ export function getProxiedUrl(url: string, config: ExchangeConfig): string {
   // Check if config has CORS proxy settings
   const corsProxy = config.options?.corsProxy;
 
-  if (!corsProxy || !corsProxy.enabled || !corsProxy.baseUrl) {
+  if (!corsProxy || !corsProxy.enabled) {
     return url;
   }
 
-  // URL encode the target URL for the proxy
-  const encodedUrl = encodeURIComponent(url);
+  // If useLocalProxy is true, use the local Next.js proxy
+  if (corsProxy.useLocalProxy) {
+    // Store the original URL to be sent in the request body
+    // This will be handled by the request utility
+    return "/api/proxy";
+  }
 
-  // Construct the proxied URL
-  return `${corsProxy.baseUrl}${encodedUrl}`;
-}
+  // If no baseUrl specified, return original URL
+  if (!corsProxy.baseUrl) {
+    return url;
+  }
 
-/**
- * Checks if we're running in a browser environment
- * @returns true if running in browser, false if in Node.js
- */
-export function isBrowserEnvironment(): boolean {
-  return typeof window !== "undefined" && typeof document !== "undefined";
+  // Different CORS proxies expect different formats
+  // allorigins.win expects URL-encoded URLs
+  // cors.lol expects unencoded URLs with url= parameter
+  // corsproxy.io expects unencoded URLs
+  if (corsProxy.baseUrl.includes("allorigins")) {
+    return `${corsProxy.baseUrl}${encodeURIComponent(url)}`;
+  }
+
+  // Default: return unencoded URL (works for cors.lol and corsproxy.io)
+  return `${corsProxy.baseUrl}${url}`;
 }
 
 /**
  * Automatically determines if CORS proxy should be used based on environment
  * @param url - The original URL
  * @param config - Exchange configuration
- * @returns The appropriate URL (proxied if browser + proxy enabled, original otherwise)
+ * @returns The appropriate URL (proxied if proxy enabled, original otherwise)
  */
 export function getApiUrl(url: string, config: ExchangeConfig): string {
-  // Only use proxy in browser environment
-  if (!isBrowserEnvironment()) {
-    return url;
-  }
-
   return getProxiedUrl(url, config);
+}
+
+/**
+ * Checks if using local proxy
+ * @param config - Exchange configuration
+ * @returns True if using local proxy
+ */
+export function isUsingLocalProxy(config: ExchangeConfig): boolean {
+  const corsProxy = config.options?.corsProxy;
+  return !!(corsProxy?.enabled && corsProxy?.useLocalProxy);
 }

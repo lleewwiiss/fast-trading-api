@@ -84,13 +84,17 @@ export class PolymarketWsPublic {
     symbol: string;
     timeframe: Timeframe;
   }) => {
+    const market = this.parent.memory.public.markets[symbol];
+    if (!market) return;
+
+    const assetId = market.id.toString();
     const ohlcvTopic = `ohlcv.${symbol}.${timeframe}`;
 
     if (this.ohlcvTopics.has(ohlcvTopic)) return;
     this.ohlcvTopics.add(ohlcvTopic);
 
     this.messageHandlers[ohlcvTopic] = (message: PMWSMessage) => {
-      if (message.channel === "candle" && message.asset_id === symbol) {
+      if (message.channel === "candle" && message.asset_id === assetId) {
         const data = message.data;
 
         const candle: Candle = {

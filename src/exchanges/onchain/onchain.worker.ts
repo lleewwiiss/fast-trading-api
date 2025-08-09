@@ -49,6 +49,7 @@ import {
 } from "./onchain.resolver";
 import type {
   FetchOHLCVOnchainParams,
+  OnchainMarketData,
   PrivySessionConfig,
 } from "./onchain.types";
 
@@ -73,7 +74,7 @@ export class OnchainWorker extends BaseWorker {
   lifiChains: ExtendedChain[] = [];
 
   // Privy session management
-  private privySessionSigner: PrivySessionSigner;
+  private privySessionSigner: PrivySessionSigner | null = null;
   private sessionConfigs: Map<string, PrivySessionConfig> = new Map();
 
   // EVM clients for different chains (removed wallet clients)
@@ -154,7 +155,7 @@ export class OnchainWorker extends BaseWorker {
     name: ExchangeName;
   }) {
     super({ parent, config, name });
-    this.privySessionSigner = new PrivySessionSigner(config?.options);
+    // PrivySessionSigner will be initialized in start() method after config is fully set up
   }
 
   async start({
@@ -167,31 +168,35 @@ export class OnchainWorker extends BaseWorker {
     requestId: string;
   }) {
     await super.start({ accounts, config, requestId });
-
     this.log(`ONCHAIN worker starting with ${accounts.length} accounts`);
     this.log(
       `Config options keys: ${Object.keys(this.config.options || {}).join(", ")}`,
     );
-
-    if (
-      !this.config.options ||
-      !this.config.options["CodexAPIKey"] ||
-      !this.config.options["LiFiAPIKey"]
-    ) {
+    // Initialize PrivySessionSigner with the actual config
+    try {
+      this.privySessionSigner = new PrivySessionSigner(this.config.options);
+      this.log("✅ PrivySessionSigner initialized successfully");
+    } catch (error: any) {
       this.error(
-        "CodexAPIKey and LiFiAPIKey must be provided in the exchange config options",
+        `❌ Failed to initialize PrivySessionSigner: ${error.message}`,
       );
+      // Continue without Privy support for now
+      this.privySessionSigner = null;
+    }
+
+    if (!this.config.options || !this.config.options["CodexAPIKey"]) {
+      this.error("CodexAPIKey must be provided in the exchange config options");
       return;
     }
+
+    // Initialize Codex SDK first, before any account operations
+    this.codexSdk = new Codex(this.config.options["CodexAPIKey"]);
 
     createConfig({
       integrator: "tenz",
       providers: [EVM(), Solana()],
       preloadChains: false,
-      apiKey: this.config.options["LiFiAPIKey"],
     });
-
-    this.codexSdk = new Codex(this.config.options["CodexAPIKey"]);
 
     // Initialize EVM clients for all supported chains
     await this.initializeEvmClients(accounts);
@@ -221,6 +226,12 @@ export class OnchainWorker extends BaseWorker {
 
     for (const evmAccount of evmAccounts) {
       // Verify identity token
+      if (!this.privySessionSigner) {
+        this.error(
+          "PrivySessionSigner not initialized - cannot verify identity token",
+        );
+        continue;
+      }
       const verification = await this.privySessionSigner.verifyIdentityToken(
         evmAccount.identityToken!,
       );
@@ -281,6 +292,12 @@ export class OnchainWorker extends BaseWorker {
 
     for (const solanaAccount of solanaAccounts) {
       // Verify identity token
+      if (!this.privySessionSigner) {
+        this.error(
+          "PrivySessionSigner not initialized - cannot verify identity token",
+        );
+        continue;
+      }
       const verification = await this.privySessionSigner.verifyIdentityToken(
         solanaAccount.identityToken!,
       );
@@ -559,6 +576,9 @@ export class OnchainWorker extends BaseWorker {
     }
 
     // Validate session is still active
+    if (!this.privySessionSigner) {
+      throw new Error("PrivySessionSigner not initialized");
+    }
     const isValid = await this.privySessionSigner.validateSession(
       sessionConfig.identityToken,
     );
@@ -567,6 +587,9 @@ export class OnchainWorker extends BaseWorker {
     }
 
     // Sign transaction using Privy session signer
+    if (!this.privySessionSigner) {
+      throw new Error("PrivySessionSigner not initialized");
+    }
     const signature = await this.privySessionSigner.signEvmTransaction(
       sessionConfig.identityToken,
       sessionConfig.walletAddress,
@@ -764,6 +787,9 @@ export class OnchainWorker extends BaseWorker {
     }
 
     // Validate session
+    if (!this.privySessionSigner) {
+      throw new Error("PrivySessionSigner not initialized");
+    }
     const isValid = await this.privySessionSigner.validateSession(
       sessionConfig.identityToken,
     );
@@ -878,6 +904,9 @@ export class OnchainWorker extends BaseWorker {
     const transaction = new VersionedTransaction(compiledMessage);
 
     // Sign transaction using Privy session signer
+    if (!this.privySessionSigner) {
+      throw new Error("PrivySessionSigner not initialized");
+    }
     const signedTransactionHex =
       await this.privySessionSigner.signSolanaTransaction(
         sessionConfig.identityToken,
@@ -2113,25 +2142,39 @@ export class OnchainWorker extends BaseWorker {
   }
 
   async fetchPublic() {
-    const { markets, tickers, chains } = await fetchOnchainMarketsTickers(
-      this.codexSdk as Codex,
-    );
-    this.emitChanges([
-      { type: "update", path: "loaded.markets", value: true },
-      { type: "update", path: "loaded.tickers", value: true },
-      { type: "update", path: "public.markets", value: markets },
-      {
-        type: "update",
-        path: "public.tickers",
-        value: tickers,
-      },
-    ]);
+    try {
+      const { markets, tickers, chains } = await fetchOnchainMarketsTickers(
+        this.codexSdk as Codex,
+      );
+      this.emitChanges([
+        { type: "update", path: "loaded.markets", value: true },
+        { type: "update", path: "loaded.tickers", value: true },
+        { type: "update", path: "public.markets", value: markets },
+        {
+          type: "update",
+          path: "public.tickers",
+          value: tickers,
+        },
+      ]);
 
-    this.lifiChains = chains;
+      this.lifiChains = chains;
 
-    this.log(`Loaded ${Object.keys(markets).length} Onchain markets`);
+      this.log(`Loaded ${Object.keys(markets).length} Onchain markets`);
 
-    this.publicWs = new OnchainWsPublic({ parent: this });
+      this.publicWs = new OnchainWsPublic({ parent: this });
+    } catch (error) {
+      this.error(`Failed to fetch Onchain markets: ${error}`);
+
+      // Set empty markets/tickers so the system doesn't hang
+      this.emitChanges([
+        { type: "update", path: "loaded.markets", value: true },
+        { type: "update", path: "loaded.tickers", value: true },
+        { type: "update", path: "public.markets", value: {} },
+        { type: "update", path: "public.tickers", value: {} },
+      ]);
+
+      this.log("Loaded 0 Onchain markets due to error");
+    }
   }
 
   async addAccounts({
@@ -2197,9 +2240,23 @@ export class OnchainWorker extends BaseWorker {
       this.log(`Account walletAddress: ${account.walletAddress}`);
     }
 
-    if (!account || !this.codexSdk || !account.walletAddress) {
+    // If Codex SDK is not ready yet, wait a bit and retry
+    if (!this.codexSdk) {
+      this.log(`Codex SDK not ready yet, waiting 1 second and retrying...`);
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
+      // Check again after waiting
+      if (!this.codexSdk) {
+        this.error(
+          `Codex SDK still not ready after waiting. Account: ${!!account}, CodexSDK: ${!!this.codexSdk}`,
+        );
+        return;
+      }
+    }
+
+    if (!account || !account.walletAddress) {
       this.error(
-        `No account or Codex SDK found for ${accountId}. Account: ${!!account}, CodexSDK: ${!!this.codexSdk}, WalletAddress: ${account?.walletAddress}`,
+        `No account or wallet address found for ${accountId}. Account: ${!!account}, WalletAddress: ${account?.walletAddress}`,
       );
       return;
     }
@@ -2283,8 +2340,25 @@ export class OnchainWorker extends BaseWorker {
       return;
     }
 
+    // Find the market to extract contract and networkId
+    const market = this.memory.public.markets[params.symbol];
+    if (!market) {
+      this.error(`Market not found for symbol: ${params.symbol}`);
+      this.emitResponse({ requestId, data: [] });
+      return;
+    }
+
+    // Use the contract and codexNetworkId from the OnchainMarketData
+    const onchainMarket = market as OnchainMarketData;
+
+    const enhancedParams: FetchOHLCVOnchainParams = {
+      ...params,
+      contract: onchainMarket.contract,
+      networkId: onchainMarket.codexNetworkId,
+    };
+
     const candles = await fetchOnchainOHLCV({
-      params,
+      params: enhancedParams,
       codexSdk: this.codexSdk,
     });
 
@@ -2304,10 +2378,6 @@ export class OnchainWorker extends BaseWorker {
   }) {
     this.publicWs?.unlistenOHLCV({ symbol, timeframe });
   }
-
-  // =====================================================================================
-  // STOP LOSS FUNCTIONALITY (Task 22)
-  // =====================================================================================
 
   private stopLossOrders: Map<
     string,

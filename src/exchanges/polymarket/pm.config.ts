@@ -6,21 +6,32 @@ export const PM_ENDPOINTS = {
   PUBLIC: {
     MARKETS: "/markets",
     MARKET: "/markets/:id",
+    EVENTS_PAGINATION: "/events/pagination",
     ORDER_BOOK: "/book",
     TRADES: "/trades",
-    TICKER: "/price",
+    PRICE: "/price",
+    MIDPOINT: "/midpoint",
+    LAST_TRADE_PRICE: "/last-trade-price",
+    SPREAD: "/spread",
     CANDLES: "/prices-history",
     SAMPLING_CANDLES: "/sampling-simplified-prices",
   },
   PRIVATE: {
-    ORDERS: "/order",
-    CANCEL: "/cancel",
+    ORDERS: "/data/orders", // GET endpoint for fetching active orders
+    ORDER: "/order", // POST endpoint for placing orders
+    CANCEL: "/order", // DELETE endpoint for canceling orders (matches official client)
     CANCEL_ALL: "/cancel-all",
-    ORDER_BOOK: "/order-book",
+    ORDER_BOOK: "/book", // Order book endpoint (matches official client)
     POSITIONS: "/positions",
     BALANCE: "/balance",
-    ORDER_HISTORY: "/order-history",
-    TRADES: "/trades",
+    TRADES: "/data/trades", // GET endpoint for trade history (matches official client)
+  },
+  AUTH: {
+    API_KEY: "/auth/api-key", // POST endpoint to create API credentials
+  },
+  DATA: {
+    POSITIONS: "/positions", // GET user positions
+    VALUE: "/value", // GET user account value
   },
 };
 
@@ -63,6 +74,7 @@ export const PM_HEARTBEAT_INTERVAL = 30000; // 30 seconds
 export const PM_CONFIG = {
   PUBLIC_API_URL: "https://gamma-api.polymarket.com",
   PRIVATE_API_URL: "https://clob.polymarket.com",
+  DATA_API_URL: "https://data-api.polymarket.com",
   WS_PUBLIC_URL: "wss://ws-subscriptions-clob.polymarket.com/ws/market",
   WS_PRIVATE_URL: "wss://ws-subscriptions-clob.polymarket.com/ws/user",
   WS_TRADE_URL: "",
@@ -76,9 +88,11 @@ export const PM_CONFIG = {
     rateLimits: PM_RATE_LIMITS,
     // CORS proxy configuration
     corsProxy: {
-      enabled: false, // Set to true to enable CORS proxy
-      baseUrl: "https://corsproxy.io/?key=68cf79d5&url=",
-      // Alternative proxies:
+      enabled: true, // Enable CORS proxy for gamma-api
+      useLocalProxy: true, // Use local Next.js proxy for CORS
+      baseUrl: "", // Not needed when using local proxy
+      // Alternative proxies if not using Next.js:
+      // baseUrl: "https://corsproxy.io/?key=68cf79d5&url=",
       // baseUrl: "https://cors-anywhere.herokuapp.com/",
       // baseUrl: "https://api.allorigins.win/raw?url=",
     },

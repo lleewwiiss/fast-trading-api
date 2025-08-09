@@ -285,12 +285,6 @@ export class OnchainWsPrivate {
               eventType
               timestamp
               networkId
-              data {
-                ... on SwapEventData {
-                  priceUsd
-                  amountNonLiquidityToken
-                }
-              }
             }
             makerAddress
           }
@@ -324,7 +318,7 @@ export class OnchainWsPrivate {
     const balanceCleanup = this.parent.codexSdk.subscribe(
       `subscription OnBalanceUpdated {
           onBalanceUpdated(walletAddress: "${walletAddress}") {
-            walletAddress
+            walletId
             balance
             balanceUsd
             token {
@@ -334,10 +328,6 @@ export class OnchainWsPrivate {
               decimals
             }
             networkId
-            network {
-              id
-              name
-            }
           }
         }`,
       { operationName: "OnBalanceUpdated" },

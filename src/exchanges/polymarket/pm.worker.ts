@@ -9,6 +9,7 @@ import {
   fetchPMUserOrderHistory,
   fetchPMPositions,
 } from "./pm.resolver";
+import { createOrDeriveApiKey } from "./pm.utils";
 import { PolymarketWsPublic } from "./pm.ws-public";
 import { PolymarketWsPrivate } from "./pm.ws-private";
 
@@ -29,6 +30,10 @@ import {
 export class PolymarketWorker extends BaseWorker {
   publicWs: PolymarketWsPublic | null = null;
   privateWs: Record<Account["id"], PolymarketWsPrivate> = {};
+  clobCredentials: Record<
+    Account["id"],
+    { apiKey: string; secret: string; passphrase: string } | null
+  > = {};
 
   get exchangeName() {
     return ExchangeName.POLYMARKET;
@@ -81,11 +86,36 @@ export class PolymarketWorker extends BaseWorker {
   }) {
     super.addAccounts({ accounts, requestId });
 
+    // First, derive CLOB credentials for each account
+    for (const account of accounts) {
+      try {
+        this.log(`Deriving CLOB API credentials for account [${account.id}]`);
+        const creds = await createOrDeriveApiKey(account, this.config);
+        this.clobCredentials[account.id] = creds;
+
+        if (!creds) {
+          this.error(
+            `Failed to derive CLOB credentials for account [${account.id}]`,
+          );
+        } else {
+          this.log(
+            `Got CLOB credentials: apiKey=${creds.apiKey?.slice(0, 8)}..., has secret: ${!!creds.secret}, has passphrase: ${!!creds.passphrase}`,
+          );
+        }
+      } catch (error) {
+        this.error(
+          `Error deriving CLOB credentials for [${account.id}]: ${error}`,
+        );
+        this.clobCredentials[account.id] = null;
+      }
+    }
+
     // Initialize private WebSocket connections for each account
     for (const account of accounts) {
       this.privateWs[account.id] = new PolymarketWsPrivate({
         parent: this,
         account,
+        clobCredentials: this.clobCredentials[account.id], // Pass credentials to WebSocket
       });
     }
 
@@ -97,6 +127,7 @@ export class PolymarketWorker extends BaseWorker {
           const { balance } = await fetchPMUserAccount({
             config: this.config,
             account,
+            // Note: Codex SDK not available in PM worker, only using data API
           });
 
           // Fetch user positions
@@ -135,10 +166,11 @@ export class PolymarketWorker extends BaseWorker {
         // Start listening for private data updates
         this.privateWs[account.id].startListening();
 
-        // Fetch user orders
+        // Fetch user orders with CLOB credentials
         const orders = await fetchPMUserOrders({
           config: this.config,
           account,
+          clobCredentials: this.clobCredentials[account.id],
         });
 
         this.log(
@@ -157,6 +189,7 @@ export class PolymarketWorker extends BaseWorker {
         const ordersHistory = await fetchPMUserOrderHistory({
           config: this.config,
           account,
+          clobCredentials: this.clobCredentials[account.id],
         });
 
         this.log(
@@ -205,7 +238,12 @@ export class PolymarketWorker extends BaseWorker {
     params: FetchOHLCVParams;
   }) {
     try {
-      const candles = await fetchPMOHLCV({ config: this.config, params });
+      const markets = this.memory.public.markets;
+      const candles = await fetchPMOHLCV({
+        config: this.config,
+        params,
+        markets,
+      });
       this.emitResponse({ requestId, data: candles });
     } catch (error) {
       this.error(`Failed to fetch OHLCV data: ${error}`);

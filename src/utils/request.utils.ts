@@ -4,7 +4,7 @@ import { stringify } from "./query-string.utils";
 export type Request = {
   url: string;
   headers?: Record<string, string>;
-  method?: "GET" | "POST";
+  method?: "GET" | "POST" | "DELETE";
   params?: Record<string, string | number | string[] | number[]>;
   body?: Record<
     string,
@@ -19,46 +19,69 @@ export type Request = {
   retries?: number;
 };
 
-export const request = async <T>(req: Request) => {
+export const request = async <T>(req: Request & { originalUrl?: string }) => {
   return retry(async () => {
-    const url = req.params ? `${req.url}?${stringify(req.params)}` : req.url;
+    const isLocalProxy = req.url === "/api/proxy" && req.originalUrl;
+    const targetUrl = req.originalUrl || req.url;
+    const url = isLocalProxy
+      ? req.url
+      : req.params
+        ? `${req.url}?${stringify(req.params)}`
+        : req.url;
 
-    try {
-      const response = await fetch(url, {
-        method: req.method ?? "GET",
-        body: req.body ? JSON.stringify(req.body) : undefined,
-        headers: {
-          "content-type": "application/json",
-          ...(req.headers || {}),
-        },
-      });
+    const fetchBody = isLocalProxy
+      ? JSON.stringify({
+          url: req.params ? `${targetUrl}?${stringify(req.params)}` : targetUrl,
+          method: req.method ?? "GET",
+          headers: req.headers || {},
+          body: req.body,
+        })
+      : req.body
+        ? JSON.stringify(req.body)
+        : undefined;
 
-      // Check if response is ok
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(
-          `HTTP ${response.status} ${response.statusText}: ${errorText}`,
-        );
-      }
+    const method = isLocalProxy ? "POST" : (req.method ?? "GET");
+    const headers: Record<string, string> = {};
 
-      // Check if response is JSON
-      const contentType = response.headers.get("content-type");
-      if (!contentType || !contentType.includes("application/json")) {
-        const text = await response.text();
-        throw new Error(
-          `Expected JSON response but got ${contentType}: ${text}`,
-        );
-      }
-
-      return response.json() as Promise<T>;
-    } catch (error: any) {
-      // Enhance error with more context
-      if (error.message && error.message.includes("Failed to fetch")) {
-        throw new Error(
-          `Network error fetching ${url}: ${error.message}. This might be a CORS issue if running in browser.`,
-        );
-      }
-      throw error;
+    // Only add content-type for requests with a body
+    if (fetchBody) {
+      headers["content-type"] = "application/json";
     }
+
+    // Add custom headers (for non-local proxy requests)
+    if (!isLocalProxy && req.headers) {
+      Object.assign(headers, req.headers);
+    }
+
+    const response = await fetch(url, {
+      method,
+      body: fetchBody,
+      headers,
+    });
+
+    // Check if response is ok
+    if (!response.ok) {
+      const errorText = await response.text();
+
+      // Handle CORS proxy specific errors
+      if (response.status === 403 && errorText.includes("Invalid URL format")) {
+        throw new Error(
+          `CORS Proxy Error (403): Invalid URL format. Check that the URL is properly formatted for the CORS proxy service. Response: ${errorText}`,
+        );
+      }
+
+      throw new Error(
+        `HTTP ${response.status} ${response.statusText}: ${errorText}`,
+      );
+    }
+
+    // Check if response is JSON
+    const contentType = response.headers.get("content-type");
+    if (!contentType || !contentType.includes("application/json")) {
+      const text = await response.text();
+      throw new Error(`Expected JSON response but got ${contentType}: ${text}`);
+    }
+
+    return (await response.json()) as Promise<T>;
   }, req.retries ?? 0);
 };

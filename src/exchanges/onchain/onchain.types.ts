@@ -9,7 +9,6 @@ export interface OnchainCredentials {
   chainType: "EVM" | "SOLANA"; // Chain type for the wallet
 
   // Keep existing service keys
-  lifiApiKey: string;
   codexApiKey: string;
   evmRpcUrl: string;
   solRpcUrl: string;
@@ -96,6 +95,7 @@ export interface OnchainMarketData extends Market {
   token0Contract: string;
   image: string;
   networkId: number;
+  codexNetworkId: number;
   lifiNetworkId: number;
   networkName: string;
   exchangeName: string;

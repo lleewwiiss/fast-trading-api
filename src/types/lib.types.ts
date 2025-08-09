@@ -14,7 +14,14 @@ export interface ExchangeConfig {
   WS_PUBLIC_URL: string;
   WS_PRIVATE_URL: string;
   WS_TRADE_URL: string;
-  options?: Record<string, any>;
+  options?: {
+    corsProxy?: {
+      enabled: boolean;
+      baseUrl?: string;
+      useLocalProxy?: boolean;
+    };
+    [key: string]: any;
+  };
 }
 
 export interface Store {
@@ -82,12 +89,14 @@ export interface Account {
   chainType?: "EVM" | "SOLANA"; // Chain type
 
   // Service configuration
-  lifiApiKey?: string;
   codexApiKey?: string;
   evmRpcUrl?: string;
   solRpcUrl?: string;
 
   vaultAddress?: string;
+
+  // Polymarket-specific fields
+  funderAddress?: string; // Polymarket proxy wallet address (required for MetaMask users to access positions/orders)
 }
 
 export interface Balance {

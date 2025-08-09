@@ -547,12 +547,27 @@ export async function fetchOnchainMarketsTickers(codexSDK: Codex) {
 
   const lifiChainIdToCodexNetworkId = chains.reduce(
     (acc, chain) => {
-      const network = networks.getNetworks?.find(
+      // Try multiple matching strategies
+      let network = networks.getNetworks?.find(
         (n) => n.networkShortName?.toLowerCase() === chain.name.toLowerCase(),
       );
+
+      if (!network) {
+        // Try matching by full name
+        network = networks.getNetworks?.find(
+          (n) => n.name?.toLowerCase() === chain.name.toLowerCase(),
+        );
+      }
+
+      if (!network) {
+        // Try matching by LiFi chain ID directly (many networks use the same ID)
+        network = networks.getNetworks?.find((n) => n.id === chain.id);
+      }
+
       if (network) {
         acc[chain.id] = network.id;
       }
+
       return acc;
     },
     {} as Record<number, number>,
@@ -561,26 +576,37 @@ export async function fetchOnchainMarketsTickers(codexSDK: Codex) {
   const markets: Record<string, OnchainMarketData> = {};
   const tickers: Record<string, OnchainTickerData> = {};
 
-  for (let i = 0; i < chains.length; i++) {
-    const chain = chains[i];
+  // Create a flat array of all fetch tasks
+  const fetchTasks: Array<
+    Promise<{
+      market: OnchainMarketData;
+      ticker: OnchainTickerData;
+    } | null>
+  > = [];
 
-    const data = await fetchTokenData({
-      phrase: chain.coin,
-      chainType: chain.chainType,
-      lifiNetworkId: chain.id,
-      codexNetworkId: lifiChainIdToCodexNetworkId[chain.id],
-      networkName: chain.name,
-      native: true,
-      chains,
-      codexSDK,
-    });
-
-    if (data?.ticker && data?.market) {
-      tickers[data.ticker.id] = data.ticker;
-      markets[data.market.id] = data.market;
+  for (const chain of chains) {
+    const codexNetworkId = lifiChainIdToCodexNetworkId[chain.id];
+    if (!codexNetworkId) {
+      continue; // Skip chains without a Codex network ID
     }
 
+    // Add native token fetch task
+    fetchTasks.push(
+      fetchTokenData({
+        phrase: chain.coin,
+        chainType: chain.chainType,
+        lifiNetworkId: chain.id,
+        codexNetworkId,
+        networkName: chain.name,
+        native: true,
+        chains,
+        codexSDK,
+      }),
+    );
+
+    // Add stablecoin fetch tasks for this chain
     for (const stable of stables) {
+      // Skip certain combinations
       if (
         (chain.chainType === ChainType.SVM &&
           (stable === "BUSD" || stable === "USDT")) ||
@@ -589,20 +615,36 @@ export async function fetchOnchainMarketsTickers(codexSDK: Codex) {
         continue;
       }
 
-      const data = await fetchTokenData({
-        phrase: stable,
-        chainType: chain.chainType,
-        lifiNetworkId: chain.id,
-        codexNetworkId: lifiChainIdToCodexNetworkId[chain.id],
-        networkName: chain.name,
-        native: true,
-        chains,
-        codexSDK,
-      });
+      fetchTasks.push(
+        fetchTokenData({
+          phrase: stable,
+          chainType: chain.chainType,
+          lifiNetworkId: chain.id,
+          codexNetworkId,
+          networkName: chain.name,
+          native: true,
+          chains,
+          codexSDK,
+        }),
+      );
+    }
+  }
 
-      if (data?.ticker && data?.market) {
-        tickers[data.ticker.id] = data.ticker;
-        markets[data.market.id] = data.market;
+  // Execute all fetch tasks in parallel with a reasonable concurrency limit
+  const batchSize = 5; // Limit concurrent requests to avoid overwhelming APIs
+  for (let i = 0; i < fetchTasks.length; i += batchSize) {
+    const batch = fetchTasks.slice(i, i + batchSize);
+    const results = await Promise.allSettled(batch);
+
+    // Process results from this batch
+    for (const result of results) {
+      if (
+        result.status === "fulfilled" &&
+        result.value?.ticker &&
+        result.value?.market
+      ) {
+        tickers[result.value.ticker.id] = result.value.ticker;
+        markets[result.value.market.id] = result.value.market;
       }
     }
   }
@@ -843,13 +885,16 @@ export async function fetchTokenData({
 
   const tokenInfo = tokenInfoResults[0];
 
-  if (
-    !tokenInfo ||
-    !tokenInfo.token ||
-    (native &&
-      tokenInfo.token.symbol?.toLowerCase().includes(phrase.toLowerCase()))
-  ) {
+  if (!tokenInfo || !tokenInfo.token) {
     return null; // Skip if no valid token info
+  }
+
+  // For native tokens, ensure the symbol matches what we're looking for
+  if (
+    native &&
+    tokenInfo.token.symbol?.toLowerCase() !== phrase.toLowerCase()
+  ) {
+    return null; // Skip if symbol doesn't match
   }
 
   let onchainMarket = OnchainMarketType.LIFI;
@@ -892,6 +937,7 @@ export async function fetchTokenData({
     token0Contract: tokenInfo?.pair?.token0 || "",
     image: tokenInfo.token.info?.imageThumbUrl || "",
     networkId: tokenInfo.token.info?.networkId || 0,
+    codexNetworkId,
     lifiNetworkId,
     networkName,
     exchangeName: tokenInfo.exchanges![0]?.name || "Unknown",
@@ -905,7 +951,7 @@ export async function fetchTokenData({
   const ticker: OnchainTickerData = {
     id: tokenInfo.token.address,
     exchange: ExchangeName.ONCHAIN,
-    symbol: tokenInfo.token.symbol || "",
+    symbol: tokenInfo.token.symbol || tokenInfo.token.address,
     cleanSymbol: tokenInfo.token.symbol || "",
     bid: parseFloat(tokenInfo.priceUSD || "0"),
     ask: parseFloat(tokenInfo.priceUSD || "0"),

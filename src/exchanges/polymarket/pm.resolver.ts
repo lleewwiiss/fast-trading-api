@@ -1,19 +1,11 @@
-import { PM_ENDPOINTS } from "./pm.config";
+import { PM_ENDPOINTS, PM_CONFIG } from "./pm.config";
 import type {
-  PMOrder,
-  PMPosition,
-  PMTicker,
   PMOrderBook,
-  PMUserBalance,
-  PMUserOrderHistory,
-  PMCandle,
   PMApiResponse,
+  PMPriceHistoryResponse,
+  PMGammaEventsResponse,
 } from "./pm.types";
 import {
-  mapPMMarket,
-  mapPMTicker,
-  mapPMOrder,
-  mapPMPosition,
   mapPMFill,
   formatPMOrder,
   createEip712OrderMessage,
@@ -22,11 +14,15 @@ import {
 } from "./pm.utils";
 
 import {
+  ExchangeName,
+  OrderSide,
+  OrderStatus,
+  OrderType,
+  PositionSide,
   type Account,
   type ExchangeConfig,
   type Market,
   type Ticker,
-  type Order,
   type FetchOHLCVParams,
   type Candle,
   type PlaceOrderOpts,
@@ -36,86 +32,145 @@ import { getApiUrl } from "~/utils/cors-proxy.utils";
 
 export const fetchPMMarkets = async (config: ExchangeConfig) => {
   try {
-    // Try CLOB API first for active trading markets
-    const clobResponse = await request<any>({
-      url: getApiUrl(`${config.PRIVATE_API_URL}/markets`, config),
-      method: "GET",
-    });
-
     const markets: Record<string, Market> = {};
+    let offset = 0;
+    const limit = 100;
+    let hasMore = true;
+    let pageCount = 0;
 
-    // Check if response has data array
-    const marketsList = clobResponse.data || clobResponse;
+    while (hasMore && pageCount < 5) {
+      pageCount++;
 
-    if (Array.isArray(marketsList)) {
-      marketsList.forEach((market: any) => {
-        if (market.tokens && Array.isArray(market.tokens)) {
-          const marketData = mapPMMarket(market);
-          Object.assign(markets, marketData);
+      // Apply CORS proxy if needed for gamma-api
+      const baseUrl = `${PM_CONFIG.PUBLIC_API_URL}${PM_ENDPOINTS.PUBLIC.EVENTS_PAGINATION}`;
+      const proxiedUrl = getApiUrl(baseUrl, config);
+
+      // If using local proxy, pass the original URL separately
+      const requestConfig = config.options?.corsProxy?.useLocalProxy
+        ? {
+            url: proxiedUrl,
+            originalUrl: baseUrl,
+            method: "GET" as const,
+            params: {
+              limit,
+              offset,
+              active: "true",
+              archived: "false",
+              closed: "false",
+              order: "volume24hr",
+              ascending: "false",
+            },
+          }
+        : {
+            url: proxiedUrl,
+            method: "GET" as const,
+            params: {
+              limit,
+              offset,
+              active: "true",
+              archived: "false",
+              closed: "false",
+              order: "volume24hr",
+              ascending: "false",
+            },
+          };
+
+      const response = await request<PMGammaEventsResponse>(requestConfig);
+
+      if (!response?.data || !Array.isArray(response.data)) {
+        break;
+      }
+
+      // Process each event
+      for (const event of response.data) {
+        // Only process events with orderbook enabled
+        if (
+          !event.enableOrderBook ||
+          !event.markets ||
+          event.markets.length === 0
+        ) {
+          continue;
         }
-      });
-    }
 
-    // If no markets found, try gamma API
-    if (Object.keys(markets).length === 0) {
-      // No markets from CLOB, trying gamma API (logged in worker)
-      const gammaResponse = await request<any[]>({
-        url: getApiUrl(`${config.PUBLIC_API_URL}/events`, config),
-        method: "GET",
-      });
+        // Process each market in the event
+        for (const market of event.markets) {
+          // Skip if market doesn't have orderbook enabled or isn't accepting orders
+          if (!market.enableOrderBook || !market.acceptingOrders) {
+            continue;
+          }
 
-      // Process events that have markets
-      gammaResponse.slice(0, 5).forEach((event) => {
-        // Limit to first 5 events for debugging
-        if (event.markets && Array.isArray(event.markets)) {
-          event.markets.forEach((market: any) => {
-            // Processing market logged in worker
-            // Convert gamma market format to expected format
-            const convertedMarket = {
-              ...market,
-              condition_id: market.conditionId,
-              end_date_iso: market.endDate,
-              tokens: [],
-            };
+          // Parse outcomes and prices
+          let outcomes: string[] = [];
+          let prices: string[] = [];
 
-            // Parse clobTokenIds to create tokens
-            if (market.clobTokenIds) {
-              try {
-                const tokenIds = JSON.parse(market.clobTokenIds);
-                const outcomes = JSON.parse(market.outcomes || '["Yes", "No"]');
+          try {
+            outcomes = JSON.parse(market.outcomes || "[]");
+            prices = JSON.parse(market.outcomePrices || "[]");
+          } catch {
+            continue; // Skip if can't parse outcomes/prices
+          }
 
-                // Only process if we have valid token IDs and outcomes
-                if (tokenIds.length > 0 && outcomes.length > 0) {
-                  tokenIds.forEach((tokenId: string, index: number) => {
-                    const outcome = outcomes[index] || `Option ${index + 1}`;
-                    const ticker =
-                      `${market.slug || market.question?.substring(0, 30).replace(/[^a-zA-Z0-9]/g, "-") || "MARKET"}-${outcome}`
-                        .toUpperCase()
-                        .replace(/--+/g, "-");
-                    convertedMarket.tokens.push({
-                      token_id: tokenId,
-                      outcome,
-                      ticker,
-                      price: "0",
-                    });
-                  });
+          // Parse CLOB token IDs
+          let tokenIds: string[] = [];
+          try {
+            tokenIds = JSON.parse(market.clobTokenIds || "[]");
+          } catch {
+            continue; // Skip if can't parse token IDs
+          }
 
-                  // Only add if we have tokens
-                  if (convertedMarket.tokens.length > 0) {
-                    const marketData = mapPMMarket(convertedMarket);
-                    Object.assign(markets, marketData);
-                  }
-                }
-              } catch {
-                // Failed to parse market logged in worker
-              }
-            }
+          // Create a market entry for each outcome (YES/NO)
+          outcomes.forEach((outcome, index) => {
+            const tokenId = tokenIds[index];
+            if (!tokenId) return;
+
+            // Use event ticker or slug for cleaner symbols
+            const baseSymbol =
+              event.ticker || event.slug || market.slug || "MARKET";
+            const symbol = `${baseSymbol}-${outcome}`
+              .toUpperCase()
+              .replace(/[^A-Z0-9-]/g, "");
+
+            markets[symbol] = {
+              id: tokenId,
+              exchange: ExchangeName.POLYMARKET,
+              symbol,
+              base: outcome,
+              quote: "USDC",
+              active: event.active && market.active,
+              precision: {
+                amount: 0.001, // orderPriceMinTickSize from response
+                price: 0.001,
+              },
+              limits: {
+                amount: {
+                  min: 5, // orderMinSize from response
+                  max: Infinity,
+                  maxMarket: Infinity,
+                },
+                leverage: {
+                  min: 1,
+                  max: 1,
+                },
+              },
+              // Store additional metadata
+              metadata: {
+                question: market.question,
+                endDate: market.endDate,
+                price: parseFloat(prices[index] || "0"),
+                volume24hr: market.volume24hr,
+                liquidity: market.liquidityClob,
+                spread: market.spread,
+              },
+            } as Market & { metadata: any };
           });
         }
-      });
+      }
+
+      // Check if there are more pages
+      hasMore = response.data.length === limit;
+      offset += limit;
     }
 
-    // Fetched markets count logged in worker
     return markets;
   } catch {
     // Error fetching markets logged in worker
@@ -129,63 +184,125 @@ export const fetchPMTickers = async (
 ) => {
   const tickers: Record<string, Ticker> = {};
 
-  // Fetch tickers for each market token
+  // First, use metadata from markets if available
   for (const [symbol, market] of Object.entries(markets)) {
-    try {
-      // Try CLOB price endpoint first
-      const response = await request<any>({
-        url: getApiUrl(`${config.PRIVATE_API_URL}/price`, config),
-        method: "GET",
-        params: { token_id: market.id },
-      });
+    const metadata = (market as any).metadata;
 
-      const ticker = mapPMTicker(response, {
-        token_id: market.id.toString(),
-        outcome: market.base,
-        price: response.price || "0",
-        ticker: symbol,
-      });
+    if (metadata?.price !== undefined) {
+      // Use price from metadata as initial ticker data
+      const price = metadata.price;
+      const spread = metadata.spread || 0.001;
 
-      tickers[symbol] = ticker;
-    } catch {
-      // Try gamma API as fallback
-      try {
-        const response = await request<PMTicker>({
-          url: getApiUrl(
-            `${config.PUBLIC_API_URL}${PM_ENDPOINTS.PUBLIC.TICKER}`,
-            config,
-          ),
-          method: "GET",
-          params: { token_id: market.id },
-        });
+      tickers[symbol] = {
+        id: market.id,
+        exchange: ExchangeName.POLYMARKET,
+        symbol,
+        cleanSymbol: symbol,
+        bid: Math.max(0, price - spread / 2),
+        ask: Math.min(1, price + spread / 2),
+        last: price,
+        mark: price,
+        index: price,
+        percentage: 0,
+        openInterest: 0,
+        fundingRate: 0,
+        volume: metadata.volume24hr || 0,
+        quoteVolume: metadata.volume24hr || 0,
+      };
+    }
+  }
 
-        const ticker = mapPMTicker(response, {
-          token_id: market.id.toString(),
-          outcome: market.base,
-          price: response.price || "0",
-          ticker: symbol,
-        });
+  // Then fetch real-time bid/ask for top markets (limit to 20 for performance)
+  const marketEntries = Object.entries(markets)
+    .filter(([symbol]) => !tickers[symbol]) // Skip if already have ticker
+    .slice(0, 20);
 
-        tickers[symbol] = ticker;
-      } catch {
-        // Create default ticker with 0 values
-        tickers[symbol] = {
-          id: market.id,
-          exchange: market.exchange,
-          symbol,
-          cleanSymbol: symbol,
-          bid: 0,
-          ask: 0,
-          last: 0,
-          mark: 0,
-          index: 0,
-          percentage: 0,
-          openInterest: 0,
-          fundingRate: 0,
-          volume: 0,
-          quoteVolume: 0,
-        };
-      }
+  const batchSize = 5;
+
+  for (let i = 0; i < marketEntries.length; i += batchSize) {
+    const batch = marketEntries.slice(i, i + batchSize);
+
+    await Promise.all(
+      batch.map(async ([symbol, market]) => {
+        try {
+          // Get bid and ask prices from CLOB API
+          const priceUrl = `${config.PRIVATE_API_URL}${PM_ENDPOINTS.PUBLIC.PRICE}`;
+
+          const [bidResponse, askResponse] = await Promise.all([
+            request<{ price: string }>({
+              url: priceUrl,
+              method: "GET",
+              params: { token_id: market.id, side: "buy" },
+            }),
+            request<{ price: string }>({
+              url: priceUrl,
+              method: "GET",
+              params: { token_id: market.id, side: "sell" },
+            }),
+          ]);
+
+          const bid = parseFloat(bidResponse.price || "0");
+          const ask = parseFloat(askResponse.price || "0");
+          const mid = (bid + ask) / 2;
+
+          tickers[symbol] = {
+            id: market.id,
+            exchange: ExchangeName.POLYMARKET,
+            symbol,
+            cleanSymbol: symbol,
+            bid,
+            ask,
+            last: mid,
+            mark: mid,
+            index: mid,
+            percentage: 0,
+            openInterest: 0,
+            fundingRate: 0,
+            volume: 0,
+            quoteVolume: 0,
+          };
+        } catch {
+          // Create default ticker if API call fails
+          tickers[symbol] = {
+            id: market.id,
+            exchange: ExchangeName.POLYMARKET,
+            symbol,
+            cleanSymbol: symbol,
+            bid: 0,
+            ask: 0,
+            last: 0,
+            mark: 0,
+            index: 0,
+            percentage: 0,
+            openInterest: 0,
+            fundingRate: 0,
+            volume: 0,
+            quoteVolume: 0,
+          };
+        }
+      }),
+    );
+  }
+
+  // Fill in default tickers for any remaining markets
+  for (const [symbol, market] of Object.entries(markets)) {
+    if (!tickers[symbol]) {
+      tickers[symbol] = {
+        id: market.id,
+        exchange: ExchangeName.POLYMARKET,
+        symbol,
+        cleanSymbol: symbol,
+        bid: 0,
+        ask: 0,
+        last: 0,
+        mark: 0,
+        index: 0,
+        percentage: 0,
+        openInterest: 0,
+        fundingRate: 0,
+        volume: 0,
+        quoteVolume: 0,
+      };
     }
   }
 
@@ -193,126 +310,247 @@ export const fetchPMTickers = async (
 };
 
 export const fetchPMUserAccount = async ({
-  config,
   account,
+  codexSdk,
 }: {
   config: ExchangeConfig;
   account: Account;
+  codexSdk?: any; // Codex SDK instance
 }) => {
-  const headers = await createL2AuthHeaders(
-    account,
-    "GET",
-    PM_ENDPOINTS.PRIVATE.BALANCE,
-  );
+  let freeBalance = 0;
+  let totalValue = 0;
+  let positions: any[] = [];
 
-  const response = await request<PMUserBalance[]>({
-    url: getApiUrl(
-      `${config.PRIVATE_API_URL}${PM_ENDPOINTS.PRIVATE.BALANCE}`,
-      config,
-    ),
-    method: "GET",
-    headers,
-  });
+  try {
+    // Get on-chain USDC balance using Codex SDK
+    if (codexSdk && account.walletAddress) {
+      const balanceData = await codexSdk.getTokenBalances({
+        walletAddress: account.walletAddress,
+        tokenAddresses: ["0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174"], // USDC on Polygon
+      });
 
-  // Calculate total balance from all tokens
-  const totalBalance = response.reduce((sum, balance) => {
-    return sum + parseFloat(balance.balance);
-  }, 0);
+      if (balanceData && balanceData.length > 0) {
+        freeBalance = parseFloat(balanceData[0].balance || "0");
+      }
+    }
+
+    // Get Polymarket account value from data API (if wallet address is available)
+    if (account.walletAddress) {
+      const dataApiUrl = "https://data-api.polymarket.com";
+
+      const valueUrl = `${dataApiUrl}${PM_ENDPOINTS.DATA.VALUE}`;
+      const valueResponse = await request<{ user: string; value: number }[]>({
+        url: valueUrl,
+        method: "GET",
+        params: { user: account.walletAddress },
+      });
+
+      if (valueResponse && valueResponse.length > 0) {
+        totalValue = valueResponse[0].value;
+      }
+
+      // Get Polymarket positions from data API
+      const positionsUrl = `${dataApiUrl}${PM_ENDPOINTS.DATA.POSITIONS}`;
+      const positionsResponse = await request<any[]>({
+        url: positionsUrl,
+        method: "GET",
+        params: {
+          user: account.walletAddress,
+          limit: 100,
+        },
+      });
+
+      positions = positionsResponse || [];
+    }
+  } catch {
+    // If API calls fail, return default values
+  }
 
   return {
     balance: {
-      used: 0, // Would need to calculate from open orders
-      free: totalBalance,
-      total: totalBalance,
-      upnl: 0, // Would need to calculate from positions
+      used: Math.max(0, totalValue - freeBalance), // Estimated used balance
+      free: freeBalance,
+      total: freeBalance + totalValue,
+      upnl: totalValue, // Positions value as unrealized PnL
     },
-    positions: [], // Would need separate position fetch
+    positions,
   };
 };
 
 export const fetchPMUserOrders = async ({
   config,
   account,
+  clobCredentials,
 }: {
   config: ExchangeConfig;
   account: Account;
+  clobCredentials?: {
+    apiKey: string;
+    secret: string;
+    passphrase: string;
+  } | null;
 }) => {
+  if (!clobCredentials) {
+    return [];
+  }
+
+  // Sign the clean path without query parameters (like official client)
+  const cleanPath = PM_ENDPOINTS.PRIVATE.ORDERS; // "/data/orders"
+
   const headers = await createL2AuthHeaders(
     account,
     "GET",
-    PM_ENDPOINTS.PRIVATE.ORDERS,
+    cleanPath, // Sign clean path without query string
+    undefined, // no body for GET
+    undefined, // use default timestamp
+    clobCredentials, // Pass CLOB credentials
   );
 
-  const response = await request<PMOrder[]>({
-    url: getApiUrl(
-      `${config.PRIVATE_API_URL}${PM_ENDPOINTS.PRIVATE.ORDERS}`,
-      config,
-    ),
+  // Use next_cursor parameter like official client (not signature_type in params)
+  const queryParams = {
+    next_cursor: "MA==", // INITIAL_CURSOR from official client
+  };
+
+  const response = await request<any>({
+    url: `${config.PRIVATE_API_URL}${PM_ENDPOINTS.PRIVATE.ORDERS}`,
     method: "GET",
     headers,
+    params: queryParams,
   });
 
-  const orders: Order[] = response.map((o) =>
-    mapPMOrder({ order: o, accountId: account.id }),
-  );
+  // Handle different response structures
+  let orders: any[];
+  if (Array.isArray(response)) {
+    orders = response;
+  } else if (Array.isArray(response?.data)) {
+    orders = response.data;
+  } else if (response?.data) {
+    orders = [];
+  } else {
+    orders = [];
+  }
 
-  return orders;
+  // Transform the orders into the expected format with all required Order fields
+  return orders.map((order: any) => ({
+    id: order.id || order.order_id,
+    exchange: ExchangeName.POLYMARKET,
+    accountId: account.id,
+    symbol: order.asset_id || order.market,
+    type: OrderType.Limit,
+    side: order.side === "BUY" ? OrderSide.Buy : OrderSide.Sell,
+    amount: parseFloat(order.original_size || order.size || "0"),
+    price: parseFloat(order.price || "0"),
+    filled: parseFloat(order.size_matched || "0"),
+    remaining:
+      parseFloat(order.original_size || order.size || "0") -
+      parseFloat(order.size_matched || "0"),
+    status: OrderStatus.Open,
+    reduceOnly: false,
+    timestamp: new Date(order.created_at).getTime(),
+  }));
 };
 
 export const fetchPMUserOrderHistory = async ({
   config,
   account,
+  clobCredentials,
 }: {
   config: ExchangeConfig;
   account: Account;
+  clobCredentials?: {
+    apiKey: string;
+    secret: string;
+    passphrase: string;
+  } | null;
 }) => {
+  if (!clobCredentials) {
+    return [];
+  }
+
+  // Use /data/trades endpoint for trade history (matches official Python client)
+  const tradesEndpoint = PM_ENDPOINTS.PRIVATE.TRADES; // "/data/trades"
+
   const headers = await createL2AuthHeaders(
     account,
     "GET",
-    PM_ENDPOINTS.PRIVATE.ORDER_HISTORY,
+    tradesEndpoint,
+    undefined,
+    undefined,
+    clobCredentials,
   );
 
-  const response = await request<PMUserOrderHistory[]>({
-    url: getApiUrl(
-      `${config.PRIVATE_API_URL}${PM_ENDPOINTS.PRIVATE.ORDER_HISTORY}`,
-      config,
-    ),
+  const tradesUrl = `${config.PRIVATE_API_URL}${tradesEndpoint}`;
+
+  const response = await request<any>({
+    url: tradesUrl,
     method: "GET",
     headers,
   });
 
-  return response.map((order) => mapPMFill(order, order.asset_id));
+  // Handle different response structures
+  let trades: any[];
+  if (Array.isArray(response)) {
+    trades = response;
+  } else if (Array.isArray(response?.data)) {
+    trades = response.data;
+  } else {
+    trades = [];
+  }
+
+  return trades.map((trade) => mapPMFill(trade, trade.asset_id));
 };
 
 export const fetchPMPositions = async ({
-  config,
   account,
 }: {
   config: ExchangeConfig;
   account: Account;
 }) => {
-  const headers = await createL2AuthHeaders(
-    account,
-    "GET",
-    PM_ENDPOINTS.PRIVATE.POSITIONS,
-  );
+  // For MetaMask users, positions are ONLY in the Polymarket proxy/funder wallet
+  const funderAddress =
+    (account as any).funderAddress || (account as any).proxyAddress;
 
-  const response = await request<PMPosition[]>({
-    url: getApiUrl(
-      `${config.PRIVATE_API_URL}${PM_ENDPOINTS.PRIVATE.POSITIONS}`,
-      config,
-    ),
+  if (!funderAddress) {
+    return [];
+  }
+
+  // Use Data API directly with the funder address (Polymarket proxy wallet)
+  const dataApiUrl = "https://data-api.polymarket.com";
+  const dataApiEndpoint = `${dataApiUrl}/positions`;
+
+  const response = await request<any[]>({
+    url: dataApiEndpoint,
     method: "GET",
-    headers,
+    params: {
+      user: funderAddress,
+      limit: 100,
+    },
   });
 
-  return response.map((position) =>
-    mapPMPosition({
-      position,
+  if (!Array.isArray(response)) {
+    return [];
+  }
+
+  return response.map((position) => {
+    const positionSize = parseFloat(position.size || "0");
+    const avgPrice = parseFloat(position.average_price || "0");
+    const markPrice = parseFloat(position.current_price || avgPrice || "0");
+
+    return {
+      exchange: ExchangeName.POLYMARKET,
       accountId: account.id,
-      symbol: position.asset_id, // Would need to map token_id to symbol
-    }),
-  );
+      symbol:
+        position.market || position.asset_id || position.question || "UNKNOWN",
+      side: PositionSide.Long,
+      entryPrice: avgPrice,
+      notional: positionSize * markPrice,
+      leverage: 1,
+      upnl: parseFloat(position.unrealized_pnl || "0"),
+      rpnl: parseFloat(position.realized_pnl || "0"),
+      contracts: positionSize,
+      liquidationPrice: 0,
+    };
+  });
 };
 
 export const placePMOrders = async ({
@@ -351,16 +589,13 @@ export const placePMOrders = async ({
     const headers = await createL2AuthHeaders(
       account,
       "POST",
-      PM_ENDPOINTS.PRIVATE.ORDERS,
+      PM_ENDPOINTS.PRIVATE.ORDER,
       JSON.stringify(orderPayload),
     );
 
     // Place the order
     const response = await request<PMApiResponse<{ orderId: string }>>({
-      url: getApiUrl(
-        `${config.PRIVATE_API_URL}${PM_ENDPOINTS.PRIVATE.ORDERS}`,
-        config,
-      ),
+      url: `${config.PRIVATE_API_URL}${PM_ENDPOINTS.PRIVATE.ORDER}`,
       method: "POST",
       headers,
       body: orderPayload,
@@ -389,27 +624,26 @@ export const cancelPMOrders = async ({
 
   for (const orderId of orderIds) {
     const payload = { order_id: orderId };
+    // Use /order endpoint with DELETE method (matches official Python client)
     const headers = await createL2AuthHeaders(
       account,
       "DELETE",
-      PM_ENDPOINTS.PRIVATE.CANCEL,
+      PM_ENDPOINTS.PRIVATE.CANCEL, // This is now "/order"
       JSON.stringify(payload),
     );
 
-    const response = await fetch(
-      `${config.PRIVATE_API_URL}${PM_ENDPOINTS.PRIVATE.CANCEL}`,
-      {
-        method: "DELETE",
-        headers: {
-          "content-type": "application/json",
-          ...headers,
-        },
-        body: JSON.stringify(payload),
+    const result = await request<
+      PMApiResponse<{
+        orderId: string;
+      }>
+    >({
+      url: `${config.PRIVATE_API_URL}${PM_ENDPOINTS.PRIVATE.CANCEL}`,
+      method: "DELETE",
+      headers: {
+        ...headers,
       },
-    );
-    const result = (await response.json()) as PMApiResponse<{
-      orderId: string;
-    }>;
+      body: payload,
+    });
 
     if (result.success) {
       results.push(orderId);
@@ -434,20 +668,17 @@ export const cancelAllPMOrders = async ({
     PM_ENDPOINTS.PRIVATE.CANCEL_ALL,
   );
 
-  const response = await fetch(
-    `${config.PRIVATE_API_URL}${PM_ENDPOINTS.PRIVATE.CANCEL_ALL}`,
-    {
-      method: "DELETE",
-      headers: {
-        "content-type": "application/json",
-        ...headers,
-      },
+  const result = await request<
+    PMApiResponse<{
+      cancelled: number;
+    }>
+  >({
+    url: `${config.PRIVATE_API_URL}${PM_ENDPOINTS.PRIVATE.CANCEL_ALL}`,
+    method: "DELETE",
+    headers: {
+      ...headers,
     },
-  );
-
-  const result = (await response.json()) as PMApiResponse<{
-    cancelled: number;
-  }>;
+  });
 
   if (!result.success) {
     throw new Error(result.error || "Cancel all orders failed");
@@ -463,11 +694,9 @@ export const fetchPMOrderBook = async ({
   config: ExchangeConfig;
   tokenId: string;
 }) => {
+  // Use PRIVATE API URL with /book endpoint (matches official Python client)
   const response = await request<PMOrderBook>({
-    url: getApiUrl(
-      `${config.PUBLIC_API_URL}${PM_ENDPOINTS.PUBLIC.ORDER_BOOK}`,
-      config,
-    ),
+    url: `${config.PRIVATE_API_URL}${PM_ENDPOINTS.PRIVATE.ORDER_BOOK}`,
     method: "GET",
     params: { token_id: tokenId },
   });
@@ -486,44 +715,85 @@ export const fetchPMOrderBook = async ({
   };
 };
 
+// Map standard timeframes to Polymarket-supported intervals and fidelity
+const mapTimeframeToPolymarket = (
+  timeframe: string,
+): { interval: string; fidelity?: number } => {
+  const mapping: Record<string, { interval: string; fidelity?: number }> = {
+    // Exact matches to Polymarket intervals
+    "1m": { interval: "1m", fidelity: 1 },
+    "1h": { interval: "1h", fidelity: 60 },
+    "6h": { interval: "6h", fidelity: 360 },
+    "1d": { interval: "1d", fidelity: 1440 },
+    "1w": { interval: "1w", fidelity: 10080 },
+
+    // Custom fidelity mappings for unsupported intervals
+    "5m": { interval: "1h", fidelity: 5 },
+    "15m": { interval: "1h", fidelity: 15 },
+    "30m": { interval: "1h", fidelity: 30 },
+    "2h": { interval: "6h", fidelity: 120 },
+    "4h": { interval: "6h", fidelity: 240 },
+    "12h": { interval: "1d", fidelity: 720 },
+    "3d": { interval: "1w", fidelity: 4320 },
+    "7d": { interval: "1w", fidelity: 10080 },
+  };
+
+  return mapping[timeframe] || { interval: "1d", fidelity: 1440 }; // Default to 1d
+};
+
 export const fetchPMOHLCV = async ({
   config,
   params,
+  markets,
 }: {
   config: ExchangeConfig;
   params: FetchOHLCVParams;
+  markets: Record<string, Market>;
 }) => {
+  // Find the market to get the token_id
+  const market = markets[params.symbol];
+  if (!market) {
+    throw new Error(`Market not found for symbol: ${params.symbol}`);
+  }
+
+  const { interval, fidelity } = mapTimeframeToPolymarket(params.timeframe);
+
   const queryParams: Record<string, string | number> = {
-    market: params.symbol,
-    interval: params.timeframe,
-    limit: params.limit || 500,
+    market: market.id, // Use CLOB token ID
+    interval,
   };
 
-  if (params.from) {
-    queryParams.startTs = params.from;
-  }
-  if (params.to) {
-    queryParams.endTs = params.to;
+  // Add fidelity for data resolution if specified
+  if (fidelity) {
+    queryParams.fidelity = fidelity;
   }
 
-  const response = await request<PMCandle[]>({
-    url: getApiUrl(
-      `${config.PUBLIC_API_URL}${PM_ENDPOINTS.PUBLIC.CANDLES}`,
-      config,
-    ),
+  // Add time range parameters if specified
+  if (params.from) {
+    queryParams.startTs = Math.floor(params.from / 1000); // Convert to Unix timestamp
+  }
+  if (params.to) {
+    queryParams.endTs = Math.floor(params.to / 1000); // Convert to Unix timestamp
+  }
+
+  // Use CLOB API for price history (not proxy needed as it supports CORS)
+  const response = await request<PMPriceHistoryResponse>({
+    url: `${config.PRIVATE_API_URL}${PM_ENDPOINTS.PUBLIC.CANDLES}`,
     method: "GET",
     params: queryParams,
   });
 
-  const candles: Candle[] = response.map((c) => ({
+  // Convert price history to approximate OHLCV candles
+  // Since we only have price points, we'll use the same price for OHLC
+  const candles: Candle[] = response.history.map((point) => ({
     symbol: params.symbol,
     timeframe: params.timeframe,
-    timestamp: c.t,
-    open: parseFloat(c.o),
-    high: parseFloat(c.h),
-    low: parseFloat(c.l),
-    close: parseFloat(c.c),
-    volume: parseFloat(c.v),
+    timestamp: point.t,
+    open: point.p,
+    high: point.p,
+    low: point.p,
+    close: point.p,
+    volume: 0, // Volume not available in price history
   }));
 
   return candles.sort((a, b) => a.timestamp - b.timestamp);

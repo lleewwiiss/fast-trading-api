@@ -4,6 +4,8 @@ import type {
 } from "./onchain.types";
 
 import type { Account } from "~/types/lib.types";
+import { request } from "~/utils/request.utils";
+import { getApiUrl, isUsingLocalProxy } from "~/utils/cors-proxy.utils";
 
 export class OnchainApi {
   private credentials: OnchainCredentials;
@@ -32,17 +34,14 @@ export class OnchainApi {
       throw new Error("Chain type is required for onchain exchange");
     }
 
-    if (!account.lifiApiKey || !account.codexApiKey) {
-      throw new Error(
-        "Both LiFi and Codex API keys are required for onchain exchange",
-      );
+    if (!account.codexApiKey) {
+      throw new Error("Codex API key is required for onchain exchange");
     }
 
     return {
       identityToken: account.identityToken,
       walletAddress: account.walletAddress,
       chainType: account.chainType,
-      lifiApiKey: account.lifiApiKey,
       codexApiKey: account.codexApiKey,
       evmRpcUrl: account.evmRpcUrl || this.config.options?.defaultRpcUrls?.evm,
       solRpcUrl: account.solRpcUrl || this.config.options?.defaultRpcUrls?.sol,
@@ -74,7 +73,6 @@ export class OnchainApi {
       credentials.identityToken &&
       credentials.walletAddress &&
       credentials.chainType &&
-      credentials.lifiApiKey &&
       credentials.codexApiKey &&
       credentials.evmRpcUrl &&
       credentials.solRpcUrl
@@ -107,14 +105,16 @@ export class OnchainApi {
   }
 
   private async testLifiConnection(): Promise<void> {
-    const response = await fetch(`${this.config.options?.lifiApiUrl}/status`, {
-      headers: {
-        "x-lifi-api-key": this.credentials.lifiApiKey,
-      },
+    const originalUrl = `${this.config.options?.lifiApiUrl}/status`;
+    const response = await request({
+      url: getApiUrl(originalUrl, this.config),
+      method: "GET",
+      headers: {},
+      ...(isUsingLocalProxy(this.config) ? { originalUrl } : {}),
     });
 
-    if (!response.ok) {
-      throw new Error(`LiFi API connection failed: ${response.status}`);
+    if (!response) {
+      throw new Error(`LiFi API connection failed`);
     }
   }
 
@@ -180,31 +180,26 @@ export class OnchainApi {
 
     if (useCodex) {
       headers["Authorization"] = `Bearer ${this.credentials.codexApiKey}`;
-    } else {
-      headers["x-lifi-api-key"] = this.credentials.lifiApiKey;
     }
 
-    const url = `${baseUrl}${endpoint}`;
-    const options: RequestInit = {
-      method,
+    const originalUrl = `${baseUrl}${endpoint}`;
+
+    // Only use CORS proxy for LiFi requests, not Codex
+    const shouldUseProxy = !useCodex && isUsingLocalProxy(this.config);
+
+    const requestOptions: any = {
+      url: shouldUseProxy ? getApiUrl(originalUrl, this.config) : originalUrl,
+      method: method as "GET" | "POST" | "DELETE",
       headers,
+      ...(shouldUseProxy ? { originalUrl } : {}),
     };
 
     if (params && (method === "POST" || method === "PUT")) {
-      options.body = JSON.stringify(params);
+      requestOptions.body = params;
     } else if (params && method === "GET") {
-      const searchParams = new URLSearchParams(params);
-      url.concat(`?${searchParams.toString()}`);
+      requestOptions.params = params;
     }
 
-    const response = await fetch(url, options);
-
-    if (!response.ok) {
-      throw new Error(
-        `API request failed: ${response.status} ${response.statusText}`,
-      );
-    }
-
-    return response.json();
+    return await request(requestOptions);
   }
 }

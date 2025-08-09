@@ -1,37 +1,38 @@
 import type {
-  PMMarket,
-  PMOrder,
-  PMPosition,
-  PMToken,
-  PMTicker,
-  PMOrderArgs,
   PMEip712OrderMessage,
   PML1AuthHeaders,
   PML2AuthHeaders,
+  PMMarket,
+  PMOrder,
+  PMOrderArgs,
+  PMPosition,
+  PMTicker,
+  PMToken,
 } from "./pm.types";
 import {
+  PM_DEFAULT_EXPIRATION,
   PM_EIP712_DOMAIN,
+  PM_MIN_SIZE,
   PM_OPERATOR_ADDRESS,
   PM_TICK_SIZE,
-  PM_MIN_SIZE,
-  PM_DEFAULT_EXPIRATION,
 } from "./pm.config";
 
 import { adjust } from "~/utils/safe-math.utils";
 import {
-  ExchangeName,
-  OrderSide,
-  OrderStatus,
-  OrderType,
-  PositionSide,
   type Account,
+  ExchangeName,
   type Fill,
   type Market,
   type Order,
+  OrderSide,
+  OrderStatus,
+  OrderType,
   type PlaceOrderOpts,
+  PositionSide,
   type Ticker,
 } from "~/types/lib.types";
 import { genId } from "~/utils/gen-id.utils";
+import { request } from "~/utils/request.utils";
 
 export const mapPMMarket = (market: PMMarket): Record<string, Market> => {
   const markets: Record<string, Market> = {};
@@ -42,11 +43,27 @@ export const mapPMMarket = (market: PMMarket): Record<string, Market> => {
   }
 
   market.tokens.forEach((token) => {
-    markets[token.ticker] = {
+    // Skip tokens without required fields
+    if (!token.token_id || !token.outcome) {
+      return;
+    }
+
+    // Create symbol based on market question and outcome (YES/NO)
+    // e.g., "ELECTION2024-YES", "ELECTION2024-NO"
+    const baseSymbol =
+      (market as any).market_slug ||
+      market.question?.substring(0, 30).replace(/[^a-zA-Z0-9]/g, "-") ||
+      "MARKET";
+
+    const symbol = `${baseSymbol}-${token.outcome}`
+      .toUpperCase()
+      .replace(/--+/g, "-");
+
+    markets[symbol] = {
       id: token.token_id,
       exchange: ExchangeName.POLYMARKET,
-      symbol: token.ticker,
-      base: token.outcome,
+      symbol,
+      base: token.outcome, // YES or NO
       quote: "USDC",
       active: new Date(market.end_date_iso) > new Date(),
       precision: {
@@ -64,6 +81,14 @@ export const mapPMMarket = (market: PMMarket): Record<string, Market> => {
           max: 1, // No leverage on prediction markets
         },
       },
+    } as Market & {
+      // Store additional metadata for prediction markets
+      metadata?: {
+        question: string;
+        endDate: string;
+        category: string;
+        outcome: string;
+      };
     };
   });
 
@@ -274,41 +299,91 @@ export const signEip712Order = async (
     signatureType: orderMessage.signatureType,
   };
 
-  const signature = await account.signTypedData({
+  return await account.signTypedData({
     domain,
     types,
     primaryType: "Order",
     message: bigIntMessage,
   });
-
-  return signature;
 };
 
 export const createL1AuthHeaders = async (
   account: Account,
   timestamp?: number,
-  nonce: number = 0,
+  nonce?: number,
 ): Promise<PML1AuthHeaders> => {
   const ts = timestamp || Math.floor(Date.now() / 1000);
+  // Use timestamp as nonce if not provided (common practice for Polymarket CLOB)
+  const authNonce = nonce !== undefined ? nonce : ts;
 
-  // Create auth message for L1 signing
-  const authMessage = {
-    timestamp: ts,
-    nonce,
-  };
+  // Derive the actual address from the private key
+  const { privateKeyToAccount } = await import("viem/accounts");
+  const signingAccount = privateKeyToAccount(
+    account.apiSecret as `0x${string}`,
+  );
+  const actualAddress = signingAccount.address;
 
-  const signature = await signEip712Auth(authMessage, account.apiSecret);
+  // Create EIP712 signature using exact same logic as official client
+  const signature = await buildClobEip712Signature(
+    signingAccount,
+    137,
+    ts,
+    authNonce,
+  );
 
   return {
-    POLY_ADDRESS: account.apiKey,
+    POLY_ADDRESS: actualAddress,
     POLY_SIGNATURE: signature,
     POLY_TIMESTAMP: ts.toString(),
-    POLY_NONCE: nonce.toString(),
+    POLY_NONCE: authNonce.toString(),
   };
 };
 
+/**
+ * Builds the canonical Polymarket CLOB EIP712 signature exactly like official client
+ * This matches the implementation in @polymarket/clob-client/src/signing/eip712.ts
+ */
+export const buildClobEip712Signature = async (
+  signer: any, // viem account
+  chainId: number = 137, // Polygon
+  timestamp: number,
+  nonce: number = 0,
+): Promise<string> => {
+  const address = signer.address;
+  const ts = timestamp.toString();
+
+  const domain = {
+    name: "ClobAuthDomain",
+    version: "1",
+    chainId,
+  };
+
+  const types = {
+    ClobAuth: [
+      { name: "address", type: "address" },
+      { name: "timestamp", type: "string" },
+      { name: "nonce", type: "uint256" },
+      { name: "message", type: "string" },
+    ],
+  } as const;
+
+  const value = {
+    address: address as `0x${string}`,
+    timestamp: ts,
+    nonce: BigInt(nonce),
+    message: "This message attests that I control the given wallet",
+  };
+
+  return await signer.signTypedData({
+    domain,
+    types,
+    primaryType: "ClobAuth",
+    message: value,
+  });
+};
+
 export const signEip712Auth = async (
-  message: { timestamp: number; nonce: number },
+  message: { timestamp: number; nonce: number; address: string },
   privateKey: string,
 ): Promise<string> => {
   const { privateKeyToAccount } = await import("viem/accounts");
@@ -319,25 +394,27 @@ export const signEip712Auth = async (
 
   const types = {
     ClobAuth: [
-      { name: "timestamp", type: "uint256" },
+      { name: "address", type: "address" },
+      { name: "timestamp", type: "string" },
       { name: "nonce", type: "uint256" },
+      { name: "message", type: "string" },
     ],
   } as const;
 
-  // Convert to BigInt for EIP712 signing
+  // Convert to correct format for EIP712 signing
   const bigIntMessage = {
-    timestamp: BigInt(message.timestamp),
+    address: message.address as `0x${string}`,
+    timestamp: message.timestamp.toString(), // Keep as string for EIP712
     nonce: BigInt(message.nonce),
+    message: "This message attests that I control the given wallet",
   };
 
-  const signature = await account.signTypedData({
+  return await account.signTypedData({
     domain,
     types,
     primaryType: "ClobAuth",
     message: bigIntMessage,
   });
-
-  return signature;
 };
 
 export const createL2AuthHeaders = async (
@@ -346,27 +423,41 @@ export const createL2AuthHeaders = async (
   path: string,
   body?: string,
   timestamp?: number,
+  clobCredentials?: { apiKey: string; secret: string; passphrase: string },
 ): Promise<PML2AuthHeaders> => {
+  if (!clobCredentials) {
+    throw new Error("CLOB credentials required for L2 authentication");
+  }
+
   const ts = timestamp || Math.floor(Date.now() / 1000);
 
-  // Create HMAC signature for L2 auth
-  const message = ts + method.toUpperCase() + path + (body || "");
+  // Create HMAC signature for L2 auth exactly like Polymarket's official client
+  let message = ts + method.toUpperCase() + path;
+  if (body !== undefined) {
+    message += body;
+  }
 
-  // Note: This is a simplified implementation
-  // In practice, you'd need proper HMAC-SHA256 signing with API secret
   const crypto = await import("crypto");
+
+  // IMPORTANT: The secret is base64 encoded and needs to be decoded first
+  const base64Secret = Buffer.from(clobCredentials.secret, "base64");
+
+  // Create HMAC with decoded secret and get base64 signature
   const signature = crypto
-    .createHmac("sha256", account.apiSecret)
+    .createHmac("sha256", base64Secret)
     .update(message)
-    .digest("hex");
+    .digest("base64")
+    // Make URL-safe base64: replace '+' with '-' and '/' with '_'
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_");
 
   return {
-    POLY_ADDRESS: account.apiKey,
+    POLY_ADDRESS: account.walletAddress || account.apiKey, // Use wallet address
     POLY_SIGNATURE: signature,
     POLY_TIMESTAMP: ts.toString(),
-    POLY_NONCE: "0",
-    POLY_API_KEY: account.apiKey, // This would be separate API key in practice
-    POLY_PASSPHRASE: account.apiSecret, // This would be separate passphrase in practice
+    POLY_API_KEY: clobCredentials.apiKey, // Use CLOB API key
+    POLY_PASSPHRASE: clobCredentials.passphrase, // Use CLOB passphrase
+    // Note: No POLY_NONCE for L2 headers (only for L1)
   };
 };
 
@@ -382,4 +473,107 @@ export const validatePrice = (price: string): boolean => {
 export const validateSize = (sizeStr: string): boolean => {
   const size = parseFloat(sizeStr);
   return size >= PM_MIN_SIZE;
+};
+
+/**
+ * Creates CLOB API credentials (key, secret, passphrase) from wallet credentials
+ * Uses L1 authentication to generate L2 API credentials via /auth/api-key endpoint
+ */
+/**
+ * Creates or derives CLOB API credentials using the same flow as official client
+ * Tries createApiKey first, falls back to deriveApiKey if creation fails
+ */
+export const createOrDeriveApiKey = async (
+  account: Account,
+  config: any,
+): Promise<{ apiKey: string; secret: string; passphrase: string } | null> => {
+  try {
+    // Try to create a new API key first
+    const created = await createApiKey(account, config);
+    if (created && created.apiKey && created.apiKey !== "undefined") {
+      return created;
+    }
+  } catch {
+    // Creation failed, try derive
+  }
+
+  try {
+    // Fall back to deriving existing key
+    const derived = await deriveApiKey(account, config);
+    if (derived && derived.apiKey && derived.apiKey !== "undefined") {
+      return derived;
+    }
+  } catch {
+    // Derive also failed
+  }
+
+  return null;
+};
+
+export const createApiKey = async (
+  account: Account,
+  config: any,
+  nonce: number = 0,
+): Promise<{ apiKey: string; secret: string; passphrase: string } | null> => {
+  const timestamp = Math.floor(Date.now() / 1000);
+  const headers = await createL1AuthHeaders(account, timestamp, nonce);
+  const authUrl = `${config.PRIVATE_API_URL}/auth/api-key`;
+
+  const requestConfig = {
+    url: authUrl,
+    method: "POST" as const,
+    headers: {
+      ...headers,
+      "Content-Type": "application/json",
+    },
+  };
+
+  const response = await request<{
+    apiKey: string;
+    secret: string;
+    passphrase: string;
+  }>(requestConfig);
+
+  return {
+    apiKey: response.apiKey,
+    secret: response.secret,
+    passphrase: response.passphrase,
+  };
+};
+
+export const deriveApiKey = async (
+  account: Account,
+  config: any,
+  nonce: number = 0,
+): Promise<{ apiKey: string; secret: string; passphrase: string } | null> => {
+  const timestamp = Math.floor(Date.now() / 1000);
+  const headers = await createL1AuthHeaders(account, timestamp, nonce);
+
+  const { request } = await import("~/utils/request.utils");
+  // CORS proxy not needed - Polymarket CLOB API supports CORS
+
+  const deriveUrl = `${config.PRIVATE_API_URL}/auth/derive-api-key`;
+  const response = await request<{
+    apiKey: string;
+    secret: string;
+    passphrase: string;
+  }>({
+    url: deriveUrl,
+    method: "GET", // Derive API key uses GET, not POST
+    headers,
+  });
+
+  return {
+    apiKey: response.apiKey,
+    secret: response.secret,
+    passphrase: response.passphrase,
+  };
+};
+
+// Legacy function - keep for backward compatibility but use createOrDeriveApiKey instead
+export const createClobApiCredentials = async (
+  account: Account,
+  config: any,
+): Promise<{ apiKey: string; secret: string; passphrase: string } | null> => {
+  return await createOrDeriveApiKey(account, config);
 };

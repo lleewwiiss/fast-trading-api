@@ -52,7 +52,7 @@ describe("request utility", () => {
     expect(global.fetch).toHaveBeenCalledWith("https://api.example.com/data", {
       method: "GET",
       body: undefined,
-      headers: { "content-type": "application/json" },
+      headers: {},
     });
   });
 
@@ -67,7 +67,7 @@ describe("request utility", () => {
       {
         method: "GET",
         body: undefined,
-        headers: { "content-type": "application/json" },
+        headers: {},
       },
     );
   });

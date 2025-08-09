@@ -13,6 +13,59 @@ export interface PMMarket {
   tags: string[];
 }
 
+export interface PMGammaMarket {
+  id: string;
+  question: string;
+  conditionId: string;
+  slug: string;
+  endDate: string;
+  liquidity: string;
+  startDate: string;
+  outcomes: string;
+  outcomePrices: string;
+  volume: string;
+  active: boolean;
+  closed: boolean;
+  enableOrderBook: boolean;
+  clobTokenIds: string;
+  acceptingOrders: boolean;
+  volume24hr: number;
+  volumeIwk: number;
+  volumeImo: number;
+  volumeIyr: number;
+  liquidityClob: number;
+  volumeClob: number;
+  spread: number;
+}
+
+export interface PMGammaEvent {
+  id: string;
+  ticker: string;
+  slug: string;
+  title: string;
+  description: string;
+  endDate: string;
+  active: boolean;
+  closed: boolean;
+  archived: boolean;
+  liquidity: number;
+  volume: number;
+  openInterest: number;
+  volume24hr: number;
+  volumeIwk: number;
+  volumeImo: number;
+  volumeIyr: number;
+  enableOrderBook: boolean;
+  liquidityClob: number;
+  markets: PMGammaMarket[];
+}
+
+export interface PMGammaEventsResponse {
+  data: PMGammaEvent[];
+  next_cursor?: string;
+  count?: number;
+}
+
 export interface PMToken {
   token_id: string;
   outcome: string;
@@ -116,6 +169,15 @@ export interface PMCandle {
   v: string; // volume
 }
 
+export interface PMPriceHistory {
+  t: number; // UTC timestamp
+  p: number; // Price
+}
+
+export interface PMPriceHistoryResponse {
+  history: PMPriceHistory[];
+}
+
 export interface PMWSMessage {
   channel: string;
   market?: string;
@@ -152,7 +214,10 @@ export interface PML1AuthHeaders {
   [key: string]: string;
 }
 
-export interface PML2AuthHeaders extends PML1AuthHeaders {
+export interface PML2AuthHeaders {
+  POLY_ADDRESS: string;
+  POLY_SIGNATURE: string;
+  POLY_TIMESTAMP: string;
   POLY_API_KEY: string;
   POLY_PASSPHRASE: string;
   [key: string]: string;

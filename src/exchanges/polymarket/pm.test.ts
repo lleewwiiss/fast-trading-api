@@ -16,6 +16,7 @@ import { ExchangeName, OrderSide, OrderType } from "~/types/lib.types";
 const mockPMMarket = {
   condition_id: "0x123456789abcdef",
   question: "Will Bitcoin reach $100k by end of 2024?",
+  market_slug: "BTC100K",
   tokens: [
     {
       token_id: "123",
