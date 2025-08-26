@@ -129,4 +129,9 @@ export type ExchangeWorkerMessage = MessageEvent<
       networkName: string;
       codexNetworkId: number;
     }
+  | {
+      type: "addMarketToTracking";
+      requestId: string;
+      marketId: string;
+    }
 >;

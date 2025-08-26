@@ -42,7 +42,8 @@ export const fetchPMMarkets = async (config: ExchangeConfig) => {
       pageCount++;
 
       // Apply CORS proxy if needed for gamma-api
-      const baseUrl = `${PM_CONFIG.PUBLIC_API_URL}${PM_ENDPOINTS.PUBLIC.EVENTS_PAGINATION}`;
+      // Use updated Gamma Markets API endpoint
+      const baseUrl = `${PM_CONFIG.PUBLIC_API_URL}${PM_ENDPOINTS.PUBLIC.MARKETS}`;
       const proxiedUrl = getApiUrl(baseUrl, config);
 
       // If using local proxy, pass the original URL separately
@@ -175,6 +176,105 @@ export const fetchPMMarkets = async (config: ExchangeConfig) => {
   } catch {
     // Error fetching markets logged in worker
     return {};
+  }
+};
+
+export const fetchPMMarketById = async (
+  config: ExchangeConfig,
+  marketId: string,
+): Promise<{
+  markets: Record<string, Market>;
+  tickers: Record<string, Ticker>;
+}> => {
+  try {
+    // Use Gamma Markets API with id query parameter per docs
+    const baseUrl = `${PM_CONFIG.PUBLIC_API_URL}${PM_ENDPOINTS.PUBLIC.MARKETS}`; // /markets
+    const proxiedUrl = getApiUrl(baseUrl, config);
+
+    const requestConfig = config.options?.corsProxy?.useLocalProxy
+      ? {
+          url: proxiedUrl,
+          originalUrl: baseUrl,
+          method: "GET" as const,
+          params: { id: marketId },
+        }
+      : { url: proxiedUrl, method: "GET" as const, params: { id: marketId } };
+
+    const response = await request<any>(requestConfig);
+
+    // Response should be an array of markets
+    const marketData = Array.isArray(response)
+      ? response[0]
+      : Array.isArray(response?.data)
+        ? response.data[0]
+        : response;
+
+    if (!marketData || !marketData.enableOrderBook) {
+      return { markets: {}, tickers: {} };
+    }
+
+    const event = marketData.event || {};
+    const market = marketData;
+
+    let outcomes: string[] = [];
+    let prices: string[] = [];
+    let tokenIds: string[] = [];
+    try {
+      outcomes = JSON.parse(market.outcomes || "[]");
+      prices = JSON.parse(market.outcomePrices || "[]");
+      tokenIds = JSON.parse(market.clobTokenIds || "[]");
+    } catch {
+      // ignore parse errors
+    }
+
+    const markets: Record<string, Market> = {};
+    const tickers: Record<string, Ticker> = {};
+
+    outcomes.forEach((outcome, idx) => {
+      const tokenId = tokenIds[idx];
+      if (!tokenId) return;
+      const baseSymbol = event.ticker || event.slug || market.slug || "MARKET";
+      const symbol = `${baseSymbol}-${outcome}`
+        .toUpperCase()
+        .replace(/[^A-Z0-9-]/g, "");
+      const price = parseFloat(prices[idx] || "0");
+      const spread = market.spread || 0.001;
+
+      markets[symbol] = {
+        id: tokenId,
+        exchange: ExchangeName.POLYMARKET,
+        symbol,
+        base: outcome,
+        quote: "USDC",
+        active: market.active,
+        precision: { amount: 0.001, price: 0.001 },
+        limits: {
+          amount: { min: 5, max: Infinity, maxMarket: Infinity },
+          leverage: { min: 1, max: 1 },
+        },
+      } as Market;
+
+      tickers[symbol] = {
+        id: tokenId,
+        exchange: ExchangeName.POLYMARKET,
+        symbol,
+        cleanSymbol: symbol,
+        bid: Math.max(0, price - spread / 2),
+        ask: Math.min(1, price + spread / 2),
+        last: price,
+        mark: price,
+        index: price,
+        percentage: 0,
+        openInterest: 0,
+        fundingRate: 0,
+        volume: market.volume24hr || 0,
+        quoteVolume: market.volume24hr || 0,
+      };
+    });
+
+    return { markets, tickers };
+  } catch {
+    return { markets: {}, tickers: {} };
   }
 };
 

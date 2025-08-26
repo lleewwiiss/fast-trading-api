@@ -97,6 +97,11 @@ export class BaseWorker {
       return this.addTokenToTracking(data);
     }
 
+    // Market tracking (polymarket specific)
+    if (data.type === "addMarketToTracking") {
+      return this.addMarketToTracking(data);
+    }
+
     // TODO: move this into an error log
     this.error(`Unsupported command to ${this.name.toUpperCase()} worker`);
   };
@@ -180,6 +185,11 @@ export class BaseWorker {
 
   unlistenOrderBook(_symbol: string) {
     this.error(`unlistenOrderBook() method not implemented`);
+  }
+
+  // Polymarket override
+  async addMarketToTracking(_data: { requestId: string; marketId: string }) {
+    this.error(`addMarketToTracking() method not implemented`);
   }
 
   updateAccountBalance({

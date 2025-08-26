@@ -7,6 +7,7 @@ import {
   fetchPMUserAccount,
   fetchPMUserOrders,
   fetchPMUserOrderHistory,
+  fetchPMMarketById,
   fetchPMPositions,
 } from "./pm.resolver";
 import { createOrDeriveApiKey } from "./pm.utils";
@@ -51,6 +52,56 @@ export class PolymarketWorker extends BaseWorker {
     await super.start({ accounts, requestId, config });
     await this.fetchPublic();
     this.emitResponse({ requestId });
+  }
+
+  async addMarketToTracking({
+    requestId,
+    marketId,
+  }: {
+    requestId: string;
+    marketId: string;
+  }) {
+    try {
+      // Check if already tracked by comparing market ids
+      const existing = Object.values(this.memory.public.markets).find(
+        (m: any) => m.id === marketId,
+      );
+      if (existing) {
+        this.emitResponse({ requestId, data: true });
+        return;
+      }
+
+      const { markets, tickers } = await fetchPMMarketById(
+        this.config,
+        marketId,
+      );
+
+      if (Object.keys(markets).length === 0) {
+        this.error(`Failed to fetch market ${marketId}`);
+        this.emitResponse({ requestId, data: false });
+        return;
+      }
+
+      const updatedMarkets = {
+        ...this.memory.public.markets,
+        ...markets,
+      };
+      const updatedTickers = {
+        ...this.memory.public.tickers,
+        ...tickers,
+      };
+
+      this.emitChanges([
+        { type: "update", path: "public.markets", value: updatedMarkets },
+        { type: "update", path: "public.tickers", value: updatedTickers },
+      ]);
+
+      this.log(`Added Polymarket market ${marketId} to tracking`);
+      this.emitResponse({ requestId, data: true });
+    } catch (error) {
+      this.error(`Error addMarketToTracking: ${error}`);
+      this.emitResponse({ requestId, data: false });
+    }
   }
 
   async fetchPublic() {
