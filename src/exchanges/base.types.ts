@@ -1,5 +1,3 @@
-import type { ChainType } from "@lifi/sdk";
-
 import type {
   Account,
   ChaseOpts,
@@ -125,8 +123,6 @@ export type ExchangeWorkerMessage = MessageEvent<
       type: "addTokenToTracking";
       requestId: string;
       tokenAddress: string;
-      chain: ChainType;
-      networkName: string;
       codexNetworkId: number;
     }
   | {

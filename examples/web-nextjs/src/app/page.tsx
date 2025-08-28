@@ -2,12 +2,13 @@
 
 import { useState, useEffect } from "react";
 
-import { FastTradingApi } from "../../../../src";
+// Use package entrypoint when running example
+import { FastTradingApi } from "fast-trading-api";
 
 // Global library singleton
 class LibraryLoader {
   private static instance: LibraryLoader;
-  public FastTradingApi: FastTradingApi | null = null;
+  public FastTradingApi: any = null;
   public ExchangeName: any = null;
   public loaded: boolean = false;
 
@@ -29,6 +30,119 @@ class LibraryLoader {
 }
 
 const libraryLoader = LibraryLoader.getInstance();
+
+function OnchainAddToken({
+  api,
+  addLog,
+}: {
+  api: any;
+  addLog: (msg: string, type?: string) => void;
+}) {
+  const [tokenAddress, setTokenAddress] = useState("");
+  const [codexNetworkId, setCodexNetworkId] = useState<number>(137);
+
+  useEffect(() => {
+    // Auto-detect network: base58-ish -> SOLANA (1), 0x -> EVM (137 for polygon as default)
+    if (!tokenAddress) return;
+    const isEvm = /^0x[0-9a-fA-F]{40}$/.test(tokenAddress);
+    const isSol = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(tokenAddress);
+    if (isEvm) {
+      setCodexNetworkId(137); // Polygon as default for EVM
+    } else if (isSol) {
+      setCodexNetworkId(1); // Solana mainnet
+    }
+  }, [tokenAddress]);
+
+  const onAdd = async () => {
+    try {
+      if (!api) return;
+      const ex = libraryLoader.ExchangeName.ONCHAIN;
+      const before = Object.keys(
+        api.store.memory?.[ex]?.public?.markets || {},
+      ).length;
+      await api.addTokenToTracking({
+        exchangeName: ex,
+        tokenAddress,
+        codexNetworkId,
+      });
+      await new Promise((r) => setTimeout(r, 1200));
+      const after = Object.keys(
+        api.store.memory?.[ex]?.public?.markets || {},
+      ).length;
+      addLog(
+        `Onchain: addTokenToTracking ${tokenAddress} (network: ${codexNetworkId}) -> markets ${before} -> ${after}`,
+      );
+    } catch (e: any) {
+      addLog(`Onchain add token failed: ${e.message}`, "error");
+    }
+  };
+  return (
+    <div style={{ minWidth: 340 }}>
+      <div style={{ fontWeight: 600 }}>Onchain: Add Token</div>
+      <input
+        placeholder="Token address"
+        value={tokenAddress}
+        onChange={(e) => setTokenAddress(e.target.value)}
+        style={{ width: "100%", padding: 8, marginTop: 6 }}
+      />
+      <div style={{ display: "flex", gap: 8, margin: "6px 0" }}>
+        <input
+          placeholder="codex network id (e.g., 137 for Polygon, 1 for Solana)"
+          type="number"
+          value={codexNetworkId}
+          onChange={(e) => setCodexNetworkId(Number(e.target.value))}
+          style={{ padding: 6, flex: 1 }}
+        />
+      </div>
+      <button onClick={onAdd} style={{ padding: "6px 10px" }}>
+        Add Token
+      </button>
+    </div>
+  );
+}
+
+function PolymarketAddMarket({
+  api,
+  addLog,
+}: {
+  api: any;
+  addLog: (msg: string, type?: string) => void;
+}) {
+  const [marketId, setMarketId] = useState("");
+  const onAdd = async () => {
+    try {
+      if (!api) return;
+      const ex = libraryLoader.ExchangeName.POLYMARKET;
+      const before = Object.keys(
+        api.store.memory?.[ex]?.public?.markets || {},
+      ).length;
+      await api.addMarketToTracking({ exchangeName: ex, marketId });
+      await new Promise((r) => setTimeout(r, 1000));
+      const after = Object.keys(
+        api.store.memory?.[ex]?.public?.markets || {},
+      ).length;
+      addLog(
+        `Polymarket: addMarketToTracking ${marketId} -> markets ${before} -> ${after}`,
+      );
+    } catch (e: any) {
+      addLog(`Polymarket add market failed: ${e.message}`, "error");
+    }
+  };
+  return (
+    <div style={{ minWidth: 340 }}>
+      <div style={{ fontWeight: 600 }}>Polymarket: Add Market</div>
+      <input
+        placeholder="Gamma event id"
+        value={marketId}
+        onChange={(e) => setMarketId(e.target.value)}
+        style={{ width: "100%", padding: 8, marginTop: 6, marginBottom: 6 }}
+      />
+      <button onClick={onAdd} style={{ padding: "6px 10px" }}>
+        Add Market
+      </button>
+    </div>
+  );
+}
 
 export default function Home() {
   const [api, setApi] = useState<any>(null);
@@ -310,25 +424,30 @@ export default function Home() {
               `Fetching OHLCV for ${symbol}...`,
             );
 
-            const candles = await apiInstance.fetchOHLCV({
+            const candlesOrPair = await apiInstance.fetchOHLCV({
               exchangeName,
               params: {
                 symbol,
                 timeframe: "1h",
                 limit: 10,
-                to: Date.now(), // current time
-                from: Date.now() - 3600 * 1000, // last 1 hour (3600 seconds * 1000 ms)
+                to: Date.now(),
+                from: Date.now() - 3600 * 1000,
               },
             });
 
-            if (candles && candles.length > 0) {
+            // Polymarket returns both legs { yes, no }
+            const count =
+              (candlesOrPair?.yes?.length || candlesOrPair?.length || 0) +
+              (candlesOrPair?.no?.length || 0);
+
+            if (count > 0) {
               updateStatus(
                 exchangeName,
                 "success",
-                `OHLCV fetched: ${candles.length} candles`,
+                `OHLCV fetched: ${count} datapoints (dual if polymarket)`,
               );
               addLog(
-                `${exchangeName}: Fetched ${candles.length} candles for ${symbol}`,
+                `${exchangeName}: Fetched OHLCV for ${symbol} (${count} points)`,
               );
             } else {
               updateStatus(exchangeName, "error", "No candles returned");
@@ -454,6 +573,17 @@ export default function Home() {
         >
           Stop Test
         </button>
+
+        {/* Dynamic Tracking */}
+        <div style={{ marginTop: 20 }}>
+          <h3>Add to Tracking</h3>
+          <div style={{ display: "flex", gap: 20, flexWrap: "wrap" }}>
+            {/* Onchain token */}
+            <OnchainAddToken api={api} addLog={addLog} />
+            {/* Polymarket market */}
+            <PolymarketAddMarket api={api} addLog={addLog} />
+          </div>
+        </div>
       </div>
 
       {/* Exchange Status */}
@@ -498,6 +628,52 @@ export default function Home() {
             ),
           )}
         </div>
+      </div>
+
+      {/* Polymarket Dual-Leg Ticker Preview */}
+      <div
+        style={{
+          background: "white",
+          padding: "20px",
+          marginBottom: "20px",
+          borderRadius: "8px",
+          boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+        }}
+      >
+        <h2>Polymarket Dual-Leg Ticker Preview</h2>
+        <p>Shows YES/NO legs for the first Polymarket symbol.</p>
+        {api &&
+          (() => {
+            const pm =
+              api.store.memory?.[libraryLoader.ExchangeName.POLYMARKET];
+            const symbols = pm ? Object.keys(pm.public?.tickers || {}) : [];
+            const symbol = symbols[0];
+            const t = symbol ? pm.public.tickers[symbol] : null;
+            const pmT = t?.polymarket;
+            return symbol && pmT ? (
+              <div style={{ marginTop: 10 }}>
+                <div style={{ fontWeight: 600 }}>{symbol}</div>
+                <div style={{ display: "flex", gap: 20, marginTop: 8 }}>
+                  <div>
+                    <div style={{ fontWeight: 600 }}>YES</div>
+                    <div>Bid: {pmT.bidYes?.toFixed?.(4) ?? pmT.bidYes}</div>
+                    <div>Ask: {pmT.askYes?.toFixed?.(4) ?? pmT.askYes}</div>
+                    <div>Last: {pmT.lastYes?.toFixed?.(4) ?? pmT.lastYes}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontWeight: 600 }}>NO</div>
+                    <div>Bid: {pmT.bidNo?.toFixed?.(4) ?? pmT.bidNo}</div>
+                    <div>Ask: {pmT.askNo?.toFixed?.(4) ?? pmT.askNo}</div>
+                    <div>Last: {pmT.lastNo?.toFixed?.(4) ?? pmT.lastNo}</div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div style={{ color: "#666" }}>
+                Waiting for Polymarket tickers…
+              </div>
+            );
+          })()}
       </div>
 
       {/* Logs */}

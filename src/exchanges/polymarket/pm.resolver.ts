@@ -42,8 +42,8 @@ export const fetchPMMarkets = async (config: ExchangeConfig) => {
       pageCount++;
 
       // Apply CORS proxy if needed for gamma-api
-      // Use updated Gamma Markets API endpoint
-      const baseUrl = `${PM_CONFIG.PUBLIC_API_URL}${PM_ENDPOINTS.PUBLIC.MARKETS}`;
+      // Use Gamma Events Pagination API endpoint for reliable market loading
+      const baseUrl = `${PM_CONFIG.PUBLIC_API_URL}${PM_ENDPOINTS.PUBLIC.EVENTS_PAGINATION}`;
       const proxiedUrl = getApiUrl(baseUrl, config);
 
       // If using local proxy, pass the original URL separately
@@ -95,8 +95,8 @@ export const fetchPMMarkets = async (config: ExchangeConfig) => {
 
         // Process each market in the event
         for (const market of event.markets) {
-          // Skip if market doesn't have orderbook enabled or isn't accepting orders
-          if (!market.enableOrderBook || !market.acceptingOrders) {
+          // Skip if market doesn't have orderbook enabled
+          if (!market.enableOrderBook) {
             continue;
           }
 
@@ -119,51 +119,52 @@ export const fetchPMMarkets = async (config: ExchangeConfig) => {
             continue; // Skip if can't parse token IDs
           }
 
-          // Create a market entry for each outcome (YES/NO)
-          outcomes.forEach((outcome, index) => {
-            const tokenId = tokenIds[index];
-            if (!tokenId) return;
+          // Create a single consolidated market per event.market with dual-leg metadata
+          try {
+            const yesIdx = outcomes.findIndex((o) => /YES/i.test(String(o)));
+            const noIdx = outcomes.findIndex((o) => /NO/i.test(String(o)));
+            const yesTokenId = yesIdx >= 0 ? tokenIds[yesIdx] : undefined;
+            const noTokenId = noIdx >= 0 ? tokenIds[noIdx] : undefined;
+            if (!yesTokenId || !noTokenId) continue;
 
-            // Use event ticker or slug for cleaner symbols
-            const baseSymbol =
-              event.ticker || event.slug || market.slug || "MARKET";
-            const symbol = `${baseSymbol}-${outcome}`
+            const baseSymbol = (
+              event.ticker ||
+              event.slug ||
+              market.slug ||
+              "MARKET"
+            )
               .toUpperCase()
               .replace(/[^A-Z0-9-]/g, "");
 
-            markets[symbol] = {
-              id: tokenId,
+            const priceYes =
+              yesIdx >= 0 ? parseFloat(prices[yesIdx] || "0") : 0;
+            const priceNo = noIdx >= 0 ? parseFloat(prices[noIdx] || "0") : 0;
+
+            markets[baseSymbol] = {
+              id: market.id || baseSymbol, // store gamma market id if present
               exchange: ExchangeName.POLYMARKET,
-              symbol,
-              base: outcome,
+              symbol: baseSymbol,
+              base: baseSymbol,
               quote: "USDC",
-              active: event.active && market.active,
-              precision: {
-                amount: 0.001, // orderPriceMinTickSize from response
-                price: 0.001,
-              },
+              active: Boolean(event.active && market.active),
+              precision: { amount: 0.001, price: 0.001 },
               limits: {
-                amount: {
-                  min: 5, // orderMinSize from response
-                  max: Infinity,
-                  maxMarket: Infinity,
-                },
-                leverage: {
-                  min: 1,
-                  max: 1,
-                },
+                amount: { min: 5, max: Infinity, maxMarket: Infinity },
+                leverage: { min: 1, max: 1 },
               },
-              // Store additional metadata
               metadata: {
                 question: market.question,
                 endDate: market.endDate,
-                price: parseFloat(prices[index] || "0"),
+                outcomes: { YES: yesTokenId, NO: noTokenId },
+                prices: { YES: priceYes, NO: priceNo },
                 volume24hr: market.volume24hr,
                 liquidity: market.liquidityClob,
                 spread: market.spread,
               },
             } as Market & { metadata: any };
-          });
+          } catch {
+            // skip if consolidation fails
+          }
         }
       }
 
@@ -230,47 +231,77 @@ export const fetchPMMarketById = async (
     const markets: Record<string, Market> = {};
     const tickers: Record<string, Ticker> = {};
 
-    outcomes.forEach((outcome, idx) => {
-      const tokenId = tokenIds[idx];
-      if (!tokenId) return;
-      const baseSymbol = event.ticker || event.slug || market.slug || "MARKET";
-      const symbol = `${baseSymbol}-${outcome}`
-        .toUpperCase()
-        .replace(/[^A-Z0-9-]/g, "");
-      const price = parseFloat(prices[idx] || "0");
-      const spread = market.spread || 0.001;
+    const yesIdx = outcomes.findIndex((o) => /YES/i.test(String(o)));
+    const noIdx = outcomes.findIndex((o) => /NO/i.test(String(o)));
+    const yesTokenId = yesIdx >= 0 ? tokenIds[yesIdx] : undefined;
+    const noTokenId = noIdx >= 0 ? tokenIds[noIdx] : undefined;
 
-      markets[symbol] = {
-        id: tokenId,
-        exchange: ExchangeName.POLYMARKET,
-        symbol,
-        base: outcome,
-        quote: "USDC",
-        active: market.active,
-        precision: { amount: 0.001, price: 0.001 },
-        limits: {
-          amount: { min: 5, max: Infinity, maxMarket: Infinity },
-          leverage: { min: 1, max: 1 },
-        },
-      } as Market;
+    if (!yesTokenId || !noTokenId) {
+      return { markets, tickers };
+    }
 
-      tickers[symbol] = {
-        id: tokenId,
-        exchange: ExchangeName.POLYMARKET,
-        symbol,
-        cleanSymbol: symbol,
-        bid: Math.max(0, price - spread / 2),
-        ask: Math.min(1, price + spread / 2),
-        last: price,
-        mark: price,
-        index: price,
-        percentage: 0,
-        openInterest: 0,
-        fundingRate: 0,
-        volume: market.volume24hr || 0,
-        quoteVolume: market.volume24hr || 0,
-      };
-    });
+    const baseSymbol = (event.ticker || event.slug || market.slug || "MARKET")
+      .toUpperCase()
+      .replace(/[^A-Z0-9-]/g, "");
+
+    const priceYes = yesIdx >= 0 ? parseFloat(prices[yesIdx] || "0") : 0;
+    const priceNo = noIdx >= 0 ? parseFloat(prices[noIdx] || "0") : 0;
+    const spread = market.spread || 0.001;
+
+    markets[baseSymbol] = {
+      id: market.id || baseSymbol,
+      exchange: ExchangeName.POLYMARKET,
+      symbol: baseSymbol,
+      base: baseSymbol,
+      quote: "USDC",
+      active: market.active,
+      precision: { amount: 0.001, price: 0.001 },
+      limits: {
+        amount: { min: 5, max: Infinity, maxMarket: Infinity },
+        leverage: { min: 1, max: 1 },
+      },
+    } as Market & { metadata?: any };
+
+    (markets[baseSymbol] as any).metadata = {
+      question: market.question,
+      endDate: market.endDate,
+      outcomes: { YES: yesTokenId, NO: noTokenId },
+      prices: { YES: priceYes, NO: priceNo },
+      volume24hr: market.volume24hr,
+      liquidity: market.liquidityClob,
+      spread: market.spread,
+    };
+
+    tickers[baseSymbol] = {
+      id: market.id || baseSymbol,
+      exchange: ExchangeName.POLYMARKET,
+      symbol: baseSymbol,
+      cleanSymbol: baseSymbol,
+      bid: Math.max(0, priceYes - spread / 2),
+      ask: Math.min(1, priceYes + spread / 2),
+      last: priceYes,
+      mark: priceYes,
+      index: priceYes,
+      percentage: 0,
+      openInterest: 0,
+      fundingRate: 0,
+      volume: market.volume24hr || 0,
+      quoteVolume: market.volume24hr || 0,
+      polymarket: {
+        bidYes: Math.max(0, priceYes - spread / 2),
+        askYes: Math.min(1, priceYes + spread / 2),
+        lastYes: priceYes,
+        markYes: priceYes,
+        indexYes: priceYes,
+        volumeYes: market.volume24hr || 0,
+        bidNo: Math.max(0, priceNo - spread / 2),
+        askNo: Math.min(1, priceNo + spread / 2),
+        lastNo: priceNo,
+        markNo: priceNo,
+        indexNo: priceNo,
+        volumeNo: market.volume24hr || 0,
+      },
+    };
 
     return { markets, tickers };
   } catch {
@@ -284,39 +315,51 @@ export const fetchPMTickers = async (
 ) => {
   const tickers: Record<string, Ticker> = {};
 
-  // First, use metadata from markets if available
+  // Seed from metadata (dual-leg)
   for (const [symbol, market] of Object.entries(markets)) {
-    const metadata = (market as any).metadata;
+    const metadata = (market as any).metadata || {};
+    const prices = metadata.prices || {};
+    const spread = metadata.spread || 0.001;
 
-    if (metadata?.price !== undefined) {
-      // Use price from metadata as initial ticker data
-      const price = metadata.price;
-      const spread = metadata.spread || 0.001;
+    if (prices.YES !== undefined || prices.NO !== undefined) {
+      const priceYes = Number(prices.YES || 0);
+      const priceNo = Number(prices.NO || 0);
 
       tickers[symbol] = {
         id: market.id,
         exchange: ExchangeName.POLYMARKET,
         symbol,
         cleanSymbol: symbol,
-        bid: Math.max(0, price - spread / 2),
-        ask: Math.min(1, price + spread / 2),
-        last: price,
-        mark: price,
-        index: price,
+        bid: Math.max(0, priceYes - spread / 2),
+        ask: Math.min(1, priceYes + spread / 2),
+        last: priceYes,
+        mark: priceYes,
+        index: priceYes,
         percentage: 0,
         openInterest: 0,
         fundingRate: 0,
         volume: metadata.volume24hr || 0,
         quoteVolume: metadata.volume24hr || 0,
+        polymarket: {
+          bidYes: Math.max(0, priceYes - spread / 2),
+          askYes: Math.min(1, priceYes + spread / 2),
+          lastYes: priceYes,
+          markYes: priceYes,
+          indexYes: priceYes,
+          volumeYes: metadata.volume24hr || 0,
+          bidNo: Math.max(0, priceNo - spread / 2),
+          askNo: Math.min(1, priceNo + spread / 2),
+          lastNo: priceNo,
+          markNo: priceNo,
+          indexNo: priceNo,
+          volumeNo: metadata.volume24hr || 0,
+        },
       };
     }
   }
 
-  // Then fetch real-time bid/ask for top markets (limit to 20 for performance)
-  const marketEntries = Object.entries(markets)
-    .filter(([symbol]) => !tickers[symbol]) // Skip if already have ticker
-    .slice(0, 20);
-
+  // Fetch real-time bid/ask for both legs where possible (limit for perf)
+  const marketEntries = Object.entries(markets).slice(0, 20);
   const batchSize = 5;
 
   for (let i = 0; i < marketEntries.length; i += batchSize) {
@@ -324,67 +367,103 @@ export const fetchPMTickers = async (
 
     await Promise.all(
       batch.map(async ([symbol, market]) => {
+        const md = (market as any).metadata || {};
+        const outcomes = (md.outcomes || {}) as { YES?: string; NO?: string };
+        const yesId = outcomes.YES;
+        const noId = outcomes.NO;
+        if (!yesId || !noId) return;
         try {
-          // Get bid and ask prices from CLOB API
           const priceUrl = `${config.PRIVATE_API_URL}${PM_ENDPOINTS.PUBLIC.PRICE}`;
 
-          const [bidResponse, askResponse] = await Promise.all([
+          const [yesBid, yesAsk, noBid, noAsk] = await Promise.all([
             request<{ price: string }>({
               url: priceUrl,
               method: "GET",
-              params: { token_id: market.id, side: "buy" },
+              params: { token_id: yesId, side: "buy" },
             }),
             request<{ price: string }>({
               url: priceUrl,
               method: "GET",
-              params: { token_id: market.id, side: "sell" },
+              params: { token_id: yesId, side: "sell" },
+            }),
+            request<{ price: string }>({
+              url: priceUrl,
+              method: "GET",
+              params: { token_id: noId, side: "buy" },
+            }),
+            request<{ price: string }>({
+              url: priceUrl,
+              method: "GET",
+              params: { token_id: noId, side: "sell" },
             }),
           ]);
 
-          const bid = parseFloat(bidResponse.price || "0");
-          const ask = parseFloat(askResponse.price || "0");
-          const mid = (bid + ask) / 2;
+          const bidYes = parseFloat(yesBid.price || "0");
+          const askYes = parseFloat(yesAsk.price || "0");
+          const bidNo = parseFloat(noBid.price || "0");
+          const askNo = parseFloat(noAsk.price || "0");
+          const lastYes = (bidYes + askYes) / 2 || 0;
+          const lastNo = (bidNo + askNo) / 2 || 0;
+
+          const base = tickers[symbol] || {
+            id: market.id,
+            exchange: ExchangeName.POLYMARKET,
+            symbol,
+            cleanSymbol: symbol,
+            percentage: 0,
+            openInterest: 0,
+            fundingRate: 0,
+            volume: 0,
+            quoteVolume: 0,
+          };
 
           tickers[symbol] = {
-            id: market.id,
-            exchange: ExchangeName.POLYMARKET,
-            symbol,
-            cleanSymbol: symbol,
-            bid,
-            ask,
-            last: mid,
-            mark: mid,
-            index: mid,
-            percentage: 0,
-            openInterest: 0,
-            fundingRate: 0,
-            volume: 0,
-            quoteVolume: 0,
-          };
+            ...base,
+            bid: bidYes,
+            ask: askYes,
+            last: lastYes,
+            mark: lastYes,
+            index: lastYes,
+            polymarket: {
+              bidYes,
+              askYes,
+              lastYes,
+              markYes: lastYes,
+              indexYes: lastYes,
+              volumeYes: base.volume,
+              bidNo,
+              askNo,
+              lastNo,
+              markNo: lastNo,
+              indexNo: lastNo,
+              volumeNo: base.volume,
+            },
+          } as Ticker;
         } catch {
-          // Create default ticker if API call fails
-          tickers[symbol] = {
-            id: market.id,
-            exchange: ExchangeName.POLYMARKET,
-            symbol,
-            cleanSymbol: symbol,
-            bid: 0,
-            ask: 0,
-            last: 0,
-            mark: 0,
-            index: 0,
-            percentage: 0,
-            openInterest: 0,
-            fundingRate: 0,
-            volume: 0,
-            quoteVolume: 0,
-          };
+          if (!tickers[symbol]) {
+            tickers[symbol] = {
+              id: market.id,
+              exchange: ExchangeName.POLYMARKET,
+              symbol,
+              cleanSymbol: symbol,
+              bid: 0,
+              ask: 0,
+              last: 0,
+              mark: 0,
+              index: 0,
+              percentage: 0,
+              openInterest: 0,
+              fundingRate: 0,
+              volume: 0,
+              quoteVolume: 0,
+            };
+          }
         }
       }),
     );
   }
 
-  // Fill in default tickers for any remaining markets
+  // Fill defaults
   for (const [symbol, market] of Object.entries(markets)) {
     if (!tickers[symbol]) {
       tickers[symbol] = {
@@ -850,16 +929,24 @@ export const fetchPMOHLCV = async ({
   params: FetchOHLCVParams;
   markets: Record<string, Market>;
 }) => {
-  // Find the market to get the token_id
+  // Find the market and choose leg token_id via params.extra.leg (default YES)
   const market = markets[params.symbol];
   if (!market) {
     throw new Error(`Market not found for symbol: ${params.symbol}`);
   }
 
+  const md: any = (market as any).metadata || {};
+  const outcomes = (md.outcomes || {}) as { YES?: string; NO?: string };
+  const leg = (params as any)?.extra?.leg === "NO" ? "NO" : "YES";
+  const tokenId = leg === "NO" ? outcomes.NO : outcomes.YES;
+  if (!tokenId) {
+    throw new Error(`Polymarket tokenId missing for ${params.symbol} ${leg}`);
+  }
+
   const { interval, fidelity } = mapTimeframeToPolymarket(params.timeframe);
 
   const queryParams: Record<string, string | number> = {
-    market: market.id, // Use CLOB token ID
+    market: tokenId, // Use CLOB token ID for selected leg
     interval,
   };
 

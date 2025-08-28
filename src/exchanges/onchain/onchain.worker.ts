@@ -1,10 +1,4 @@
-import {
-  type ChainType,
-  createConfig,
-  EVM,
-  type ExtendedChain,
-  Solana,
-} from "@lifi/sdk";
+import { createConfig, EVM, type ExtendedChain, Solana } from "@lifi/sdk";
 import { Codex } from "@codex-data/sdk";
 import {
   createPublicClient,
@@ -44,7 +38,6 @@ import {
   fetchOnchainBalances,
   fetchOnchainPositions,
   fetchOnchainOHLCV,
-  fetchTokenData,
   fetchOnchainMarketsTickers,
 } from "./onchain.resolver";
 import type {
@@ -1742,6 +1735,157 @@ export class OnchainWorker extends BaseWorker {
   }
 
   // =====================================================================================
+  // TOKEN TRACKING (Simplified Add Token Flow)
+  // =====================================================================================
+
+  async addTokenToTracking(params: {
+    requestId: string;
+    tokenAddress: string;
+    codexNetworkId: number;
+  }) {
+    const { requestId, tokenAddress, codexNetworkId } = params;
+
+    try {
+      // Step 1: Validate this.codexSdk is available
+      if (!this.codexSdk) {
+        this.error("Codex SDK not available for addTokenToTracking");
+        this.emitResponse({ requestId, data: false });
+        return;
+      }
+
+      // Step 2: Check if token already tracked in memory.public.markets
+      if (this.memory.public.markets[tokenAddress]) {
+        this.log(`Token ${tokenAddress} already tracked`);
+        this.emitResponse({ requestId, data: true });
+        return;
+      }
+
+      // Step 3: Query Codex FilterTokens
+      const tokenData = await this.codexSdk.queries.filterTokens({
+        phrase: tokenAddress,
+        limit: 1,
+        filters: { network: [codexNetworkId] },
+      });
+
+      // Step 4: Validate match
+      const tokenInfoResults = tokenData.filterTokens?.results;
+      if (!tokenInfoResults || tokenInfoResults.length === 0) {
+        this.error(
+          `Could not fetch data for token ${tokenAddress} on network ${codexNetworkId}`,
+        );
+        this.emitResponse({ requestId, data: false });
+        return;
+      }
+
+      const tokenInfo = tokenInfoResults[0];
+      if (!tokenInfo || !tokenInfo.token) {
+        this.error(`Invalid token data returned for ${tokenAddress}`);
+        this.emitResponse({ requestId, data: false });
+        return;
+      }
+
+      // Validate token address matches (EVM or SOLANA)
+      const tokenAddressFromResult = tokenInfo.token.address;
+      if (tokenAddressFromResult.toLowerCase() !== tokenAddress.toLowerCase()) {
+        this.error(
+          `Token address mismatch: expected ${tokenAddress}, got ${tokenAddressFromResult}`,
+        );
+        this.emitResponse({ requestId, data: false });
+        return;
+      }
+
+      // Step 5: Map codexNetworkId -> chainType and networkName
+      const { getChains, ChainType } = await import("@lifi/sdk");
+      const chains = await getChains({
+        chainTypes: [ChainType.SVM, ChainType.EVM],
+      });
+
+      const networks = await this.codexSdk.queries.getNetworks({});
+      const lifiChainIdToCodexNetworkId = chains.reduce(
+        (acc, chain) => {
+          let network = networks.getNetworks?.find(
+            (n) =>
+              n.networkShortName?.toLowerCase() === chain.name.toLowerCase(),
+          );
+
+          if (!network) {
+            network = networks.getNetworks?.find(
+              (n) => n.name?.toLowerCase() === chain.name.toLowerCase(),
+            );
+          }
+
+          if (!network) {
+            network = networks.getNetworks?.find((n) => n.id === chain.id);
+          }
+
+          if (network) {
+            acc[chain.id] = network.id;
+          }
+
+          return acc;
+        },
+        {} as Record<number, number>,
+      );
+
+      // Find the LiFi chain that matches our codexNetworkId
+      const lifiChain = chains.find(
+        (chain) => lifiChainIdToCodexNetworkId[chain.id] === codexNetworkId,
+      );
+      if (!lifiChain) {
+        this.error(
+          `Could not find LiFi chain for Codex network ID ${codexNetworkId}`,
+        );
+        this.emitResponse({ requestId, data: false });
+        return;
+      }
+
+      const chainType = lifiChain.chainType;
+      const networkName = lifiChain.name;
+
+      // Step 6: Fetch full token market/ticker using existing resolver
+      const { fetchTokenData } = await import("./onchain.resolver");
+      const tokenResult = await fetchTokenData({
+        phrase: tokenAddress,
+        chainType,
+        chains,
+        codexSDK: this.codexSdk,
+        codexNetworkId,
+        networkName,
+        native: false,
+      });
+
+      // Step 7: If tokenData present, merge into memory
+      if (tokenResult) {
+        this.memory.public.markets[tokenResult.market.id] = tokenResult.market;
+        this.memory.public.tickers[tokenResult.ticker.id] = tokenResult.ticker;
+
+        // Emit changes to update store
+        this.emitChanges([
+          {
+            type: "update",
+            path: `public.markets.${tokenResult.market.id}`,
+            value: tokenResult.market,
+          },
+          {
+            type: "update",
+            path: `public.tickers.${tokenResult.ticker.id}`,
+            value: tokenResult.ticker,
+          },
+        ]);
+
+        this.log(`Successfully added token ${tokenAddress} to tracking`);
+        this.emitResponse({ requestId, data: true });
+      } else {
+        this.error(`Failed to fetch token data for ${tokenAddress}`);
+        this.emitResponse({ requestId, data: false });
+      }
+    } catch (error: any) {
+      this.error(`Error in addTokenToTracking: ${error.message || error}`);
+      this.emitResponse({ requestId, data: false });
+    }
+  }
+
+  // =====================================================================================
   // CORE TRADING LOGIC (Tasks 14-16)
   // =====================================================================================
 
@@ -3013,8 +3157,6 @@ export class OnchainWorker extends BaseWorker {
       this.addTokenToTracking({
         requestId: `auto-track-${position.tokenAddress}`,
         tokenAddress: position.tokenAddress!,
-        chain: position.chainType!,
-        networkName: position.networkName!,
         codexNetworkId: position.networkId!,
       }).catch((error) =>
         this.error(`Failed to track token ${position.tokenAddress}: ${error}`),
@@ -3023,74 +3165,6 @@ export class OnchainWorker extends BaseWorker {
 
     await Promise.all(trackingPromises);
     this.log(`Completed auto-tracking for ${uniqueTokens.size} tokens`);
-  }
-
-  async addTokenToTracking({
-    requestId,
-    tokenAddress,
-    chain,
-    networkName,
-    codexNetworkId,
-  }: {
-    requestId: string;
-    tokenAddress: string;
-    chain: ChainType;
-    networkName: string;
-    codexNetworkId: number;
-  }) {
-    try {
-      if (!this.codexSdk) {
-        this.error("No Codex SDK available");
-        this.emitResponse({ requestId, data: false });
-        return;
-      }
-
-      // Check if token is already being tracked
-      if (this.memory.public.markets[tokenAddress]) {
-        this.emitResponse({ requestId, data: true });
-        return;
-      }
-
-      // Fetch token data
-      const tokenData = await fetchTokenData({
-        phrase: tokenAddress,
-        chainType: chain,
-        chains: this.lifiChains,
-        codexSDK: this.codexSdk,
-        codexNetworkId,
-        native: false,
-        networkName,
-      });
-
-      if (!tokenData) {
-        this.error(`Could not fetch data for token ${tokenAddress}`);
-        this.emitResponse({ requestId, data: false });
-        return;
-      }
-
-      // Merge with existing markets and tickers
-      const updatedMarkets = {
-        ...this.memory.public.markets,
-      };
-      updatedMarkets[tokenData.market.id] = tokenData.market;
-
-      const updatedTickers = {
-        ...this.memory.public.tickers,
-      };
-      updatedTickers[tokenData.ticker.id] = tokenData.ticker;
-
-      // Update the store
-      this.emitChanges([
-        { type: "update", path: "public.markets", value: updatedMarkets },
-        { type: "update", path: "public.tickers", value: updatedTickers },
-      ]);
-
-      this.log(`Successfully added token ${tokenAddress} to tracking`);
-      this.emitResponse({ requestId, data: true });
-    } catch (error) {
-      this.error(`Error adding token to tracking: ${error}`);
-      this.emitResponse({ requestId, data: false });
-    }
   }
 }
 

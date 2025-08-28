@@ -445,6 +445,40 @@ export class FastTradingApi {
     });
   }
 
+  // Convenience helpers for dynamic tracking
+  addTokenToTracking({
+    exchangeName,
+    tokenAddress,
+    codexNetworkId,
+  }: {
+    exchangeName: ExchangeName;
+    tokenAddress: string;
+    codexNetworkId: number;
+  }) {
+    const ex = this.getExchange(exchangeName);
+    // Use the exchange's dispatchWorker API to send the message and await response
+    return (ex as any).dispatchWorker?.({
+      type: "addTokenToTracking",
+      tokenAddress,
+      codexNetworkId,
+    });
+  }
+
+  addMarketToTracking({
+    exchangeName,
+    marketId,
+  }: {
+    exchangeName: ExchangeName;
+    marketId: string;
+  }) {
+    const ex = this.getExchange(exchangeName);
+    // Use the exchange's dispatchWorker API to send the message and await response
+    return (ex as any).dispatchWorker?.({
+      type: "addMarketToTracking",
+      marketId,
+    });
+  }
+
   getExchange(exchangeName: ExchangeName) {
     if (!this.exchanges[exchangeName]) {
       throw new Error(`Exchange ${exchangeName} not started`);

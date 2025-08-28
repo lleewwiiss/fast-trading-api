@@ -86,14 +86,13 @@ describe("Polymarket Utils", () => {
     test("should map PM market to unified format", () => {
       const markets = mapPMMarket(mockPMMarket);
 
-      expect(markets["BTC100K-YES"]).toBeDefined();
-      expect(markets["BTC100K-NO"]).toBeDefined();
+      expect(markets["BTC100K"]).toBeDefined();
 
-      const yesMarket = markets["BTC100K-YES"];
-      expect(yesMarket.id).toBe("123");
+      const yesMarket = markets["BTC100K"];
+      expect(yesMarket.id).toBe("BTC100K");
       expect(yesMarket.exchange).toBe(ExchangeName.POLYMARKET);
-      expect(yesMarket.symbol).toBe("BTC100K-YES");
-      expect(yesMarket.base).toBe("YES");
+      expect(yesMarket.symbol).toBe("BTC100K");
+      expect(yesMarket.base).toBe("BTC100K");
       expect(yesMarket.quote).toBe("USDC");
       expect(yesMarket.active).toBe(true);
       expect(yesMarket.precision.price).toBe(0.0001);
@@ -107,7 +106,7 @@ describe("Polymarket Utils", () => {
       };
 
       const markets = mapPMMarket(expiredMarket);
-      expect(markets["BTC100K-YES"].active).toBe(false);
+      expect(markets["BTC100K"].active).toBe(false);
     });
   });
 
@@ -117,7 +116,7 @@ describe("Polymarket Utils", () => {
 
       expect(ticker.id).toBe("123");
       expect(ticker.exchange).toBe(ExchangeName.POLYMARKET);
-      expect(ticker.symbol).toBe("BTC100K-YES");
+      expect(ticker.symbol).toBe("BTC100K");
       expect(ticker.bid).toBe(0.64);
       expect(ticker.ask).toBe(0.66);
       expect(ticker.last).toBe(0.65);
@@ -176,16 +175,17 @@ describe("Polymarket Utils", () => {
     test("should format order for Polymarket API", () => {
       const markets = mapPMMarket(mockPMMarket);
       const tickers = {
-        "BTC100K-YES": mapPMTicker(mockPMTicker, mockPMMarket.tokens[0]),
+        BTC100K: mapPMTicker(mockPMTicker, mockPMMarket.tokens[0]),
       };
 
       const orderOpt = {
-        symbol: "BTC100K-YES",
+        symbol: "BTC100K",
         type: OrderType.Limit,
         side: OrderSide.Buy,
         amount: 100,
         price: 0.65,
         reduceOnly: false,
+        extra: { leg: "YES" as const },
       };
 
       const formatted = formatPMOrder({
@@ -299,18 +299,19 @@ describe("Polymarket Utils", () => {
     test("should handle price adjustment to tick size", () => {
       const markets = mapPMMarket(mockPMMarket);
       const tickers = {
-        "BTC100K-YES": {
+        BTC100K: {
           ...mapPMTicker(mockPMTicker, mockPMMarket.tokens[0]),
-          last: 0.123456, // More precision than tick size
+          last: 0.123456,
         },
       };
 
       const orderOpt = {
-        symbol: "BTC100K-YES",
+        symbol: "BTC100K",
         type: OrderType.Market,
         side: OrderSide.Buy,
         amount: 100,
         reduceOnly: false,
+        extra: { leg: "YES" as const },
       };
 
       const formatted = formatPMOrder({
@@ -329,18 +330,19 @@ describe("Polymarket Utils", () => {
     test("should enforce price bounds", () => {
       const markets = mapPMMarket(mockPMMarket);
       const tickers = {
-        "BTC100K-YES": {
+        BTC100K: {
           ...mapPMTicker(mockPMTicker, mockPMMarket.tokens[0]),
-          last: 1.5, // Above valid range
+          last: 1.5,
         },
       };
 
       const orderOpt = {
-        symbol: "BTC100K-YES",
+        symbol: "BTC100K",
         type: OrderType.Market,
         side: OrderSide.Buy,
         amount: 100,
         reduceOnly: false,
+        extra: { leg: "YES" as const },
       };
 
       const formatted = formatPMOrder({

@@ -11,9 +11,12 @@ import {
   fetchPMPositions,
 } from "./pm.resolver";
 import { createOrDeriveApiKey } from "./pm.utils";
+import { PM_CONFIG, PM_ENDPOINTS } from "./pm.config";
 import { PolymarketWsPublic } from "./pm.ws-public";
 import { PolymarketWsPrivate } from "./pm.ws-private";
 
+import { getApiUrl } from "~/utils/cors-proxy.utils";
+import { request } from "~/utils/request.utils";
 import { DEFAULT_CONFIG } from "~/config";
 import {
   ExchangeName,
@@ -59,18 +62,156 @@ export class PolymarketWorker extends BaseWorker {
     marketId,
   }: {
     requestId: string;
-    marketId: string;
+    marketId: string; // treat as eventId if it resolves to an event
   }) {
     try {
-      // Check if already tracked by comparing market ids
-      const existing = Object.values(this.memory.public.markets).find(
-        (m: any) => m.id === marketId,
+      // Try to treat incoming id as an event id first (with CORS proxy support)
+      const baseUrl = `${PM_CONFIG.PUBLIC_API_URL}${PM_ENDPOINTS.PUBLIC.EVENTS_PAGINATION}`;
+      const proxiedUrl = getApiUrl(baseUrl, this.config);
+
+      const useLocal = this.config.options?.corsProxy?.useLocalProxy;
+      const eventResp = await request<any>(
+        useLocal
+          ? {
+              url: proxiedUrl,
+              originalUrl: baseUrl,
+              method: "GET" as const,
+              params: { id: marketId },
+            }
+          : {
+              url: proxiedUrl,
+              method: "GET" as const,
+              params: { id: marketId },
+            },
       );
-      if (existing) {
+
+      const eventObj = Array.isArray(eventResp?.data)
+        ? eventResp.data[0]
+        : Array.isArray(eventResp)
+          ? eventResp[0]
+          : undefined;
+
+      if (eventObj?.markets?.length) {
+        // Load all markets under this event
+        const aggregatedMarkets: Record<string, any> = {};
+        const aggregatedTickers: Record<string, any> = {};
+
+        // Build unified markets by reusing fetchPMMarkets logic per market structure
+        for (const market of eventObj.markets) {
+          if (!market.enableOrderBook) continue;
+
+          let outcomes: string[] = [];
+          let prices: string[] = [];
+          let tokenIds: string[] = [];
+          try {
+            outcomes = JSON.parse(market.outcomes || "[]");
+            prices = JSON.parse(market.outcomePrices || "[]");
+            tokenIds = JSON.parse(market.clobTokenIds || "[]");
+          } catch {
+            continue;
+          }
+
+          const yesIdx = outcomes.findIndex((o) => /YES/i.test(String(o)));
+          const noIdx = outcomes.findIndex((o) => /NO/i.test(String(o)));
+          const yesTokenId = yesIdx >= 0 ? tokenIds[yesIdx] : undefined;
+          const noTokenId = noIdx >= 0 ? tokenIds[noIdx] : undefined;
+          if (!yesTokenId || !noTokenId) continue;
+
+          const baseSymbol = (
+            eventObj.ticker ||
+            eventObj.slug ||
+            market.slug ||
+            "MARKET"
+          )
+            .toUpperCase()
+            .replace(/[^A-Z0-9-]/g, "");
+
+          const priceYes = yesIdx >= 0 ? parseFloat(prices[yesIdx] || "0") : 0;
+          const priceNo = noIdx >= 0 ? parseFloat(prices[noIdx] || "0") : 0;
+          const spread = market.spread || 0.001;
+
+          aggregatedMarkets[baseSymbol] = {
+            id: market.id || baseSymbol,
+            exchange: ExchangeName.POLYMARKET,
+            symbol: baseSymbol,
+            base: baseSymbol,
+            quote: "USDC",
+            active: Boolean(eventObj.active && market.active),
+            precision: { amount: 0.001, price: 0.001 },
+            limits: {
+              amount: { min: 5, max: Infinity, maxMarket: Infinity },
+              leverage: { min: 1, max: 1 },
+            },
+            metadata: {
+              question: market.question,
+              endDate: market.endDate,
+              outcomes: { YES: yesTokenId, NO: noTokenId },
+              prices: { YES: priceYes, NO: priceNo },
+              volume24hr: market.volume24hr,
+              liquidity: market.liquidityClob,
+              spread: market.spread,
+            },
+          } as any;
+
+          aggregatedTickers[baseSymbol] = {
+            id: market.id || baseSymbol,
+            exchange: ExchangeName.POLYMARKET,
+            symbol: baseSymbol,
+            cleanSymbol: baseSymbol,
+            bid: Math.max(0, priceYes - spread / 2),
+            ask: Math.min(1, priceYes + spread / 2),
+            last: priceYes,
+            mark: priceYes,
+            index: priceYes,
+            percentage: 0,
+            openInterest: 0,
+            fundingRate: 0,
+            volume: market.volume24hr || 0,
+            quoteVolume: market.volume24hr || 0,
+            polymarket: {
+              bidYes: Math.max(0, priceYes - spread / 2),
+              askYes: Math.min(1, priceYes + spread / 2),
+              lastYes: priceYes,
+              markYes: priceYes,
+              indexYes: priceYes,
+              volumeYes: market.volume24hr || 0,
+              bidNo: Math.max(0, priceNo - spread / 2),
+              askNo: Math.min(1, priceNo + spread / 2),
+              lastNo: priceNo,
+              markNo: priceNo,
+              indexNo: priceNo,
+              volumeNo: market.volume24hr || 0,
+            },
+          } as any;
+        }
+
+        if (Object.keys(aggregatedMarkets).length === 0) {
+          this.error(`No markets found for event ${marketId}`);
+          this.emitResponse({ requestId, data: false });
+          return;
+        }
+
+        this.emitChanges([
+          {
+            type: "update",
+            path: "public.markets",
+            value: { ...this.memory.public.markets, ...aggregatedMarkets },
+          },
+          {
+            type: "update",
+            path: "public.tickers",
+            value: { ...this.memory.public.tickers, ...aggregatedTickers },
+          },
+        ]);
+
+        this.log(
+          `Added Polymarket event ${marketId} (${Object.keys(aggregatedMarkets).length} markets) to tracking`,
+        );
         this.emitResponse({ requestId, data: true });
         return;
       }
 
+      // Fallback: treat as single market id
       const { markets, tickers } = await fetchPMMarketById(
         this.config,
         marketId,

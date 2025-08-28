@@ -1,5 +1,3 @@
-import type { ChainType } from "@lifi/sdk";
-
 import type { ExchangeWorkerMessage } from "./base.types";
 
 import { ChaseExtension } from "~/extenstions/chase.extension";
@@ -435,7 +433,7 @@ export class BaseWorker {
   async addTokenToTracking(_params: {
     requestId: string;
     tokenAddress: string;
-    chain: ChainType;
+    codexNetworkId: number;
   }) {
     this.error(`addTokenToTracking() method not implemented`);
   }

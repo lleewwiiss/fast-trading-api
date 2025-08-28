@@ -122,6 +122,21 @@ export interface Ticker {
   fundingRate: number;
   volume: number;
   quoteVolume: number;
+  // Optional Polymarket dual-leg fields
+  polymarket?: {
+    bidYes: number;
+    askYes: number;
+    lastYes: number;
+    markYes: number;
+    indexYes: number;
+    volumeYes: number;
+    bidNo: number;
+    askNo: number;
+    lastNo: number;
+    markNo: number;
+    indexNo: number;
+    volumeNo: number;
+  };
 }
 
 export interface Market {
@@ -283,6 +298,10 @@ export interface PlaceOrderOpts {
   price?: number;
   reduceOnly: boolean;
   timeInForce?: OrderTimeInForce;
+  // Polymarket-only: which outcome leg to trade
+  extra?: {
+    leg?: "YES" | "NO";
+  };
 }
 
 export interface UpdateOrderOpts {

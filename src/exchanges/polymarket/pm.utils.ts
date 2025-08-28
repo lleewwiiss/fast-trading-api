@@ -37,80 +37,95 @@ import { request } from "~/utils/request.utils";
 export const mapPMMarket = (market: PMMarket): Record<string, Market> => {
   const markets: Record<string, Market> = {};
 
-  if (!market.tokens || !Array.isArray(market.tokens)) {
-    // Skipping market without tokens (logged in worker)
-    return markets;
-  }
+  if (!market.tokens || market.tokens.length < 2) return markets;
 
-  market.tokens.forEach((token) => {
-    // Skip tokens without required fields
-    if (!token.token_id || !token.outcome) {
-      return;
-    }
+  const baseSymbol =
+    (market as any).market_slug ||
+    market.question?.substring(0, 30).replace(/[^a-zA-Z0-9]/g, "-") ||
+    "MARKET";
+  const symbol = baseSymbol.toUpperCase().replace(/--+/g, "-");
 
-    // Create symbol based on market question and outcome (YES/NO)
-    // e.g., "ELECTION2024-YES", "ELECTION2024-NO"
-    const baseSymbol =
-      (market as any).market_slug ||
-      market.question?.substring(0, 30).replace(/[^a-zA-Z0-9]/g, "-") ||
-      "MARKET";
+  const yesToken = market.tokens.find((t) => /yes/i.test(t.outcome));
+  const noToken = market.tokens.find((t) => /no/i.test(t.outcome));
+  if (!yesToken || !noToken) return markets;
 
-    const symbol = `${baseSymbol}-${token.outcome}`
-      .toUpperCase()
-      .replace(/--+/g, "-");
-
-    markets[symbol] = {
-      id: token.token_id,
-      exchange: ExchangeName.POLYMARKET,
-      symbol,
-      base: token.outcome, // YES or NO
-      quote: "USDC",
-      active: new Date(market.end_date_iso) > new Date(),
-      precision: {
-        amount: PM_TICK_SIZE,
-        price: PM_TICK_SIZE,
-      },
-      limits: {
-        amount: {
-          min: PM_MIN_SIZE,
-          max: Infinity,
-          maxMarket: Infinity,
-        },
-        leverage: {
-          min: 1,
-          max: 1, // No leverage on prediction markets
-        },
-      },
-    } as Market & {
-      // Store additional metadata for prediction markets
-      metadata?: {
-        question: string;
-        endDate: string;
-        category: string;
-        outcome: string;
-      };
+  markets[symbol] = {
+    id: (market as any).id || symbol,
+    exchange: ExchangeName.POLYMARKET,
+    symbol,
+    base: symbol,
+    quote: "USDC",
+    active: new Date(market.end_date_iso) > new Date(),
+    precision: { amount: PM_TICK_SIZE, price: PM_TICK_SIZE },
+    limits: {
+      amount: { min: PM_MIN_SIZE, max: Infinity, maxMarket: Infinity },
+      leverage: { min: 1, max: 1 },
+    },
+  } as Market & {
+    metadata?: {
+      question: string;
+      endDate: string;
+      outcomes: { YES: string; NO: string };
     };
-  });
+  };
+
+  (markets[symbol] as any).metadata = {
+    question: market.question,
+    endDate: market.end_date_iso,
+    outcomes: { YES: yesToken.token_id, NO: noToken.token_id },
+  };
 
   return markets;
 };
 
 export const mapPMTicker = (ticker: PMTicker, market: PMToken): Ticker => {
+  const base = (market.ticker || "").replace(/-YES|-NO/i, "");
+  const cleaned = base || market.ticker;
+  const last = parseFloat(ticker.price);
   return {
     id: ticker.asset_id,
     exchange: ExchangeName.POLYMARKET,
-    symbol: market.ticker,
-    cleanSymbol: market.ticker,
+    symbol: cleaned,
+    cleanSymbol: cleaned,
     bid: parseFloat(ticker.best_bid || "0"),
     ask: parseFloat(ticker.best_ask || "0"),
-    last: parseFloat(ticker.price),
-    mark: parseFloat(ticker.price),
-    index: parseFloat(ticker.price),
+    last,
+    mark: last,
+    index: last,
     percentage: parseFloat(ticker.price_change_24h || "0"),
     openInterest: 0,
     fundingRate: 0,
     volume: parseFloat(ticker.volume_24h || "0"),
     quoteVolume: parseFloat(ticker.volume_24h || "0"),
+    polymarket: /YES$/i.test(market.outcome)
+      ? {
+          bidYes: parseFloat(ticker.best_bid || "0"),
+          askYes: parseFloat(ticker.best_ask || "0"),
+          lastYes: last,
+          markYes: last,
+          indexYes: last,
+          volumeYes: parseFloat(ticker.volume_24h || "0"),
+          bidNo: 0,
+          askNo: 0,
+          lastNo: 0,
+          markNo: 0,
+          indexNo: 0,
+          volumeNo: 0,
+        }
+      : {
+          bidYes: 0,
+          askYes: 0,
+          lastYes: 0,
+          markYes: 0,
+          indexYes: 0,
+          volumeYes: 0,
+          bidNo: parseFloat(ticker.best_bid || "0"),
+          askNo: parseFloat(ticker.best_ask || "0"),
+          lastNo: last,
+          markNo: last,
+          indexNo: last,
+          volumeNo: parseFloat(ticker.volume_24h || "0"),
+        },
   };
 };
 
@@ -211,16 +226,25 @@ export const formatPMOrder = ({
   tickers: Record<string, Ticker>;
   markets: Record<string, Market>;
 }): PMOrderArgs => {
-  const market = markets[order.symbol];
+  const market = markets[order.symbol] as Market & {
+    metadata?: { outcomes?: { YES: string; NO: string } };
+  };
   const price = formatPMOrderPrice({ order, tickers });
   const amount = adjust(order.amount, PM_TICK_SIZE);
 
-  if (!market) {
+  if (!market || !(market as any).metadata?.outcomes) {
     throw new Error(`Market not found for symbol: ${order.symbol}`);
   }
+  const leg = order.extra?.leg;
+  if (leg !== "YES" && leg !== "NO") {
+    throw new Error("Polymarket order requires extra.leg of 'YES' or 'NO'");
+  }
+  const tokenId = (
+    (market as any).metadata.outcomes as { YES: string; NO: string }
+  )[leg];
 
   return {
-    tokenId: market.id.toString(),
+    tokenId: tokenId.toString(),
     price: price.toString(),
     size: amount.toString(),
     side: order.side === OrderSide.Buy ? "BUY" : "SELL",

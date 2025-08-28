@@ -178,6 +178,31 @@ export interface PMPriceHistoryResponse {
   history: PMPriceHistory[];
 }
 
+export interface PMDualOHLCV {
+  yes: PMPriceHistory[];
+  no: PMPriceHistory[];
+}
+
+export interface PMDualOrderBook {
+  yes: PMOrderBook;
+  no: PMOrderBook;
+}
+
+export interface PMDualTicker {
+  bidYes: number;
+  askYes: number;
+  lastYes: number;
+  markYes: number;
+  indexYes: number;
+  volumeYes: number;
+  bidNo: number;
+  askNo: number;
+  lastNo: number;
+  markNo: number;
+  indexNo: number;
+  volumeNo: number;
+}
+
 export interface PMWSMessage {
   channel: string;
   market?: string;
